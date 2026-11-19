@@ -1,4 +1,12 @@
-"""Kommandozeile: ``python -m aluco run`` (Dauerbetrieb) oder ``python -m aluco once``."""
+"""Kommandozeile.
+
+python -m aluco run                          Dauerbetrieb
+python -m aluco once                         ein Lauf
+python -m aluco device list                  Inventar anzeigen
+python -m aluco device set-trust MAC STUFE   known | iot | guest | unknown | company
+python -m aluco device protect MAC [--off]   Schutzliste (nie trennbar)
+python -m aluco device name MAC [NAME]       Namen setzen (ohne NAME: entfernen)
+"""
 
 from __future__ import annotations
 
@@ -10,25 +18,105 @@ import threading
 from types import FrameType
 
 from aluco import __version__
-from aluco.config import Config, ConfigError
+from aluco.config import Config, ConfigError, db_path_from_env
+from aluco.devices import DeviceNotFoundError, set_name, set_protected, set_trust
+from aluco.model import TrustLevel
 from aluco.runner import build_runner
 from aluco.store import Store
 
 log = logging.getLogger("aluco")
 
+TRUST_DE = {
+    TrustLevel.KNOWN: "bekannt",
+    TrustLevel.IOT: "IoT",
+    TrustLevel.GUEST: "Gast",
+    TrustLevel.UNKNOWN: "unbekannt",
+    TrustLevel.COMPANY: "Firma",
+}
 
-def main(argv: list[str] | None = None) -> int:
+
+def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aluco", description="Aluco – Hausradar für dein Netz")
-    parser.add_argument("command", choices=["run", "once"], help="Dauerbetrieb oder ein Lauf")
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("--version", action="version", version=f"aluco {__version__}")
-    args = parser.parse_args(argv)
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("run", help="Dauerbetrieb")
+    sub.add_parser("once", help="ein Lauf")
 
+    dev = sub.add_parser("device", help="Geräte verwalten").add_subparsers(
+        dest="action", required=True
+    )
+    dev.add_parser("list", help="Inventar anzeigen")
+    st = dev.add_parser("set-trust", help="Vertrauensstufe setzen")
+    st.add_argument("mac")
+    st.add_argument("trust", choices=[t.value for t in TrustLevel])
+    pr = dev.add_parser("protect", help="auf die Schutzliste setzen (nie trennbar)")
+    pr.add_argument("mac")
+    pr.add_argument("--off", action="store_true", help="von der Schutzliste nehmen")
+    nm = dev.add_parser("name", help="Namen setzen")
+    nm.add_argument("mac")
+    nm.add_argument("name", nargs="?", default="")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    if args.command == "device":
+        return _device_command(args)
+    return _run_command(args.command)
 
+
+def _device_command(args: argparse.Namespace) -> int:
+    path = db_path_from_env()
+    if not path.exists():
+        print(f"Keine Datenbank unter {path} – läuft der Aluco-Dienst schon?", file=sys.stderr)
+        return 2
+    store = Store(path)
+    try:
+        if args.action == "list":
+            _print_devices(store)
+        elif args.action == "set-trust":
+            change = set_trust(store, args.mac, TrustLevel(args.trust))
+            d = change.device
+            print(f"{d.label}: {TRUST_DE[change.previous]} → {TRUST_DE[d.trust]}")
+            if d.trust is TrustLevel.COMPANY:
+                print(
+                    f"Firmengerät: {change.domains_deleted} gespeicherte Domains und "
+                    f"{change.incidents_deleted} Vorfälle zum Verhalten gelöscht. "
+                    "Ab jetzt nur passiv beobachtet, nie trennbar."
+                )
+        elif args.action == "protect":
+            d = set_protected(store, args.mac, not args.off)
+            print(f"{d.label}: {'auf der Schutzliste' if d.protected else 'nicht geschützt'}")
+        elif args.action == "name":
+            d = set_name(store, args.mac, args.name)
+            print(f"{d.mac}: Name {'= ' + d.name if d.name else 'entfernt'}")
+    except (DeviceNotFoundError, ValueError) as e:
+        print(f"Fehler: {e}", file=sys.stderr)
+        return 1
+    finally:
+        store.close()
+    return 0
+
+
+def _print_devices(store: Store) -> None:
+    devices = store.devices()
+    if not devices:
+        print("Inventar ist leer.")
+        return
+    print(f"{'MAC':<17}  {'Stufe':<9}  {'Schutz':<6}  {'IP':<15}  {'zuletzt (UTC)':<16}  Name")
+    for d in devices:
+        print(
+            f"{d.mac:<17}  {TRUST_DE[d.trust]:<9}  {'ja' if d.protected else '':<6}  "
+            f"{d.ip or '':<15}  {d.last_seen:%Y-%m-%d %H:%M}  {d.label}"
+        )
+
+
+def _run_command(command: str) -> int:
     try:
         cfg = Config.from_env()
     except ConfigError as e:
@@ -39,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     store = Store(cfg.db_path)
     runner = build_runner(cfg, store)
 
-    if args.command == "once":
+    if command == "once":
         summary = runner.run_once()
         store.close()
         return 1 if summary.errors else 0

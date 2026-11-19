@@ -18,6 +18,12 @@ class ConfigError(ValueError):
     pass
 
 
+def db_path_from_env(env: Mapping[str, str] | None = None) -> Path:
+    """Nur der Datenbankpfad – für Befehle, die keine Datenquellen brauchen."""
+    e = os.environ if env is None else env
+    return Path(e.get("ALUCO_DB_PATH", "").strip() or DEFAULT_DB_PATH)
+
+
 @dataclass(frozen=True, slots=True)
 class Config:
     db_path: Path = DEFAULT_DB_PATH

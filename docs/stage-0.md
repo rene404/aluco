@@ -53,7 +53,19 @@ dig +short @127.0.0.1 example.com                  # liefert eine IP
 2. Optional Meldungen: `NTFY_URL` (komplette Topic-URL). Bei öffentlichem ntfy-Server einen langen, zufälligen Topic-Namen wählen und `ALUCO_NOTIFY_MINIMAL=true` setzen – dann verlassen keine Geräte- oder Domainnamen das Heimnetz.
 3. Starten: `docker compose up -d --build aluco`, Kontrolle: `docker logs -f aluco`.
 
-Der **erste Lauf lernt nur** (übernimmt alle vorhandenen Geräte ohne Alarm). Ab dem zweiten Lauf meldet Aluco unbekannte Geräte; Anfragen an neue Domains meldet es nur bei IoT-Geräten und erst nach 7 Tagen Lernphase. Die Vertrauensstufe (IoT, Firma …) lässt sich vorerst nur direkt in der Datenbank setzen; das Dashboard folgt.
+Der **erste Lauf lernt nur** (übernimmt alle vorhandenen Geräte ohne Alarm). Ab dem zweiten Lauf meldet Aluco unbekannte Geräte; Anfragen an neue Domains meldet es nur bei IoT-Geräten und erst nach 7 Tagen Lernphase. ### Geräte einordnen
+
+**Direkt nach dem ersten Lauf** Firmengeräte markieren – dabei löscht Aluco alles, was es über deren DNS-Verhalten schon gespeichert hat:
+
+```sh
+docker compose run --rm aluco device list                         # Inventar mit MAC-Adressen
+docker compose run --rm aluco device set-trust <MAC> company      # Firmengerät: nur passiv, nie trennbar
+docker compose run --rm aluco device set-trust <MAC> iot          # IoT: Meldung bei neuen Domains
+docker compose run --rm aluco device protect <MAC>                # Schutzliste (Server, Firewall …)
+docker compose run --rm aluco device name <MAC> "Fernseher"       # Namen vergeben
+```
+
+Stufen: `known`, `iot`, `guest`, `unknown`, `company`. Den Aluco-Server selbst und die Firewall auf die Schutzliste setzen.
 
 ## DNS im Router umstellen
 
@@ -75,7 +87,7 @@ Diesen Ablauf einmal bewusst durchspielen und die Schritte für den Router notie
 
 ## Abnahme
 
-- [ ] Jedes Gerät im NetAlertX-Inventar benannt, Firmengeräte markiert.
+- [ ] Jedes Gerät benannt (NetAlertX oder `aluco device name`), Firmengeräte als `company` markiert, Server auf der Schutzliste.
 - [ ] AdGuard zeigt Anfragen pro Gerät (nicht nur die IP des Routers).
 - [ ] Meldung bei neuem Gerät kommt an (Test: Handy im Gästemodus/mit zufälliger MAC verbinden).
 - [ ] Rückweg getestet.
