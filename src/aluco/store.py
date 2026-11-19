@@ -186,6 +186,14 @@ class Store:
     def close(self) -> None:
         self._db.close()
 
+    def backup_to(self, target: str | Path) -> None:
+        """Konsistente Kopie im laufenden Betrieb (SQLite-Online-Backup)."""
+        dest = sqlite3.connect(target)
+        try:
+            self._db.backup(dest)
+        finally:
+            dest.close()
+
     @contextmanager
     def transaction(self) -> Iterator[None]:
         self._db.execute("BEGIN")

@@ -51,6 +51,8 @@ def _parser() -> argparse.ArgumentParser:
         ap = ag.add_parser(name, help=text)
         ap.add_argument("device", help="MAC-Adresse oder Name")
     ag.add_parser("list", help="Agenten anzeigen")
+    bk = sub.add_parser("backup-db", help="Datenbank konsistent sichern")
+    bk.add_argument("target", help="Zieldatei, z. B. /data/backup-snapshot.db")
 
     dev = sub.add_parser("device", help="Geräte verwalten").add_subparsers(
         dest="action", required=True
@@ -82,7 +84,30 @@ def main(argv: list[str] | None = None) -> int:
         return _mcp_command()
     if args.command == "agent":
         return _agent_command(args)
+    if args.command == "backup-db":
+        return _backup_command(args.target)
     return _run_command(args.command)
+
+
+def _backup_command(target: str) -> int:
+    from pathlib import Path
+
+    path = db_path_from_env()
+    if not path.exists():
+        print(f"Keine Datenbank unter {path}", file=sys.stderr)
+        return 2
+    dest = Path(target)
+    if dest.resolve() == path.resolve():
+        print("Ziel darf nicht die Datenbank selbst sein", file=sys.stderr)
+        return 2
+    dest.unlink(missing_ok=True)
+    store = Store(path)
+    try:
+        store.backup_to(dest)
+    finally:
+        store.close()
+    print(f"Gesichert: {dest}")
+    return 0
 
 
 def _agent_command(args: argparse.Namespace) -> int:
