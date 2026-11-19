@@ -28,6 +28,33 @@
 
 <div class="columns">
   <div class="col-main stack">
+    {% if agent %}
+    <section class="card" aria-labelledby="laptop">
+      <div class="card-head">
+        <h2 id="laptop">Laptop</h2>
+        <span class="muted small">{% if agent.last_report_at %}Agent-Bericht {{ rel(agent.last_report_at) }}{% if agent.os %} · {{ agent.os }}{% endif %}{% else %}Agent eingerichtet, noch kein Bericht{% endif %}</span>
+      </div>
+      {% if agent.posture %}
+      <div class="posture">
+        {% for key, on in agent.posture.items() %}
+        <span class="pill {{ 'posture-on' if on else ('posture-off' if on is false else 'neutral') }}">{{ posture_names[key] }}: {{ 'an' if on else ('aus' if on is false else 'unbekannt') }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <h3>Offene Ports</h3>
+      {% if host_ports %}
+      <ul class="plain">{% for h in host_ports %}<li><span class="mono ellipsis">{{ h.data.port }}/{{ h.data.protocol }} · {{ h.data.program }}</span><span class="muted small" title="{{ h.first_seen | local }}">seit {{ rel(h.first_seen) }}</span></li>{% endfor %}</ul>
+      {% else %}<p class="muted small">Keine nach außen offenen Ports.</p>{% endif %}
+      <h3>Autostart</h3>
+      {% if host_autostart %}
+      <ul class="plain">{% for h in host_autostart %}<li><span class="mono ellipsis" title="{{ h.data.program }}">{{ h.key }}</span><span class="muted small" title="{{ h.first_seen | local }}">seit {{ rel(h.first_seen) }}</span></li>{% endfor %}</ul>
+      {% else %}<p class="muted small">Keine Autostart-Einträge außerhalb von macOS.</p>{% endif %}
+      {% if host_logins %}
+      <h3>Anmeldungen</h3>
+      <ul class="plain">{% for h in host_logins %}<li><span class="mono ellipsis">{{ h.key }}</span><span class="muted small">{{ 'Fern-Anmeldung' if h.data.remote == 'true' else 'lokal' }} · {{ rel(h.last_seen) }}</span></li>{% endfor %}</ul>
+      {% endif %}
+    </section>
+    {% endif %}
     {% if d.is_company %}
     <section class="card">
       <h2>Aktivität</h2>

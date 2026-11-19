@@ -41,7 +41,7 @@ jobs:
           docker compose build aluco
           docker run --rm aluco:local --version
       - name: Shell-Skripte prüfen
-        run: shellcheck scripts/*.sh
+        run: shellcheck scripts/*.sh agent/*.sh
 
   secrets:
     runs-on: ubuntu-latest

@@ -380,3 +380,10 @@ g:hover .bar-allowed, g:hover .bar-blocked { opacity: .8; }
 .ai-verdaechtig { background: var(--sev-high-bg); color: var(--sev-high-fg); }
 .btn-ai { border-color: var(--ai-accent); color: var(--ai-accent); background: transparent; }
 .btn-ai:hover { background: var(--ai-line); color: var(--ai-fg); }
+
+/* --- Laptop-Agent -------------------------------------------------------------- */
+.posture { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .6rem; }
+.posture-on { background: var(--ok-tint); color: var(--ok-text); }
+.posture-off { background: var(--sev-high-bg); color: var(--sev-high-fg); }
+.agent-pill { align-self: flex-start; }
+.card h3 { margin-top: .8rem; }

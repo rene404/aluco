@@ -20,7 +20,7 @@ from aluco.model import (
     TrustLevel,
 )
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS devices (
@@ -117,7 +117,30 @@ CREATE TABLE IF NOT EXISTS ai_assessments (
 );
 """
 
-_MIGRATIONS = {1: _SCHEMA, 2: _SCHEMA_V2, 3: _SCHEMA_V3}
+# v4: Laptop-Agent (osquery): Agenten mit Token und gesehene Einträge (Ports, Autostart …).
+_SCHEMA_V4 = """
+CREATE TABLE IF NOT EXISTS agents (
+    device_mac     TEXT PRIMARY KEY REFERENCES devices(mac) ON DELETE CASCADE,
+    token_hash     TEXT NOT NULL UNIQUE,
+    created_at     TEXT NOT NULL,
+    last_report_at TEXT,
+    hostname       TEXT,
+    os             TEXT,
+    posture        TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS host_items (
+    device_mac  TEXT NOT NULL REFERENCES devices(mac) ON DELETE CASCADE,
+    kind        TEXT NOT NULL,
+    key         TEXT NOT NULL,
+    data        TEXT NOT NULL DEFAULT '{}',
+    first_seen  TEXT NOT NULL,
+    last_seen   TEXT NOT NULL,
+    PRIMARY KEY (device_mac, kind, key)
+);
+"""
+
+_MIGRATIONS = {1: _SCHEMA, 2: _SCHEMA_V2, 3: _SCHEMA_V3, 4: _SCHEMA_V4}
 
 
 def hour_key(at: datetime) -> str:
@@ -492,6 +515,91 @@ class Store:
             (mac,),
         ).rowcount
 
+    # --- Laptop-Agent ---------------------------------------------------------------
+
+    def add_agent(self, mac: str, token_hash: str, at: datetime) -> None:
+        self._db.execute(
+            "INSERT INTO agents (device_mac, token_hash, created_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(device_mac) DO UPDATE SET token_hash = excluded.token_hash, "
+            "created_at = excluded.created_at",
+            (mac, token_hash, _ts(at)),
+        )
+
+    def agent_by_token_hash(self, token_hash: str) -> dict[str, object] | None:
+        row = self._db.execute(
+            "SELECT * FROM agents WHERE token_hash = ?", (token_hash,)
+        ).fetchone()
+        return _agent(row) if row else None
+
+    def agent(self, mac: str) -> dict[str, object] | None:
+        row = self._db.execute("SELECT * FROM agents WHERE device_mac = ?", (mac,)).fetchone()
+        return _agent(row) if row else None
+
+    def agents(self) -> dict[str, dict[str, object]]:
+        rows = self._db.execute("SELECT * FROM agents").fetchall()
+        return {r["device_mac"]: _agent(r) for r in rows}
+
+    def update_agent_report(
+        self, mac: str, at: datetime, hostname: str | None, os: str | None, posture: dict
+    ) -> None:
+        self._db.execute(
+            "UPDATE agents SET last_report_at = ?, hostname = ?, os = ?, posture = ? "
+            "WHERE device_mac = ?",
+            (_ts(at), hostname, os, json.dumps(posture, sort_keys=True), mac),
+        )
+
+    def delete_agent(self, mac: str) -> int:
+        n = self._db.execute("DELETE FROM agents WHERE device_mac = ?", (mac,)).rowcount
+        self._db.execute("DELETE FROM host_items WHERE device_mac = ?", (mac,))
+        return n
+
+    def upsert_host_item(
+        self, mac: str, kind: str, key: str, data: dict[str, str], at: datetime
+    ) -> bool:
+        """Eintrag vermerken. True, wenn er für dieses Gerät neu ist."""
+        payload = json.dumps(data, sort_keys=True, ensure_ascii=False)
+        cur = self._db.execute(
+            "INSERT INTO host_items (device_mac, kind, key, data, first_seen, last_seen) "
+            "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(device_mac, kind, key) DO NOTHING",
+            (mac, kind, key, payload, _ts(at), _ts(at)),
+        )
+        if cur.rowcount == 1:
+            return True
+        self._db.execute(
+            "UPDATE host_items SET data = ?, last_seen = ? "
+            "WHERE device_mac = ? AND kind = ? AND key = ?",
+            (payload, _ts(at), mac, kind, key),
+        )
+        return False
+
+    def host_items(
+        self, mac: str, kind: str | None = None, seen_since: datetime | None = None
+    ) -> list[dict[str, object]]:
+        sql = "SELECT * FROM host_items WHERE device_mac = ?"
+        params: list[str] = [mac]
+        if kind:
+            sql += " AND kind = ?"
+            params.append(kind)
+        if seen_since is not None:
+            sql += " AND last_seen >= ?"
+            params.append(_ts(seen_since))
+        sql += " ORDER BY kind, key"
+        return [
+            {
+                "kind": r["kind"],
+                "key": r["key"],
+                "data": json.loads(r["data"]),
+                "first_seen": _dt(r["first_seen"]),
+                "last_seen": _dt(r["last_seen"]),
+            }
+            for r in self._db.execute(sql, params).fetchall()
+        ]
+
+    def purge_host_items(self, older_than: datetime) -> int:
+        return self._db.execute(
+            "DELETE FROM host_items WHERE last_seen < ?", (_ts(older_than),)
+        ).rowcount
+
     # --- Lesepositionen der Datenquellen ------------------------------------------
 
     def cursor(self, source: str) -> str | None:
@@ -564,3 +672,14 @@ def _assessment(r: sqlite3.Row) -> Assessment:
         summary=r["summary"],
         reasons=json.loads(r["reasons"]),
     )
+
+
+def _agent(r: sqlite3.Row) -> dict[str, object]:
+    return {
+        "device_mac": r["device_mac"],
+        "created_at": _dt(r["created_at"]),
+        "last_report_at": _dt(r["last_report_at"]) if r["last_report_at"] else None,
+        "hostname": r["hostname"],
+        "os": r["os"],
+        "posture": json.loads(r["posture"]),
+    }
