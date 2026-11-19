@@ -45,23 +45,31 @@ class Engine:
         sightings: Iterable[DeviceSighting] = (),
         queries: Iterable[DnsQuery] = (),
         now: datetime | None = None,
+        learn_only: bool = False,
     ) -> RunResult:
-        """Geräte zuerst, damit DNS-Anfragen neuer Geräte schon zugeordnet werden können."""
+        """Geräte zuerst, damit DNS-Anfragen neuer Geräte schon zugeordnet werden können.
+
+        ``learn_only``: Inventar und Domains übernehmen, aber keine Regeln auswerten –
+        für den ersten Lauf, sonst wäre jedes vorhandene Gerät ein "neues Gerät".
+        """
         now = now or utcnow()
         result = RunResult()
         with self._store.transaction():
             for s in sightings:
-                self._process_sighting(s, now, result)
+                self._process_sighting(s, now, result, evaluate=not learn_only)
             for q in queries:
-                self._process_query(q, now, result)
+                self._process_query(q, now, result, evaluate=not learn_only)
         return result
 
-    def _process_sighting(self, s: DeviceSighting, now: datetime, result: RunResult) -> None:
+    def _process_sighting(
+        self, s: DeviceSighting, now: datetime, result: RunResult, *, evaluate: bool
+    ) -> None:
         result.devices_seen += 1
         known = self._store.device(s.mac)
-        for rule in self._device_rules:
-            for finding in rule.check(s, known):
-                result.incidents.append(self._incidents.ingest(finding, at=now))
+        if evaluate:
+            for rule in self._device_rules:
+                for finding in rule.check(s, known):
+                    result.incidents.append(self._incidents.ingest(finding, at=now))
         if known is None:
             result.new_devices += 1
             device = Device(
@@ -78,7 +86,9 @@ class Engine:
                 device = replace(device, vendor=s.vendor)
         self._store.save_device(device)
 
-    def _process_query(self, q: DnsQuery, now: datetime, result: RunResult) -> None:
+    def _process_query(
+        self, q: DnsQuery, now: datetime, result: RunResult, *, evaluate: bool
+    ) -> None:
         result.queries_seen += 1
         device = self._store.device_by_ip(q.client_ip)
         if device is None:
@@ -88,6 +98,8 @@ class Engine:
             return  # Firmengeräte: nur passiv, keine Auswertung ihrer Anfragen
         domain = base_domain(q.domain)
         first_time = self._store.record_domain(device.mac, domain, q.at)
+        if not evaluate:
+            return
         ctx = DnsContext(
             device=device, query=q, domain=domain, first_time_for_device=first_time, now=now
         )
