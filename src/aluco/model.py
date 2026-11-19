@@ -70,6 +70,8 @@ class Device:
     name: str | None = None  # vom Menschen vergeben
     trust: TrustLevel = TrustLevel.UNKNOWN
     protected: bool = False  # Schutzliste: nie trennbar (Infrastruktur, markierte Geräte)
+    online: bool | None = None  # None = unbekannt (Quelle liefert keinen Status)
+    notes: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "mac", normalize_mac(self.mac))
@@ -108,6 +110,7 @@ class DeviceSighting:
     ip: str | None = None
     hostname: str | None = None
     vendor: str | None = None
+    online: bool | None = None
     source: str = ""
 
     def __post_init__(self) -> None:
@@ -171,3 +174,27 @@ class Incident:
     @property
     def is_open(self) -> bool:
         return self.status in OPEN_STATUSES
+
+
+# --- Chronik ------------------------------------------------------------------------
+
+
+class EventKind(StrEnum):
+    DEVICE_NEW = "device_new"
+    DEVICE_ONLINE = "device_online"
+    DEVICE_OFFLINE = "device_offline"
+    INVENTORY = "inventory"  # erster Lauf: Inventar übernommen
+    INCIDENT = "incident"  # neuer oder wieder geöffneter Vorfall
+    INCIDENT_STATUS = "incident_status"  # Status von Hand geändert
+    SOURCE = "source"  # Datenquelle ausgefallen / wieder da
+
+
+@dataclass(frozen=True, slots=True)
+class Event:
+    id: int | None
+    at: datetime
+    kind: EventKind
+    title: str
+    device_mac: str | None = None
+    detail: str = ""
+    severity: Severity | None = None

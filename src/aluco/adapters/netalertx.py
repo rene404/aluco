@@ -55,5 +55,6 @@ def _to_sighting(dev: dict[str, Any]) -> DeviceSighting | None:
         ip=dev.get("devPrimaryIPv4") or dev.get("devLastIP") or None,
         hostname=None if name in _NO_NAME else name,
         vendor=(str(dev.get("devVendor") or "").strip() or None),
+        online=None if dev.get("devPresentLastScan") is None else bool(dev["devPresentLastScan"]),
         source=NetAlertX.name,
     )

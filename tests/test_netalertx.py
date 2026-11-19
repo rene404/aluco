@@ -76,3 +76,16 @@ def test_client_repr_hides_credentials() -> None:
     client = HttpJsonClient("http://127.0.0.1:20212", bearer_token="geheim", password="pw")
     assert "geheim" not in repr(client)
     assert "pw" not in repr(client)
+
+
+def test_online_status_from_last_scan() -> None:
+    online, offline, unknown = NetAlertX(
+        fake(
+            [
+                device(devPresentLastScan=1),
+                device(devMac=MAC_B, devPresentLastScan=0),
+                device(devMac="00:00:5e:00:53:09"),
+            ]
+        )
+    ).fetch_sightings()
+    assert (online.online, offline.online, unknown.online) == (True, False, None)
