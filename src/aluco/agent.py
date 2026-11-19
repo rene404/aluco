@@ -38,6 +38,7 @@ AGENT_SECTIONS = (
 MAX_ROWS = 500  # pro Abschnitt
 MAX_VALUE = 500  # Zeichen pro Wert
 PROTOCOLS = {"6": "tcp", "17": "udp"}
+DYNAMIC_PORTS = 49152  # IANA: ab hier vergibt das System Ports zufällig
 
 POSTURE_CHECKS: dict[str, tuple[str, Severity, str]] = {
     # Schlüssel: (Anzeigename, Schwere wenn aus, Erklärung)
@@ -113,8 +114,13 @@ def ports(report: dict[str, list[dict[str, str]]]) -> dict[str, dict[str, str]]:
             continue
         proto = PROTOCOLS.get(r.get("protocol", ""), r.get("protocol", "?"))
         program = r.get("name") or _short(r.get("path", "")) or "unbekannt"
-        out[f"{r['port']}/{proto} {program}"] = {
-            "port": r["port"],
+        port = r["port"]
+        if port.isdigit() and int(port) >= DYNAMIC_PORTS:
+            # Zufällige Ports (Browser, AirPlay …) pro Programm zusammenfassen – sonst wäre
+            # jeder neue Zufallsport ein Fehlalarm.
+            port = "dynamisch"
+        out[f"{port}/{proto} {program}"] = {
+            "port": port,
             "protocol": proto,
             "program": program,
             "path": _short(r.get("path", "")),

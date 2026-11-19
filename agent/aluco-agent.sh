@@ -12,6 +12,7 @@ CONF="${ALUCO_AGENT_CONF:-/usr/local/etc/aluco-agent.conf}"
 # Konfiguration lesen, ohne sie auszuführen (kein "source").
 ALUCO_URL=$(sed -n 's/^ALUCO_URL=//p' "$CONF" | head -1)
 ALUCO_TOKEN=$(sed -n 's/^ALUCO_TOKEN=//p' "$CONF" | head -1)
+ALUCO_CACERT=$(sed -n 's/^ALUCO_CACERT=//p' "$CONF" | head -1)  # optional, für HTTPS mit eigener CA
 url_re='^https?://[][A-Za-z0-9.:_-]+$'  # "]" zuerst in der Klasse = wörtlich
 [[ "$ALUCO_URL" =~ $url_re ]] || { echo "aluco-agent: ALUCO_URL ungültig" >&2; exit 2; }
 [[ "$ALUCO_TOKEN" =~ ^[A-Za-z0-9_-]{20,100}$ ]] || { echo "aluco-agent: ALUCO_TOKEN ungültig" >&2; exit 2; }
@@ -50,8 +51,14 @@ trap 'rm -f "$tmp"' EXIT
   printf '}'
 } > "$tmp"
 
+tls_opts=()
+if [[ -n "$ALUCO_CACERT" ]]; then
+  [[ -r "$ALUCO_CACERT" ]] || { echo "aluco-agent: $ALUCO_CACERT fehlt" >&2; exit 2; }
+  tls_opts=(--cacert "$ALUCO_CACERT")
+fi
+
 # Token über stdin an curl – nie auf der Kommandozeile (sonst in "ps" sichtbar).
-curl -fsS --max-time 30 -X POST \
+curl -fsS --max-time 30 -X POST ${tls_opts[@]+"${tls_opts[@]}"} \
   -H 'Content-Type: application/json' \
   --data-binary @"$tmp" \
   -K - "$ALUCO_URL/api/agent/report" <<<"header = \"Authorization: Bearer $ALUCO_TOKEN\""
