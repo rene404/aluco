@@ -7,7 +7,7 @@ Monitoring für Heimnetz und Laptops: Geräteinventar, Erkennung ungewöhnlicher
 
 Aluco ersetzt keine bewährten Tools, sondern setzt auf ihnen auf: OPNsense, AdGuard Home, NetAlertX und Suricata liefern die Daten, Aluco führt sie zusammen und macht daraus einen Ablauf von *Vorfall → bewerten → handeln*.
 
-**Status:** Konzeptphase, noch kein Code.
+**Status:** Grundgerüst steht, Umsetzung von Stufe 0 läuft (Branch `develop`).
 
 ## Dokumente
 
@@ -17,6 +17,8 @@ Aluco ersetzt keine bewährten Tools, sondern setzt auf ihnen auf: OPNsense, AdG
 | [docs/dashboard-concept.md](docs/dashboard-concept.md) | Unterseiten, Erkennungsregeln, Wege zum Trennen, Umgang mit Laptops und Firmengeräten |
 | [docs/roadmap.md](docs/roadmap.md) | Ausbau nach Stufe 4 mit Nutzen/Aufwand, Prioritäten, Risiken |
 | [docs/naming.md](docs/naming.md) | Herkunft des Namens |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branches (Gitflow), Entwicklungsumgebung, Prüfungen |
+| [SECURITY.md](SECURITY.md) | Sicherheitslücken melden |
 
 ## Lizenz
 
