@@ -161,6 +161,10 @@ class Store:
         ).fetchall()
         return [r[0] for r in rows]
 
+    def delete_device_domains(self, mac: str) -> int:
+        cur = self._db.execute("DELETE FROM device_domains WHERE mac = ?", (mac,))
+        return cur.rowcount
+
     # --- Vorfälle -----------------------------------------------------------------
 
     def incident_by_id(self, incident_id: int) -> Incident | None:
@@ -210,6 +214,17 @@ class Store:
             (*values, i.id),
         )
         return i
+
+    def delete_incidents(self, device_mac: str, rules: frozenset[str]) -> int:
+        """Vorfälle eines Geräts zu bestimmten Regeln löschen (z. B. bei Firmengeräten)."""
+        if not rules:
+            return 0
+        placeholders = ",".join("?" * len(rules))  # nur Platzhalter, Werte als Parameter
+        cur = self._db.execute(
+            f"DELETE FROM incidents WHERE device_mac = ? AND rule IN ({placeholders})",  # noqa: S608
+            (device_mac, *sorted(rules)),
+        )
+        return cur.rowcount
 
     def purge_closed_incidents(self, older_than: datetime) -> int:
         """Ignorierte/erledigte Vorfälle löschen, die seit ``older_than`` unverändert sind.
