@@ -43,6 +43,7 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("run", help="Dauerbetrieb")
     sub.add_parser("once", help="ein Lauf")
     sub.add_parser("web", help="Dashboard starten")
+    sub.add_parser("mcp", help="MCP-Server über stdio (nur lesend)")
 
     dev = sub.add_parser("device", help="Geräte verwalten").add_subparsers(
         dest="action", required=True
@@ -70,7 +71,26 @@ def main(argv: list[str] | None = None) -> int:
         return _device_command(args)
     if args.command == "web":
         return _web_command()
+    if args.command == "mcp":
+        return _mcp_command()
     return _run_command(args.command)
+
+
+def _mcp_command() -> int:
+    """stdout gehört dem MCP-Protokoll – Logs gehen nur nach stderr (basicConfig-Standard)."""
+    try:
+        from aluco.mcp_server import build_server
+    except ImportError:
+        log.error("MCP-Server braucht das Extra 'mcp' (pip install 'aluco[mcp]')")
+        return 2
+    import os
+
+    path = db_path_from_env()
+    if not path.exists():
+        log.error("Keine Datenbank unter %s – läuft der Aluco-Dienst schon?", path)
+        return 2
+    build_server(path, os.environ.get("TZ") or "UTC").run()
+    return 0
 
 
 def _web_command() -> int:

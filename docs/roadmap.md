@@ -27,7 +27,7 @@ Stand: 2026-11-18 · Bewertung: Nutzen ⭐–⭐⭐⭐
 | Ausbau | Was er bringt | Nutzen | Aufwand |
 |---|---|---|---|
 | KI-Vorbewertung von Vorfällen | Zusammenfassung, Erklärung, Vorschlag; Tagesbericht – **Vorbewertung umgesetzt** | ⭐⭐⭐ | gering–mittel |
-| MCP-Server für das Netz | „Was hat der Fernseher letzte Nacht gemacht?“ | ⭐⭐ | mittel |
+| MCP-Server für das Netz | „Was hat der Fernseher letzte Nacht gemacht?“ – **umgesetzt** (nur lesend, stdio über SSH) | ⭐⭐ | mittel |
 | Push-Meldungen (ntfy, Telegram, Pushover) | Alarm aufs Handy, Abendzusammenfassung | ⭐⭐⭐ | gering |
 | „Trennen“ direkt aus der Meldung | Nur mit Bestätigung/Login (Angriffspunkt) | ⭐⭐ | gering |
 | Dashboard als PWA | App-Gefühl am Handy | ⭐ | gering |
