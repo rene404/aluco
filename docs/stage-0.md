@@ -55,7 +55,7 @@ dig +short @127.0.0.1 example.com                  # liefert eine IP
 3. Dashboard-Passwort setzen: `ALUCO_DASHBOARD_PASSWORD` (mindestens 12 Zeichen).
 4. Starten: `docker compose up -d --build aluco aluco-web`, Kontrolle: `docker logs -f aluco`.
 5. Dashboard: `http://<server>:8088/` – nur im Heimnetz bzw. per VPN, nie per Portfreigabe ins Internet. Aufruf über die IP-Adresse; für einen Namen (z. B. `aluco.lan`) diesen in `ALUCO_WEB_ALLOWED_HOSTS` eintragen.
-6. **HTTPS empfohlen:** Ohne TLS gehen Passwort und Sitzung im WLAN unverschlüsselt über die Luft. Für den Dauerbetrieb einen Reverse-Proxy mit TLS (z. B. Caddy mit lokalem Zertifikat) davorschalten und `ALUCO_WEB_SECURE_COOKIES=true` setzen. Aluco warnt beim Start, solange das fehlt.
+6. **HTTPS empfohlen:** Ohne TLS gehen Passwort und Sitzung im WLAN unverschlüsselt über die Luft. Caddy mit lokaler Zertifizierungsstelle ist vorbereitet: [docs/https.md](https.md). Aluco warnt beim Start, solange HTTPS fehlt.
 7. NetAlertX- und AdGuard-Oberfläche ebenfalls mit Passwort schützen (siehe oben) – sie zeigen das komplette Inventar bzw. alle DNS-Anfragen.
 
 Der **erste Lauf lernt nur** (übernimmt alle vorhandenen Geräte ohne Alarm). Ab dem zweiten Lauf meldet Aluco unbekannte Geräte; Anfragen an neue Domains meldet es nur bei IoT-Geräten und erst nach 7 Tagen Lernphase. ### Geräte einordnen

@@ -173,6 +173,13 @@ def _web_command() -> int:
     cfg.db_path.parent.mkdir(parents=True, exist_ok=True)
     Store(cfg.db_path).close()  # Schema anlegen, falls der Runner noch nie lief
     log.info("Dashboard auf http://%s:%s", cfg.host, cfg.port)
+    if cfg.trust_proxy and cfg.host not in {"127.0.0.1", "::1", "localhost"}:
+        log.warning(
+            "ALUCO_WEB_TRUST_PROXY=true, aber das Dashboard lauscht auf %s – dann ist es "
+            "auch ohne HTTPS erreichbar. Für den Betrieb hinter Caddy ALUCO_WEB_HOST=127.0.0.1 "
+            "setzen.",
+            cfg.host,
+        )
     if not cfg.secure_cookies:
         log.warning(
             "Dashboard läuft ohne HTTPS: Passwort und Sitzung gehen unverschlüsselt durchs "
@@ -186,7 +193,9 @@ def _web_command() -> int:
         host=cfg.host,
         port=cfg.port,
         server_header=False,
-        proxy_headers=False,
+        # Nur hinter dem eigenen Proxy (Caddy auf demselben Host) Weiterleitungs-Header glauben.
+        proxy_headers=cfg.trust_proxy,
+        forwarded_allow_ips="127.0.0.1,::1" if cfg.trust_proxy else None,
         access_log=False,  # keine IPs/Pfade im Log
         log_level="info",
     )

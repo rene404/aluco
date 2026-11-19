@@ -114,6 +114,8 @@ class WebConfig:
     ai: AiSettings = field(default_factory=AiSettings)
     # Zusätzlich erlaubte Hostnamen (IP-Adressen und localhost sind immer erlaubt).
     allowed_hosts: tuple[str, ...] = ()
+    # Hinter Caddy: X-Forwarded-For/-Proto von 127.0.0.1 übernehmen (echte Client-IP).
+    trust_proxy: bool = False
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> WebConfig:
@@ -138,6 +140,7 @@ class WebConfig:
             secure_cookies=e.get("ALUCO_WEB_SECURE_COOKIES", "").lower() in {"1", "true", "yes"},
             timezone=tz,
             ai=ai_settings_from_env(e),
+            trust_proxy=e.get("ALUCO_WEB_TRUST_PROXY", "").lower() in {"1", "true", "yes"},
             allowed_hosts=tuple(
                 h.strip().lower()
                 for h in e.get("ALUCO_WEB_ALLOWED_HOSTS", "").replace(",", " ").split()

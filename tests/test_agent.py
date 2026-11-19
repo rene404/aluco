@@ -212,3 +212,30 @@ def test_cli_agent_add_list_remove(
     assert "Firmengeräte" in capsys.readouterr().err
     assert main(["agent", "list"]) == 0 and MAC_A in capsys.readouterr().out
     assert main(["agent", "remove", MAC_A]) == 0 and "entfernt" in capsys.readouterr().out
+
+
+def test_dynamic_ports_are_grouped_per_program(laptop: Store) -> None:
+    def with_ports(*ports: str) -> dict[str, Any]:
+        rows = [
+            {"port": p, "protocol": "17", "address": "0.0.0.0", "name": "firefox"} for p in ports
+        ]
+        return report(listening_ports=rows)
+
+    process_report(laptop, MAC_A, with_ports("55825", "443"), now=T0)
+    r = process_report(
+        laptop, MAC_A, with_ports("61234", "54219", "443"), now=T0 + timedelta(minutes=10)
+    )
+    assert r.incidents == 0  # neue Zufallsports desselben Programms: kein Alarm
+    keys = {i["key"] for i in laptop.host_items(MAC_A, kind="port")}
+    assert keys == {"dynamisch/udp firefox", "443/udp firefox"}
+    r2 = process_report(
+        laptop,
+        MAC_A,
+        report(
+            listening_ports=[
+                {"port": "60000", "protocol": "17", "address": "0.0.0.0", "name": "evil"}
+            ]
+        ),
+        now=T0 + timedelta(minutes=20),
+    )
+    assert r2.incidents == 1  # neues Programm mit Zufallsport: ein Alarm

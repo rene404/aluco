@@ -258,3 +258,15 @@ def test_no_inline_styles_anywhere(client: TestClient) -> None:
     login(client)
     for path in ["/", "/incidents", "/incidents?status=all", "/devices", f"/devices/{MAC_A}"]:
         assert "style=" not in client.get(path).text, path
+
+
+def test_web_config_proxy_settings() -> None:
+    cfg = WebConfig.from_env(
+        {
+            "ALUCO_DASHBOARD_PASSWORD": PASSWORD,
+            "ALUCO_WEB_TRUST_PROXY": "true",
+            "ALUCO_WEB_HOST": "127.0.0.1",
+        }
+    )
+    assert cfg.trust_proxy and cfg.host == "127.0.0.1"
+    assert WebConfig.from_env({"ALUCO_DASHBOARD_PASSWORD": PASSWORD}).trust_proxy is False
