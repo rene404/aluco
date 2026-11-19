@@ -100,6 +100,14 @@ def test_dns_statistics(store: Store) -> None:
     assert sum(by_device[MAC_A].values()) == 4
 
 
+def test_company_marking_deletes_behaviour_events(store: Store) -> None:
+    engine = Engine(store)
+    engine.process(sightings=[DeviceSighting(mac=MAC_A, at=T0, ip=IP_A)], now=T0)  # Vorfall
+    assert store.events(device_mac=MAC_A)
+    set_trust(store, MAC_A, TrustLevel.COMPANY)
+    assert store.events(device_mac=MAC_A) == []
+
+
 def test_company_marking_deletes_statistics(store: Store) -> None:
     engine = Engine(store)
     engine.process(sightings=[DeviceSighting(mac=MAC_A, at=T0, ip=IP_A)], now=T0, learn_only=True)

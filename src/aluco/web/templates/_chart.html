@@ -1,0 +1,12 @@
+{# Gestapeltes Balkendiagramm als SVG (Höhen als Attribute – CSP-konform). Erwartet: chart #}
+<svg class="chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" role="img" aria-label="Balkendiagramm: {{ fmt_int(chart.total) }} Anfragen, davon {{ fmt_int(chart.blocked) }} blockiert">
+  {% for b in chart.bars %}
+  <g>
+    <title>{{ b.tip }}</title>
+    <rect class="bar-hit" x="{{ b.x }}" y="0" width="{{ b.width }}" height="{{ chart.height }}"></rect>
+    <rect class="bar-blocked" x="{{ b.x }}" y="{{ b.y_blocked }}" width="{{ b.width }}" height="{{ b.h_blocked }}"></rect>
+    <rect class="bar-allowed" x="{{ b.x }}" y="{{ b.y_allowed }}" width="{{ b.width }}" height="{{ b.h_allowed }}"></rect>
+  </g>
+  {% endfor %}
+</svg>
+<div class="axis">{% for t in chart.axis %}<span>{{ t }}</span>{% endfor %}</div>

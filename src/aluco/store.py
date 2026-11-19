@@ -335,6 +335,16 @@ class Store:
         params.append(limit)
         return [_event(r) for r in self._db.execute(sql, params).fetchall()]
 
+    def delete_device_events(self, mac: str, kinds: frozenset[EventKind]) -> int:
+        """Ereignisse eines Geräts löschen (Firmengerät: Vorfälle verraten Verhalten)."""
+        if not kinds:
+            return 0
+        placeholders = ",".join("?" * len(kinds))  # nur Platzhalter, Werte als Parameter
+        return self._db.execute(
+            f"DELETE FROM events WHERE device_mac = ? AND kind IN ({placeholders})",  # noqa: S608
+            (mac, *sorted(k.value for k in kinds)),
+        ).rowcount
+
     def purge_events(self, older_than: datetime) -> int:
         return self._db.execute("DELETE FROM events WHERE at < ?", (_ts(older_than),)).rowcount
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from aluco.model import Device, TrustLevel, normalize_mac
+from aluco.model import Device, EventKind, TrustLevel, normalize_mac
 from aluco.store import Store
 
 # Regeln, deren Vorfälle Inhalte über das Verhalten eines Geräts enthalten.
@@ -44,6 +44,10 @@ def set_trust(store: Store, mac: str, trust: TrustLevel) -> TrustChange:
             domains = store.delete_device_domains(device.mac)
             incidents = store.delete_incidents(device.mac, BEHAVIOUR_RULES)
             store.delete_device_stats(device.mac)
+            # Vorfall-Ereignisse nennen z. B. angefragte Domains → ebenfalls entfernen.
+            store.delete_device_events(
+                device.mac, frozenset({EventKind.INCIDENT, EventKind.INCIDENT_STATUS})
+            )
     return TrustChange(updated, device.trust, domains, incidents)
 
 

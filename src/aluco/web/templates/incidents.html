@@ -1,22 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Vorfälle{% endblock %}
 {% block content %}
-<h1>Vorfälle</h1>
-<nav class="tabs" aria-label="Filter">
-  {% for key, label in [("open", "Offen"), ("ignored", "Ignoriert"), ("resolved", "Erledigt"), ("all", "Alle")] %}
-  <a href="/incidents?status={{ key }}" {% if filter == key %}aria-current="page"{% endif %}>{{ label }}</a>
-  {% endfor %}
-</nav>
-{% if incidents %}
-<div class="scroll">
-<table>
-  <thead><tr><th>Schwere</th><th>Vorfall</th><th>Gerät</th><th>Status</th><th>Zuletzt</th><th>Anzahl</th><th>Aktion</th></tr></thead>
-  <tbody>
-    {% for i in incidents %}{% include "_incident_row.html" %}{% endfor %}
-  </tbody>
-</table>
+<div class="page-head">
+  <div>
+    <h1>Vorfälle</h1>
+    <p class="muted">Nach Schwere sortiert. Ein Klick auf einen Vorfall zeigt, warum er auffällig ist.</p>
+  </div>
+  <nav class="chips" aria-label="Status filtern">
+    {% for key, label in [("open", "Offen"), ("ignored", "Ignoriert"), ("resolved", "Erledigt"), ("all", "Alle")] %}
+    <a class="chip" href="/incidents?status={{ key }}" {% if filter == key %}aria-current="true"{% endif %}>{{ label }} <span class="chip-count">{{ counts[key] }}</span></a>
+    {% endfor %}
+  </nav>
 </div>
+
+{% if incidents %}
+<ul class="incident-list">
+  {% for i in incidents %}{% include "_incident_card.html" %}{% endfor %}
+</ul>
 {% else %}
-<p class="muted">Keine Vorfälle in dieser Ansicht.</p>
+<div class="card empty">
+  <strong>Nichts in dieser Ansicht</strong>
+  <span class="muted">Alles ruhig. Aluco meldet sich, sobald etwas auffällt.</span>
+</div>
 {% endif %}
 {% endblock %}

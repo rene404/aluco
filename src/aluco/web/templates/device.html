@@ -1,36 +1,129 @@
 {% extends "base.html" %}
 {% block title %}{{ d.label }}{% endblock %}
 {% block content %}
-<p><a href="/devices">← Geräte</a></p>
-<h1>{{ d.label }}</h1>
-<dl class="facts">
-  <dt>MAC</dt><dd class="mono">{{ d.mac }}</dd>
-  <dt>IP</dt><dd class="mono">{{ d.ip or "–" }}</dd>
-  <dt>Hostname</dt><dd>{{ d.hostname or "–" }}</dd>
-  <dt>Hersteller</dt><dd>{{ d.vendor or "–" }}</dd>
-  <dt>Stufe</dt><dd>{{ TRUST_DE[d.trust] }}{% if d.protected %} · auf der Schutzliste{% endif %}</dd>
-  <dt>Zuerst gesehen</dt><dd>{{ d.first_seen | local }}</dd>
-  <dt>Zuletzt gesehen</dt><dd>{{ d.last_seen | local }}</dd>
-</dl>
+<p><a href="/devices">← Zurück zu den Geräten</a></p>
 
-<section>
-  <h2>Vorfälle</h2>
-  {% if incidents %}
-  <ul class="list">
-    {% for i in incidents %}<li><span class="sev sev-{{ i.severity.name | lower }}">{{ SEVERITY_DE[i.severity] }}</span> {{ i.title }} <span class="muted">· {{ STATUS_DE[i.status] }} · {{ i.updated_at | local }}</span></li>{% endfor %}
-  </ul>
-  {% else %}<p class="muted">Keine.</p>{% endif %}
+{% if saved %}
+<div class="card notice notice-ok" role="status">
+  Gespeichert.{% if deleted %} Firmengerät: {{ deleted.split('-')[0] }} gespeicherte Domains und {{ deleted.split('-')[1] }} Vorfälle gelöscht – ab jetzt nur passive Beobachtung.{% endif %}
+</div>
+{% endif %}
+
+<section class="device-hero" aria-label="Gerät">
+  <span class="abbr abbr-lg">{{ abbr(d) }}<span class="status-dot {{ 'on' if d.online else ('off' if d.online is false else 'unknown') }}" aria-hidden="true"></span></span>
+  <div class="device-hero-text">
+    <div class="title-row">
+      <h1>{{ d.label }}</h1>
+      <span class="pill trust-{{ d.trust.value }}">{{ TRUST_DE[d.trust] }}</span>
+      {% if d.protected %}<span class="pill neutral">Schutzliste</span>{% endif %}
+    </div>
+    <span class="muted">{% if d.online %}online{% elif d.online is false %}offline · zuletzt {{ rel(d.last_seen) }}{% else %}zuletzt gesehen {{ rel(d.last_seen) }}{% endif %} · {{ d.vendor or "Hersteller unbekannt" }} · zuerst gesehen {{ d.first_seen | localdate }}</span>
+  </div>
+  <dl class="facts">
+    <div><dt>IP</dt><dd class="mono">{{ d.ip or "–" }}</dd></div>
+    <div><dt>MAC</dt><dd class="mono">{{ d.mac }}</dd></div>
+    <div><dt>Hostname</dt><dd class="mono">{{ d.hostname or "–" }}</dd></div>
+  </dl>
 </section>
 
-<section>
-  <h2>Angefragte Domains</h2>
-  {% if d.is_company %}
-  <p class="muted">Firmengerät – Aluco speichert keine Domains.</p>
-  {% elif domains %}
-  <p class="muted">{{ domains | length }} Domains (zusammengefasst auf die Hauptdomain).</p>
-  <ul class="domains">{% for name in domains %}<li class="mono">{{ name }}</li>{% endfor %}</ul>
-  {% else %}
-  <p class="muted">Noch keine.</p>
-  {% endif %}
-</section>
+<div class="columns">
+  <div class="col-main stack">
+    {% if d.is_company %}
+    <section class="card">
+      <h2>Aktivität</h2>
+      <p class="muted">Firmengerät – Aluco speichert keine Domains und keine DNS-Statistik, sondern beobachtet nur, ob es online ist.</p>
+    </section>
+    {% else %}
+    <section class="card" aria-labelledby="act">
+      <div class="card-head">
+        <h2 id="act">Aktivität · 7 Tage</h2>
+        <span class="muted small">{{ fmt_int(chart.total) }} DNS-Anfragen · {{ fmt_int(chart.blocked) }} blockiert</span>
+      </div>
+      {% if chart.total %}
+      {% include "_chart.html" %}
+      {% if behaviour %}<p class="behaviour"><strong>Typisches Verhalten</strong> {{ behaviour }} · {{ domain_count }} Hauptdomains</p>{% endif %}
+      {% else %}
+      <p class="muted">Noch keine DNS-Daten von diesem Gerät.</p>
+      {% endif %}
+    </section>
+
+    <section class="card" aria-labelledby="dom">
+      <div class="card-head">
+        <h2 id="dom">Angefragte Domains</h2>
+        <nav class="chips" aria-label="Domains filtern">
+          <a class="chip" href="/devices/{{ d.mac }}" {% if not only_new %}aria-current="true"{% endif %}>alle</a>
+          <a class="chip" href="/devices/{{ d.mac }}?new=1" {% if only_new %}aria-current="true"{% endif %}>nur neue (7 Tage)</a>
+        </nav>
+      </div>
+      {% if domains %}
+      <div class="scroll">
+        <table class="table">
+          <thead><tr><th>Domain</th><th>Zuerst gesehen</th><th class="num">Anfragen 7 T.</th><th class="num">blockiert</th></tr></thead>
+          <tbody>
+            {% for name, first, n, blocked in domains %}
+            <tr>
+              <td class="mono">{{ name }}{% if first >= week_ago %} <span class="pill new">neu</span>{% endif %}</td>
+              <td title="{{ first | local }}">{{ rel(first) }}</td>
+              <td class="num">{{ fmt_int(n) }}</td>
+              <td class="num muted">{{ fmt_int(blocked) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="muted">{{ "Keine neuen Domains in den letzten 7 Tagen." if only_new else "Noch keine." }}</p>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+
+  <div class="col-side stack">
+    <section class="card" aria-labelledby="set">
+      <h2 id="set">Einstellungen</h2>
+      <form class="form" method="post" action="/devices/{{ d.mac }}">
+        <label class="field">Name
+          <input name="name" value="{{ d.name or '' }}" maxlength="100" placeholder="{{ d.hostname or 'z. B. Fernseher' }}">
+        </label>
+        <label class="field">Vertrauensstufe
+          <select name="trust">
+            {% for t in TrustLevel %}<option value="{{ t.value }}" {% if t == d.trust %}selected{% endif %}>{{ TRUST_DE[t] }}</option>{% endfor %}
+          </select>
+        </label>
+        {% if not d.is_company %}<p class="hint">„Firma“ löscht beim Speichern alle gespeicherten Domains und Verhaltens-Vorfälle dieses Geräts. Danach nur passive Beobachtung.</p>{% endif %}
+        <label class="check"><input type="checkbox" name="protected" {% if d.protected %}checked{% endif %}> Auf die Schutzliste (nie trennbar)</label>
+        <label class="field">Notiz
+          <textarea name="notes" rows="3" maxlength="2000">{{ d.notes }}</textarea>
+        </label>
+        <button type="submit" class="btn btn-primary">Speichern</button>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="inc">
+      <h2 id="inc">Vorfälle</h2>
+      {% for i in incidents %}
+      <a class="mini-incident" href="/incidents?status={{ 'open' if i.status.value in ('new', 'investigating') else 'all' }}#incident-{{ i.id }}">
+        <span><span class="pill sev-{{ i.severity.name | lower }}">{{ SEVERITY_DE[i.severity] }}</span> <span class="pill status-{{ i.status.value }}">{{ STATUS_DE[i.status] }}</span></span>
+        <span>{{ i.title }}</span>
+        <span class="muted small">{{ rel(i.updated_at) }} · {{ i.occurrences }}×{% if i.note %} · Notiz: {{ i.note }}{% endif %}</span>
+      </a>
+      {% else %}
+      <p class="muted">Keine.</p>
+      {% endfor %}
+    </section>
+
+    <section class="card" aria-labelledby="hist">
+      <h2 id="hist">Verlauf</h2>
+      {% if history %}
+      <ol class="timeline compact">
+        {% for e in history %}
+        <li><time datetime="{{ e.at.isoformat() }}" title="{{ e.at | local }}">{{ rel(e.at) }}</time><span class="dot dot-{{ tone(e) }}" aria-hidden="true"></span><span class="tl-body">{{ e.title }}</span></li>
+        {% endfor %}
+      </ol>
+      {% else %}
+      <p class="muted">Noch keine Ereignisse.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
 {% endblock %}

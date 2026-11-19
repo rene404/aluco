@@ -8,7 +8,7 @@ from starlette.testclient import TestClient
 
 from aluco.config import ConfigError
 from aluco.engine import Engine
-from aluco.model import DeviceSighting, DnsQuery, IncidentStatus, TrustLevel
+from aluco.model import DeviceSighting, DnsQuery, IncidentStatus, TrustLevel, utcnow
 from aluco.store import Store
 from aluco.web import WebConfig, create_app
 from tests.conftest import IP_A, IP_B, MAC_A, MAC_B, T0
@@ -131,7 +131,7 @@ def test_incident_workflow_via_htmx(client: TestClient, db: Path) -> None:
 
     r = client.post(url, data={"status": "investigating"}, headers=HX)
     assert r.status_code == 200
-    assert "in Prüfung" in r.text and r.text.lstrip().startswith("<tr")
+    assert "in Prüfung" in r.text and r.text.lstrip().startswith("<li")
 
     assert client.post(url, data={"status": "disconnected"}, headers=HX).status_code == 400
     assert client.post(url, data={"status": "quatsch"}, headers=HX).status_code == 400
@@ -152,19 +152,20 @@ def test_mark_company_deletes_domains(client: TestClient, db: Path) -> None:
 
     r = client.post(
         f"/devices/{MAC_A}",
-        data={"trust": "company", "name": "Firmenrechner", "protected": "on"},
-        headers=HX,
+        data={"trust": "company", "name": "Firmenrechner", "protected": "on", "notes": "Büro"},
+        headers=ORIGIN,
     )
-    assert r.status_code == 200
-    assert "1 Domains und 1 Vorfälle gelöscht" in r.text
+    assert r.status_code == 303
+    assert r.headers["location"] == f"/devices/{MAC_A}?saved=1&deleted=1-1"
 
-    detail = client.get(f"/devices/{MAC_A}").text
+    detail = client.get(r.headers["location"]).text
+    assert "1 gespeicherte Domains und 1 Vorfälle gelöscht" in detail
     assert "tracker.example" not in detail
-    assert "Aluco speichert keine Domains" in detail
+    assert "keine Domains und keine DNS-Statistik" in detail
     s = Store(db)
     d = s.device(MAC_A)
     s.close()
-    assert d is not None and d.protected and d.name == "Firmenrechner"
+    assert d is not None and d.protected and d.name == "Firmenrechner" and d.notes == "Büro"
 
 
 def test_device_errors(client: TestClient) -> None:
@@ -194,3 +195,63 @@ def test_web_config_validation() -> None:
     cfg = WebConfig.from_env({"ALUCO_DASHBOARD_PASSWORD": PASSWORD, "ALUCO_WEB_PORT": "9000"})
     assert cfg.port == 9000
     assert PASSWORD not in repr(cfg)
+
+
+# --- Dashboard v2 -------------------------------------------------------------------
+
+
+def test_overview_v2_sections(client: TestClient, db: Path) -> None:
+    s = Store(db)  # aktuelle DNS-Daten, damit das Diagramm etwas zeigt
+    s.count_query(MAC_A, "example.com", utcnow(), blocked=False)
+    s.count_query(MAC_A, "ads.example", utcnow(), blocked=True)
+    s.close()
+    html = login(client).get("/").text
+    for text in [
+        "Offene Vorfälle",
+        "DNS-Aktivität",
+        "Chronik",
+        "Aktivste Geräte",
+        "Meistblockiert",
+    ]:
+        assert text in html
+    assert "Vorfälle brauchen deine Aufmerksamkeit" in html
+    assert 'class="bar-allowed"' in html  # Diagramm gerendert
+    assert "style=" not in html  # CSP: keine Inline-Styles
+    week = client.get("/?range=7d").text
+    assert "heute" in week
+
+
+def test_overview_event_filter(client: TestClient) -> None:
+    login(client)
+    incidents_only = client.get("/?events=incidents").text
+    assert "Neues Gerät im Netz" in incidents_only
+    assert "Inventar übernommen" not in incidents_only
+    assert "Inventar übernommen" in client.get("/?events=devices").text
+
+
+def test_since_last_visit(client: TestClient) -> None:
+    login(client)
+    first = client.get("/").text
+    assert "Willkommen" in first  # erster Besuch
+
+
+def test_devices_search_and_filter(client: TestClient) -> None:
+    login(client)
+    assert IP_B in client.get("/devices?q=192.0.2.11").text
+    assert IP_A not in client.get("/devices?q=192.0.2.11").text
+    iot = client.get("/devices?trust=iot").text
+    assert MAC_A in iot and MAC_B not in iot
+    assert "Kein Gerät passt" in client.get("/devices?q=gibtsnicht").text
+
+
+def test_device_detail_v2(client: TestClient) -> None:
+    html = login(client).get(f"/devices/{MAC_A}").text
+    assert "Aktivität · 7 Tage" in html and "Angefragte Domains" in html and "Verlauf" in html
+    assert "tracker.example" in client.get(f"/devices/{MAC_A}?new=1").text
+    assert "style=" not in html
+
+
+def test_no_inline_styles_anywhere(client: TestClient) -> None:
+    login(client)
+    for path in ["/", "/incidents", "/incidents?status=all", "/devices", f"/devices/{MAC_A}"]:
+        assert "style=" not in client.get(path).text, path
