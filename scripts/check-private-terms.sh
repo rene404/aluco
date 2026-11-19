@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Blockiert Commits, deren hinzugefügte Zeilen oder Dateinamen private Begriffe enthalten.
+# Geprüft werden ganze Wörter: der Begriff "Code" löst bei "Encoder" nicht aus.
 # Die Begriffe stehen lokal in private/forbidden-terms.txt (gitignored, ein Begriff pro Zeile,
 # '#' für Kommentare, Groß-/Kleinschreibung egal). Fehlt die Datei, wird nur gewarnt.
 set -euo pipefail
@@ -21,11 +22,11 @@ names="$(git diff --cached --name-only --diff-filter=ACR)"
 
 found=0
 while IFS= read -r term; do
-  if grep -qiF -- "$term" <<<"$added"; then
+  if grep -qiwF -- "$term" <<<"$added"; then
     echo "check-private-terms: privater Begriff im Diff gefunden (Zeile $(grep -niF -- "$term" "$terms_file" | head -1 | cut -d: -f1) in $terms_file)" >&2
     found=1
   fi
-  if grep -qiF -- "$term" <<<"$names"; then
+  if grep -qiwF -- "$term" <<<"$names"; then
     echo "check-private-terms: privater Begriff in einem Dateinamen gefunden (Zeile $(grep -niF -- "$term" "$terms_file" | head -1 | cut -d: -f1) in $terms_file)" >&2
     found=1
   fi
