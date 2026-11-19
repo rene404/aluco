@@ -109,8 +109,8 @@ Diesen Ablauf einmal bewusst durchspielen und die Schritte für den Router notie
 
 ## Betrieb
 
-- **Updates:** Dependabot schlägt neue Image-Versionen als Pull Request vor. Danach am Server: `git pull && docker compose pull adguardhome netalertx && docker compose up -d --build`.
-- **Sicherung:** Ordner `data/` (Konfiguration + Datenbanken) regelmäßig sichern.
+- **Updates:** `scripts/update.sh` (sichert vorher, prüft danach) – siehe [operations.md](operations.md).
+- **Sicherung:** `scripts/backup.sh`, am besten täglich per cron – siehe [operations.md](operations.md).
 - **Protokolle:** werden nach `ALUCO_RETENTION_DAYS` (Standard 30) gelöscht. Haushalt informieren, dass DNS-Anfragen protokolliert werden.
 
 ## Lokal testen (Mac)

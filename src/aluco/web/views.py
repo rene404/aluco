@@ -205,7 +205,7 @@ def event_tone(e: Event) -> str:
         e.kind is EventKind.INCIDENT_STATUS and "erledigt" in e.title
     ):
         return "ok"
-    if e.kind is EventKind.SOURCE and "nicht erreichbar" in e.title:
+    if e.kind is EventKind.SOURCE and ("nicht erreichbar" in e.title or "knapp" in e.title):
         return "sev-medium"
     if e.kind is EventKind.INVENTORY:
         return "accent"
