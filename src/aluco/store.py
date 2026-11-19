@@ -181,6 +181,12 @@ class Store:
         ).fetchone()
         return _device(row) if row else None
 
+    def release_ip(self, ip: str, keep_mac: str) -> int:
+        """IP gehört jetzt ``keep_mac``: bei allen anderen Geräten entfernen (DHCP-Wechsel)."""
+        return self._db.execute(
+            "UPDATE devices SET ip = NULL WHERE ip = ? AND mac != ?", (ip, keep_mac)
+        ).rowcount
+
     def devices(self) -> list[Device]:
         rows = self._db.execute("SELECT * FROM devices ORDER BY last_seen DESC").fetchall()
         return [_device(r) for r in rows]

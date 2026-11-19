@@ -186,7 +186,11 @@ def test_company_devices_are_never_assessed_and_cleaned(store: Store) -> None:
     engine.process(sightings=[DeviceSighting(mac=MAC_A, at=T0, ip=IP_A)], now=T0, learn_only=True)
     set_trust(store, MAC_A, TrustLevel.IOT)
     later = T0 + timedelta(days=10)
-    engine.process(queries=[DnsQuery(client_ip=IP_A, domain="x.example", at=later)], now=later)
+    engine.process(
+        sightings=[DeviceSighting(mac=MAC_A, at=later, ip=IP_A)],
+        queries=[DnsQuery(client_ip=IP_A, domain="x.example", at=later)],
+        now=later,
+    )
     [incident] = store.incidents()
     assert incident.id is not None
     assess_incident(store, FakeAssessor(), incident.id)

@@ -34,7 +34,10 @@ def db(tmp_path: Path) -> Path:
     set_trust(s, MAC_A, TrustLevel.IOT)
     later = T0 + timedelta(days=10)
     engine.process(
-        sightings=[DeviceSighting(mac=MAC_B, at=later, ip=IP_B)],
+        sightings=[
+            DeviceSighting(mac=MAC_B, at=later, ip=IP_B),
+            DeviceSighting(mac=MAC_A, at=later, ip=IP_A),
+        ],
         queries=[DnsQuery(client_ip=IP_A, domain="tracker.example", at=later)],
         now=later,
     )

@@ -12,6 +12,28 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import IntEnum, StrEnum
 
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+# Namen, die nur im Heimnetz existieren (Reverse-DNS, mDNS, Router-Domains). Sie verraten
+# IP-Adressen oder Gerätenamen und werden nie als "Domain" ausgewertet oder weitergegeben.
+LOCAL_SUFFIXES = (
+    ".arpa", ".local", ".lan", ".home", ".internal", ".localdomain", ".intranet",
+    ".corp", ".private", ".fritz.box", ".box", ".localhost",
+)  # fmt: skip
+
+
+def clean_text(value: str | None, max_len: int = 200) -> str | None:
+    """Steuerzeichen (z. B. Terminal-Escapes aus präparierten Hostnamen) entfernen, kürzen."""
+    if value is None:
+        return None
+    cleaned = _CONTROL_RE.sub("", value).strip()[:max_len]
+    return cleaned or None
+
+
+def is_local_name(domain: str) -> bool:
+    d = domain.rstrip(".").lower()
+    return "." not in d or any(d.endswith(sfx) or d == sfx[1:] for sfx in LOCAL_SUFFIXES)
+
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
@@ -115,6 +137,9 @@ class DeviceSighting:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "mac", normalize_mac(self.mac))
+        object.__setattr__(self, "hostname", clean_text(self.hostname))
+        object.__setattr__(self, "vendor", clean_text(self.vendor))
+        object.__setattr__(self, "ip", clean_text(self.ip, 64))
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,7 +154,8 @@ class DnsQuery:
     source: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "domain", self.domain.rstrip(".").lower())
+        domain = clean_text(self.domain, 253) or ""
+        object.__setattr__(self, "domain", domain.rstrip(".").lower())
 
 
 # --- Vorfälle -----------------------------------------------------------------------
