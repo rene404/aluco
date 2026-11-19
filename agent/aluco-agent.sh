@@ -12,7 +12,8 @@ CONF="${ALUCO_AGENT_CONF:-/usr/local/etc/aluco-agent.conf}"
 # Konfiguration lesen, ohne sie auszuführen (kein "source").
 ALUCO_URL=$(sed -n 's/^ALUCO_URL=//p' "$CONF" | head -1)
 ALUCO_TOKEN=$(sed -n 's/^ALUCO_TOKEN=//p' "$CONF" | head -1)
-[[ "$ALUCO_URL" =~ ^https?://[A-Za-z0-9.:_\[\]-]+$ ]] || { echo "aluco-agent: ALUCO_URL ungültig" >&2; exit 2; }
+url_re='^https?://[][A-Za-z0-9.:_-]+$'  # "]" zuerst in der Klasse = wörtlich
+[[ "$ALUCO_URL" =~ $url_re ]] || { echo "aluco-agent: ALUCO_URL ungültig" >&2; exit 2; }
 [[ "$ALUCO_TOKEN" =~ ^[A-Za-z0-9_-]{20,100}$ ]] || { echo "aluco-agent: ALUCO_TOKEN ungültig" >&2; exit 2; }
 
 OSQ=""
@@ -43,7 +44,7 @@ trap 'rm -f "$tmp"' EXIT
   printf ',"autostart":%s' "$(q "SELECT label, path, program, program_arguments FROM launchd WHERE (run_at_load = '1' OR keep_alive = '1') AND path NOT LIKE '/System/%';")"
   printf ',"logged_in_users":%s' "$(q "SELECT user, type, host FROM logged_in_users;")"
   printf ',"firewall":%s' "$(q "SELECT global_state FROM alf;")"
-  printf ',"filevault":%s' "$(q "SELECT encrypted FROM disk_encryption WHERE encrypted IS NOT NULL;")"
+  printf ',"filevault":%s' "$(q "SELECT de.encrypted FROM mounts m JOIN disk_encryption de ON de.name = m.device WHERE m.path = '/System/Volumes/Data';")"
   printf ',"gatekeeper":%s' "$(q "SELECT assessments_enabled FROM gatekeeper;")"
   printf ',"sip":%s' "$(q "SELECT enabled FROM sip_config WHERE config_flag = 'sip';")"
   printf '}'

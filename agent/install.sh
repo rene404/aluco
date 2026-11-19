@@ -8,7 +8,8 @@ set -euo pipefail
 [[ $EUID -eq 0 ]] || { echo "Bitte mit sudo ausführen." >&2; exit 1; }
 [[ $# -eq 2 ]] || { echo "Aufruf: sudo $0 <ALUCO_URL> <TOKEN>" >&2; exit 1; }
 URL=$1 TOKEN=$2
-[[ "$URL" =~ ^https?://[A-Za-z0-9.:_\[\]-]+$ ]] || { echo "URL ungültig: $URL" >&2; exit 1; }
+url_re='^https?://[][A-Za-z0-9.:_-]+$'  # "]" zuerst in der Klasse = wörtlich
+[[ "$URL" =~ $url_re ]] || { echo "URL ungültig: $URL" >&2; exit 1; }
 [[ "$TOKEN" =~ ^[A-Za-z0-9_-]{20,100}$ ]] || { echo "Token ungültig" >&2; exit 1; }
 [[ -x /usr/local/bin/osqueryi || -x /opt/osquery/lib/osquery.app/Contents/MacOS/osqueryd ]] \
   || { echo "osquery fehlt: brew install --cask osquery" >&2; exit 1; }
