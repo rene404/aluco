@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
+from aluco.ai import Assessment
 from aluco.model import (
     Device,
     Event,
@@ -19,7 +20,7 @@ from aluco.model import (
     TrustLevel,
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS devices (
@@ -102,7 +103,21 @@ CREATE TABLE IF NOT EXISTS domain_daily (
 CREATE INDEX IF NOT EXISTS domain_daily_mac ON domain_daily(mac, day);
 """
 
-_MIGRATIONS = {1: _SCHEMA, 2: _SCHEMA_V2}
+# v3: KI-Vorbewertung pro Vorfall (wird mit dem Vorfall gelöscht).
+_SCHEMA_V3 = """
+CREATE TABLE IF NOT EXISTS ai_assessments (
+    incident_id INTEGER PRIMARY KEY REFERENCES incidents(id) ON DELETE CASCADE,
+    created_at  TEXT NOT NULL,
+    model       TEXT NOT NULL,
+    verdict     TEXT NOT NULL,
+    risk        TEXT NOT NULL,
+    action      TEXT NOT NULL,
+    summary     TEXT NOT NULL,
+    reasons     TEXT NOT NULL DEFAULT '[]'
+);
+"""
+
+_MIGRATIONS = {1: _SCHEMA, 2: _SCHEMA_V2, 3: _SCHEMA_V3}
 
 
 def hour_key(at: datetime) -> str:
@@ -422,6 +437,42 @@ class Store:
         )
         return cur.rowcount
 
+    # --- KI-Vorbewertung ----------------------------------------------------------
+
+    def save_assessment(self, a: Assessment) -> None:
+        self._db.execute(
+            """
+            INSERT INTO ai_assessments (incident_id, created_at, model, verdict, risk, action,
+                                        summary, reasons)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(incident_id) DO UPDATE SET
+                created_at = excluded.created_at, model = excluded.model,
+                verdict = excluded.verdict, risk = excluded.risk, action = excluded.action,
+                summary = excluded.summary, reasons = excluded.reasons
+            """,
+            (
+                a.incident_id, _ts(a.created_at), a.model, a.verdict, a.risk, a.action,
+                a.summary, json.dumps(a.reasons, ensure_ascii=False),
+            ),
+        )  # fmt: skip
+
+    def assessment(self, incident_id: int) -> Assessment | None:
+        row = self._db.execute(
+            "SELECT * FROM ai_assessments WHERE incident_id = ?", (incident_id,)
+        ).fetchone()
+        return _assessment(row) if row else None
+
+    def assessments(self) -> dict[int, Assessment]:
+        rows = self._db.execute("SELECT * FROM ai_assessments").fetchall()
+        return {r["incident_id"]: _assessment(r) for r in rows}
+
+    def delete_device_assessments(self, mac: str) -> int:
+        return self._db.execute(
+            "DELETE FROM ai_assessments WHERE incident_id IN "
+            "(SELECT id FROM incidents WHERE device_mac = ?)",
+            (mac,),
+        ).rowcount
+
     # --- Lesepositionen der Datenquellen ------------------------------------------
 
     def cursor(self, source: str) -> str | None:
@@ -480,4 +531,17 @@ def _incident(r: sqlite3.Row) -> Incident:
         details=json.loads(r["details"]),
         occurrences=r["occurrences"],
         note=r["note"],
+    )
+
+
+def _assessment(r: sqlite3.Row) -> Assessment:
+    return Assessment(
+        incident_id=r["incident_id"],
+        created_at=_dt(r["created_at"]),
+        model=r["model"],
+        verdict=r["verdict"],
+        risk=r["risk"],
+        action=r["action"],
+        summary=r["summary"],
+        reasons=json.loads(r["reasons"]),
     )

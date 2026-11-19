@@ -12,6 +12,10 @@ dependencies = [
     "python-multipart>=0.0.20",  # Formulare
 ]
 
+[project.optional-dependencies]
+# KI-Vorbewertung von Vorfällen (Claude). Optional: ohne dieses Extra läuft Aluco ohne KI.
+ai = ["anthropic>=2.8"]
+
 [dependency-groups]
 dev = [
     "httpx>=0.28",  # Testclient für Starlette

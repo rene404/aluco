@@ -27,7 +27,8 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from aluco import __version__
-from aluco.config import ConfigError, db_path_from_env
+from aluco.ai import AssessmentError, Assessor, assess_incident
+from aluco.config import AiSettings, ConfigError, ai_settings_from_env, db_path_from_env
 from aluco.devices import (
     DeviceNotFoundError,
     set_name,
@@ -96,6 +97,7 @@ class WebConfig:
     secure_cookies: bool = False  # True, sobald das Dashboard per HTTPS erreichbar ist
     session_hours: int = 12
     timezone: str = "UTC"
+    ai: AiSettings = field(default_factory=AiSettings)
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> WebConfig:
@@ -119,10 +121,16 @@ class WebConfig:
             port=port,
             secure_cookies=e.get("ALUCO_WEB_SECURE_COOKIES", "").lower() in {"1", "true", "yes"},
             timezone=tz,
+            ai=ai_settings_from_env(e),
         )
 
 
-def create_app(cfg: WebConfig) -> Starlette:
+def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
+    """``assessor``: KI-Bewerter (Tests); sonst aus ``cfg.ai`` erzeugt, falls aktiviert."""
+    if assessor is None and cfg.ai.enabled:
+        from aluco.ai import ClaudeAssessor
+
+        assessor = ClaudeAssessor(model=cfg.ai.model)
     sessions = Sessions(cfg.session_hours * 3600)
     throttle = LoginThrottle()
     tz = ZoneInfo(cfg.timezone)
@@ -146,6 +154,7 @@ def create_app(cfg: WebConfig) -> Starlette:
         abbr=views.abbreviation,
         tone=views.event_tone,
         explain=views.explain,
+        ai_enabled=assessor is not None,
     )
     templates.filters["local"] = lambda dt: dt.astimezone(tz).strftime("%d.%m.%Y %H:%M")
     templates.filters["localdate"] = lambda dt: dt.astimezone(tz).strftime("%d.%m.%Y")
@@ -279,6 +288,7 @@ def create_app(cfg: WebConfig) -> Starlette:
         with store() as s:
             everything = s.incidents()
             devices = {d.mac: d for d in s.devices()}
+            assessments = s.assessments()
         counts = {
             key: sum(1 for i in everything if statuses is None or i.status in statuses)
             for key, statuses in STATUS_FILTERS.items()
@@ -293,6 +303,7 @@ def create_app(cfg: WebConfig) -> Starlette:
             filter=flt,
             counts=counts,
             nav_open=counts["open"],
+            assessments=assessments,
         )
 
     async def incident_status(request: Request) -> Response:
@@ -315,8 +326,47 @@ def create_app(cfg: WebConfig) -> Starlette:
             except TransitionError as e:
                 return PlainTextResponse(str(e), status_code=409)
             devices = {d.mac: d for d in s.devices()}
+            assessments = s.assessments()
         if is_htmx(request):
-            return render(request, "_incident_card.html", i=updated, devices=devices, open=True)
+            return render(
+                request,
+                "_incident_card.html",
+                i=updated,
+                devices=devices,
+                assessments=assessments,
+                open=True,
+            )
+        return RedirectResponse("/incidents", status_code=303)
+
+    async def incident_assess(request: Request) -> Response:
+        """KI-Einschätzung von Hand anfordern (oder erneuern)."""
+        if assessor is None:
+            return PlainTextResponse("KI-Vorbewertung ist nicht aktiviert", status_code=400)
+        incident_id = request.path_params["incident_id"]
+        error = ""
+        with store() as s:
+            try:
+                with s.transaction():
+                    result = assess_incident(s, assessor, incident_id)
+                if result is None:
+                    error = "Firmengeräte werden nicht von der KI bewertet."
+            except KeyError:
+                return PlainTextResponse("Vorfall nicht gefunden", status_code=404)
+            except AssessmentError as e:
+                error = str(e)
+            incident = s.incident_by_id(incident_id)
+            devices = {d.mac: d for d in s.devices()}
+            assessments = s.assessments()
+        if is_htmx(request):
+            return render(
+                request,
+                "_incident_card.html",
+                i=incident,
+                devices=devices,
+                assessments=assessments,
+                ai_error=error,
+                open=True,
+            )
         return RedirectResponse("/incidents", status_code=303)
 
     async def devices_page(request: Request) -> Response:
@@ -451,6 +501,7 @@ def create_app(cfg: WebConfig) -> Starlette:
         Route("/", overview),
         Route("/incidents", incidents),
         Route("/incidents/{incident_id:int}/status", incident_status, methods=["POST"]),
+        Route("/incidents/{incident_id:int}/assess", incident_assess, methods=["POST"]),
         Route("/devices", devices_page),
         Route("/devices/{mac}", device_detail),
         Route("/devices/{mac}", device_update, methods=["POST"]),
