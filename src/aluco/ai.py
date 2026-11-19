@@ -31,6 +31,10 @@ ACTION_DE = {
 }
 RULE_TEXT = {
     "new_device": "Ein Gerät mit bisher unbekannter MAC-Adresse ist im Heimnetz aufgetaucht.",
+    "bad_domain": (
+        "Ein Gerät hat eine Domain angefragt, die auf einer öffentlichen Bedrohungsliste "
+        "(Malware, Phishing, Command-and-Control) steht."
+    ),
     "new_domain": (
         "Ein IoT-Gerät (z. B. Fernseher, Steckdose) hat nach abgeschlossener Lernphase eine "
         "Domain angefragt, die es noch nie angefragt hat."
@@ -115,6 +119,11 @@ def build_context(
         ctx["zufaellige_mac"] = details.get("randomized_mac") == "true"
         if details.get("vendor"):
             ctx["hersteller_laut_scan"] = details["vendor"]
+    elif incident.rule == "bad_domain":
+        ctx["domain_auf_liste"] = details.get("domain")
+        ctx["angefragt"] = details.get("query")
+        ctx["liste"] = details.get("list")
+        ctx["von_adguard_blockiert"] = details.get("blocked") == "true"
     elif incident.rule == "new_domain":
         ctx["neue_domain"] = details.get("domain")
         ctx["angefragt"] = details.get("query")
