@@ -65,6 +65,36 @@ services:
     pids_limit: 64
     logging: *logging
 
+  aluco-web:
+    image: aluco:local # gleiches Image wie "aluco"; wird dort gebaut
+    container_name: aluco-web
+    command: ["web"]
+    network_mode: host # Dashboard auf Port ALUCO_WEB_PORT (Standard 8088), nur Heimnetz/VPN
+    restart: unless-stopped
+    depends_on: [aluco]
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    env_file: .env
+    environment:
+      ALUCO_DB_PATH: /data/aluco.db
+    volumes:
+      - ${ALUCO_DATA_DIR:-./data}/aluco:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/healthz' % (os.environ.get('ALUCO_WEB_PORT') or 8088), timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: ${ALUCO_WEB_MEM_LIMIT:-256m}
+    pids_limit: 64
+    logging: *logging
+
   netalertx:
     image: ghcr.io/netalertx/netalertx:26.10.28@sha256:ebce55cdbccc0f71544e6997541fe81db803b8c8bec3079435b8cd0a40d49b7e
     container_name: aluco-netalertx

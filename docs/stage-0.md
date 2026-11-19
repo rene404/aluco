@@ -6,7 +6,8 @@ Stand: 2026-11-19 · Ziel: sehen, welche Geräte im Netz sind und welche Domains
 |---|---|---|
 | AdGuard Home | DNS für das Heimnetz, Protokoll pro Gerät, Filter | `http://<server>/` |
 | NetAlertX | Geräteinventar per ARP-Scan, Meldung bei neuen Geräten | `http://<server>:20211/` |
-| Aluco | Führt beides zusammen: Inventar, Domains pro Gerät, Vorfälle, Meldungen per ntfy | – (Dashboard folgt) |
+| Aluco | Führt beides zusammen: Inventar, Domains pro Gerät, Vorfälle, Meldungen per ntfy | – |
+| Aluco-Dashboard | Übersicht, Vorfälle bearbeiten, Geräte einordnen | `http://<server>:8088/` |
 
 Alle laufen per Docker Compose (`compose.yaml`) im Host-Netz des Servers.
 
@@ -51,11 +52,13 @@ dig +short @127.0.0.1 example.com                  # liefert eine IP
 
 1. In `.env` eintragen: `ADGUARD_PASSWORD` (aus `adguard-setup.sh`), `NETALERTX_API_TOKEN` (siehe oben).
 2. Optional Meldungen: `NTFY_URL` (komplette Topic-URL). Bei öffentlichem ntfy-Server einen langen, zufälligen Topic-Namen wählen und `ALUCO_NOTIFY_MINIMAL=true` setzen – dann verlassen keine Geräte- oder Domainnamen das Heimnetz.
-3. Starten: `docker compose up -d --build aluco`, Kontrolle: `docker logs -f aluco`.
+3. Dashboard-Passwort setzen: `ALUCO_DASHBOARD_PASSWORD` (mindestens 12 Zeichen).
+4. Starten: `docker compose up -d --build aluco aluco-web`, Kontrolle: `docker logs -f aluco`.
+5. Dashboard: `http://<server>:8088/` – nur im Heimnetz bzw. per VPN, nie per Portfreigabe ins Internet.
 
 Der **erste Lauf lernt nur** (übernimmt alle vorhandenen Geräte ohne Alarm). Ab dem zweiten Lauf meldet Aluco unbekannte Geräte; Anfragen an neue Domains meldet es nur bei IoT-Geräten und erst nach 7 Tagen Lernphase. ### Geräte einordnen
 
-**Direkt nach dem ersten Lauf** Firmengeräte markieren – dabei löscht Aluco alles, was es über deren DNS-Verhalten schon gespeichert hat:
+**Direkt nach dem ersten Lauf** Firmengeräte markieren – dabei löscht Aluco alles, was es über deren DNS-Verhalten schon gespeichert hat. Am einfachsten im Dashboard unter **Geräte**; alternativ per Kommandozeile:
 
 ```sh
 docker compose run --rm aluco device list                         # Inventar mit MAC-Adressen

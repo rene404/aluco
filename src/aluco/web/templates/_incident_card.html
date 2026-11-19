@@ -1,0 +1,35 @@
+{% set d = devices.get(i.device_mac) if i.device_mac else None %}
+{% set is_open = i.status.value in ("new", "investigating") %}
+<li class="card incident {{ 'incident-open sev-border-' ~ (i.severity.name | lower) if is_open else 'incident-closed' }}" id="incident-{{ i.id }}">
+  <details {% if open %}open{% endif %}>
+    <summary>
+      <span class="incident-meta">
+        <span class="pill sev-{{ i.severity.name | lower }}">{{ SEVERITY_DE[i.severity] }}</span>
+        <span class="pill status-{{ i.status.value }}">{{ STATUS_DE[i.status] }}</span>
+        <span class="muted small" title="{{ i.updated_at | local }}">{{ rel(i.updated_at) }} · {{ i.occurrences }}×</span>
+      </span>
+      <span class="incident-title">{{ i.title }}</span>
+      {% if d %}
+      <span class="incident-device"><span class="abbr abbr-sm">{{ abbr(d) }}</span>{{ d.label }} <span class="mono muted">{{ d.ip or "" }}</span></span>
+      {% endif %}
+    </summary>
+    <div class="incident-body">
+      <div class="why">
+        <h3>Warum auffällig</h3>
+        <ul>{% for f in explain(i) %}<li>{{ f }}</li>{% endfor %}</ul>
+        {% if d %}<a href="/devices/{{ d.mac }}">Gerät ansehen</a>{% endif %}
+      </div>
+      <form class="incident-actions" method="post" action="/incidents/{{ i.id }}/status" hx-post="/incidents/{{ i.id }}/status" hx-target="#incident-{{ i.id }}" hx-swap="outerHTML">
+        <label class="field">Notiz
+          <input type="text" name="note" maxlength="500" value="{{ i.note }}" placeholder="z. B. Besuch, Gastgerät">
+        </label>
+        <div class="btn-row">
+          {% for target in transitions(i.status) %}
+          <button type="submit" name="status" value="{{ target.value }}" class="btn {{ 'btn-primary' if target.value == 'resolved' else '' }}">{{ ACTION_DE[target] }}</button>
+          {% endfor %}
+          {% if is_open %}<button type="button" class="btn btn-disabled" disabled title="Kommt mit der Firewall (Stufe 1)">Trennen</button>{% endif %}
+        </div>
+      </form>
+    </div>
+  </details>
+</li>

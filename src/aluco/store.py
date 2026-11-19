@@ -6,18 +6,20 @@ import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from aluco.model import (
     Device,
+    Event,
+    EventKind,
     Incident,
     IncidentStatus,
     Severity,
     TrustLevel,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS devices (
@@ -63,6 +65,53 @@ CREATE TABLE IF NOT EXISTS cursors (
 );
 """
 
+# v2: Online-Status und Notiz, Chronik, DNS-Statistik (nur Zahlen pro Stunde/Tag).
+_SCHEMA_V2 = """
+ALTER TABLE devices ADD COLUMN online INTEGER;
+ALTER TABLE devices ADD COLUMN notes TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    at          TEXT NOT NULL,
+    kind        TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    device_mac  TEXT,
+    detail      TEXT NOT NULL DEFAULT '',
+    severity    INTEGER
+);
+CREATE INDEX IF NOT EXISTS events_at ON events(at);
+
+-- Anfragen pro Gerät und Stunde; mac '' = Client keinem Gerät zuordenbar
+CREATE TABLE IF NOT EXISTS dns_hourly (
+    hour        TEXT NOT NULL,
+    mac         TEXT NOT NULL,
+    total       INTEGER NOT NULL DEFAULT 0,
+    blocked     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (hour, mac)
+);
+
+-- Anfragen pro Gerät, Hauptdomain und Tag (UTC)
+CREATE TABLE IF NOT EXISTS domain_daily (
+    day         TEXT NOT NULL,
+    mac         TEXT NOT NULL,
+    domain      TEXT NOT NULL,
+    total       INTEGER NOT NULL DEFAULT 0,
+    blocked     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, mac, domain)
+);
+CREATE INDEX IF NOT EXISTS domain_daily_mac ON domain_daily(mac, day);
+"""
+
+_MIGRATIONS = {1: _SCHEMA, 2: _SCHEMA_V2}
+
+
+def hour_key(at: datetime) -> str:
+    return at.astimezone(UTC).strftime("%Y-%m-%dT%H:00:00+00:00")
+
+
+def day_key(at: datetime) -> str:
+    return at.astimezone(UTC).strftime("%Y-%m-%d")
+
 
 def _ts(dt: datetime) -> str:
     if dt.tzinfo is None:
@@ -100,9 +149,10 @@ class Store:
         version = self._db.execute("PRAGMA user_version").fetchone()[0]
         if version > SCHEMA_VERSION:
             raise RuntimeError(f"Datenbank ist neuer (v{version}) als diese Aluco-Version")
-        if version < 1:
-            self._db.executescript(_SCHEMA)
-            self._db.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        for target in range(version + 1, SCHEMA_VERSION + 1):
+            # Jede Stufe atomar: Schema-Änderung und Versionsnummer gemeinsam.
+            script = _MIGRATIONS[target]
+            self._db.executescript(f"BEGIN; {script} PRAGMA user_version = {target}; COMMIT;")
 
     # --- Geräte -------------------------------------------------------------------
 
@@ -124,16 +174,18 @@ class Store:
         self._db.execute(
             """
             INSERT INTO devices (mac, first_seen, last_seen, ip, hostname, vendor, name,
-                                 trust, protected)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                 trust, protected, online, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(mac) DO UPDATE SET
                 first_seen = excluded.first_seen, last_seen = excluded.last_seen,
                 ip = excluded.ip, hostname = excluded.hostname, vendor = excluded.vendor,
-                name = excluded.name, trust = excluded.trust, protected = excluded.protected
+                name = excluded.name, trust = excluded.trust, protected = excluded.protected,
+                online = excluded.online, notes = excluded.notes
             """,
             (
                 d.mac, _ts(d.first_seen), _ts(d.last_seen), d.ip, d.hostname, d.vendor,
                 d.name, d.trust.value, int(d.protected),
+                None if d.online is None else int(d.online), d.notes,
             ),
         )  # fmt: skip
         return d
@@ -164,6 +216,137 @@ class Store:
     def delete_device_domains(self, mac: str) -> int:
         cur = self._db.execute("DELETE FROM device_domains WHERE mac = ?", (mac,))
         return cur.rowcount
+
+    # --- DNS-Statistik (nur Zahlen) ----------------------------------------------
+
+    def count_query(self, mac: str, domain: str | None, at: datetime, blocked: bool) -> None:
+        """Eine Anfrage zählen: pro Stunde und – mit Domain – pro Tag und Hauptdomain."""
+        b = int(blocked)
+        self._db.execute(
+            "INSERT INTO dns_hourly (hour, mac, total, blocked) VALUES (?, ?, 1, ?) "
+            "ON CONFLICT(hour, mac) DO UPDATE SET total = total + 1, blocked = blocked + ?",
+            (hour_key(at), mac, b, b),
+        )
+        if domain:
+            self._db.execute(
+                "INSERT INTO domain_daily (day, mac, domain, total, blocked) "
+                "VALUES (?, ?, ?, 1, ?) ON CONFLICT(day, mac, domain) "
+                "DO UPDATE SET total = total + 1, blocked = blocked + ?",
+                (day_key(at), mac, domain, b, b),
+            )
+
+    def dns_hourly(
+        self, since: datetime, mac: str | None = None
+    ) -> list[tuple[datetime, int, int]]:
+        """(Stunde, Anfragen, blockiert) ab ``since``; ohne ``mac`` über alle Clients."""
+        sql = "SELECT hour, sum(total), sum(blocked) FROM dns_hourly WHERE hour >= ?"
+        params: list[str] = [hour_key(since)]
+        if mac is not None:
+            sql += " AND mac = ?"
+            params.append(mac)
+        sql += " GROUP BY hour ORDER BY hour"
+        return [(_dt(h), t, b) for h, t, b in self._db.execute(sql, params).fetchall()]
+
+    def dns_hourly_by_device(self, since: datetime) -> dict[str, dict[datetime, int]]:
+        """Pro Gerät: Stunde → Anfragen (für Mini-Verläufe)."""
+        out: dict[str, dict[datetime, int]] = {}
+        rows = self._db.execute(
+            "SELECT mac, hour, total FROM dns_hourly WHERE hour >= ? AND mac != ''",
+            (hour_key(since),),
+        ).fetchall()
+        for mac, hour, total in rows:
+            out.setdefault(mac, {})[_dt(hour)] = total
+        return out
+
+    def top_devices(self, since: datetime, limit: int = 5) -> list[tuple[str, int]]:
+        rows = self._db.execute(
+            "SELECT mac, sum(total) AS n FROM dns_hourly WHERE hour >= ? AND mac != '' "
+            "GROUP BY mac ORDER BY n DESC LIMIT ?",
+            (hour_key(since), limit),
+        ).fetchall()
+        return [(r[0], r[1]) for r in rows]
+
+    def top_blocked_domains(self, since: datetime, limit: int = 5) -> list[tuple[str, int]]:
+        rows = self._db.execute(
+            "SELECT domain, sum(blocked) AS n FROM domain_daily WHERE day >= ? "
+            "GROUP BY domain HAVING n > 0 ORDER BY n DESC LIMIT ?",
+            (day_key(since), limit),
+        ).fetchall()
+        return [(r[0], r[1]) for r in rows]
+
+    def device_domain_stats(
+        self, mac: str, since: datetime
+    ) -> list[tuple[str, datetime, int, int]]:
+        """(Hauptdomain, zuerst gesehen, Anfragen, blockiert) für ein Gerät, neueste zuerst."""
+        rows = self._db.execute(
+            """
+            SELECT d.domain, d.first_seen,
+                   coalesce(sum(s.total), 0), coalesce(sum(s.blocked), 0)
+            FROM device_domains d
+            LEFT JOIN domain_daily s
+                   ON s.mac = d.mac AND s.domain = d.domain AND s.day >= ?
+            WHERE d.mac = ?
+            GROUP BY d.domain, d.first_seen
+            ORDER BY d.first_seen DESC, d.domain
+            """,
+            (day_key(since), mac),
+        ).fetchall()
+        return [(r[0], _dt(r[1]), r[2], r[3]) for r in rows]
+
+    def delete_device_stats(self, mac: str) -> None:
+        self._db.execute("DELETE FROM dns_hourly WHERE mac = ?", (mac,))
+        self._db.execute("DELETE FROM domain_daily WHERE mac = ?", (mac,))
+
+    def purge_stats(self, older_than: datetime) -> None:
+        self._db.execute("DELETE FROM dns_hourly WHERE hour < ?", (hour_key(older_than),))
+        self._db.execute("DELETE FROM domain_daily WHERE day < ?", (day_key(older_than),))
+
+    # --- Chronik ------------------------------------------------------------------
+
+    def add_event(self, e: Event) -> None:
+        self._db.execute(
+            "INSERT INTO events (at, kind, title, device_mac, detail, severity) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                _ts(e.at), e.kind.value, e.title, e.device_mac, e.detail,
+                None if e.severity is None else int(e.severity),
+            ),
+        )  # fmt: skip
+
+    def events(
+        self,
+        limit: int = 50,
+        kinds: frozenset[EventKind] | None = None,
+        device_mac: str | None = None,
+        since: datetime | None = None,
+    ) -> list[Event]:
+        sql = "SELECT * FROM events WHERE 1 = 1"
+        params: list[str | int] = []
+        if kinds:
+            sql += f" AND kind IN ({','.join('?' * len(kinds))})"
+            params += sorted(k.value for k in kinds)
+        if device_mac is not None:
+            sql += " AND device_mac = ?"
+            params.append(device_mac)
+        if since is not None:
+            sql += " AND at > ?"
+            params.append(_ts(since))
+        sql += " ORDER BY at DESC, id DESC LIMIT ?"
+        params.append(limit)
+        return [_event(r) for r in self._db.execute(sql, params).fetchall()]
+
+    def delete_device_events(self, mac: str, kinds: frozenset[EventKind]) -> int:
+        """Ereignisse eines Geräts löschen (Firmengerät: Vorfälle verraten Verhalten)."""
+        if not kinds:
+            return 0
+        placeholders = ",".join("?" * len(kinds))  # nur Platzhalter, Werte als Parameter
+        return self._db.execute(
+            f"DELETE FROM events WHERE device_mac = ? AND kind IN ({placeholders})",  # noqa: S608
+            (mac, *sorted(k.value for k in kinds)),
+        ).rowcount
+
+    def purge_events(self, older_than: datetime) -> int:
+        return self._db.execute("DELETE FROM events WHERE at < ?", (_ts(older_than),)).rowcount
 
     # --- Vorfälle -----------------------------------------------------------------
 
@@ -266,6 +449,20 @@ def _device(r: sqlite3.Row) -> Device:
         name=r["name"],
         trust=TrustLevel(r["trust"]),
         protected=bool(r["protected"]),
+        online=None if r["online"] is None else bool(r["online"]),
+        notes=r["notes"],
+    )
+
+
+def _event(r: sqlite3.Row) -> Event:
+    return Event(
+        id=r["id"],
+        at=_dt(r["at"]),
+        kind=EventKind(r["kind"]),
+        title=r["title"],
+        device_mac=r["device_mac"],
+        detail=r["detail"],
+        severity=None if r["severity"] is None else Severity(r["severity"]),
     )
 
 

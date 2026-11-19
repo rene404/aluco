@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Geräte{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Geräte</h1>
+    <p class="muted">{{ total }} Geräte · {{ online }} online · {{ offline }} offline. Ein Klick öffnet Verlauf, Domains und Einstellungen.</p>
+  </div>
+  <form class="search search-lg" method="get" action="/devices" role="search" hx-get="/devices" hx-trigger="input changed delay:250ms from:find input, search from:find input" hx-target="#device-grid" hx-select="#device-grid" hx-swap="outerHTML" hx-push-url="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+    <input type="search" name="q" value="{{ q }}" placeholder="Name, IP, MAC oder Hersteller" aria-label="Geräte durchsuchen">
+    <input type="hidden" name="trust" value="{{ trust_filter }}">
+  </form>
+</div>
+
+<nav class="chips" aria-label="Nach Stufe filtern">
+  {% for key, label in [("all", "Alle"), ("unknown", "Unbekannt"), ("known", "Bekannt"), ("iot", "IoT"), ("guest", "Gast"), ("company", "Firma")] %}
+  <a class="chip" href="/devices?trust={{ key }}&amp;q={{ q | urlencode }}" {% if trust_filter == key %}aria-current="true"{% endif %}>{{ label }} <span class="chip-count">{{ counts[key] }}</span></a>
+  {% endfor %}
+</nav>
+
+<div id="device-grid">
+{% if devices %}
+<ul class="device-grid">
+  {% for d in devices %}
+  <li>
+    <a class="card device-card" href="/devices/{{ d.mac }}">
+      <span class="device-head">
+        <span class="abbr">{{ abbr(d) }}<span class="status-dot {{ 'on' if d.online else ('off' if d.online is false else 'unknown') }}" aria-hidden="true"></span></span>
+        <span class="device-name">
+          <strong>{{ d.label }}</strong>
+          <span class="muted small">{{ d.vendor or "Hersteller unbekannt" }}</span>
+        </span>
+        <span class="pill trust-{{ d.trust.value }}">{{ TRUST_DE[d.trust] }}</span>
+      </span>
+      {% if d.is_company %}
+      <span class="spark-empty small">Nur passiv beobachtet – keine Aktivitätsdaten</span>
+      {% else %}
+      <svg class="spark" viewBox="0 0 240 28" preserveAspectRatio="none" aria-label="DNS-Aktivität der letzten 24 Stunden" role="img">
+        {% for v in spark[d.mac] %}{% if v %}<rect class="{{ 'spark-on' if d.online is not false else 'spark-off' }}" x="{{ loop.index0 * 10 + 1 }}" y="{{ 28 - (v * 0.26 + 2) }}" width="8" height="{{ v * 0.26 + 2 }}" rx="1"></rect>{% endif %}{% endfor %}
+        <rect class="spark-base" x="0" y="27" width="240" height="1"></rect>
+      </svg>
+      {% endif %}
+      <span class="device-foot">
+        <span class="mono">{{ d.ip or "–" }}</span>
+        <span>{% if d.online %}online{% elif d.online is false %}offline · {{ rel(d.last_seen) }}{% else %}{{ rel(d.last_seen) }}{% endif %}</span>
+      </span>
+      {% if d.mac in worst %}
+      <span class="pill-block sev-{{ worst[d.mac].name | lower }}">{{ open_count[d.mac] }} offene{{ 'r' if open_count[d.mac] == 1 else '' }} Vorfall{{ '' if open_count[d.mac] == 1 else 'e' }} · {{ SEVERITY_DE[worst[d.mac]] }}</span>
+      {% elif d.protected %}
+      <span class="pill-block neutral">Schutzliste – nie trennbar</span>
+      {% endif %}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">{{ "Kein Gerät passt zur Suche." if q or trust_filter != "all" else "Noch keine Geräte. Sie erscheinen nach dem ersten Lauf von Aluco." }}</p>
+{% endif %}
+</div>
+{% endblock %}

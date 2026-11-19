@@ -2,6 +2,7 @@
 #   docker compose -f compose.yaml -f compose.local.yaml up -d
 #   Einrichtung:  http://localhost:3300
 #   DNS-Test:     dig @127.0.0.1 -p 5300 example.com
+#   Dashboard:    http://localhost:8088
 # NetAlertX bleibt aus: ARP-Scan braucht ein echtes Linux-Host-Netz.
 
 services:
@@ -23,6 +24,13 @@ services:
     environment:
       ADGUARD_URL: http://adguardhome:80 # Name des Containers im lokalen Docker-Netz
       NETALERTX_URL: "" # lokal kein NetAlertX
+    volumes: !override
+      - aluco-data:/data
+
+  aluco-web:
+    network_mode: !reset null
+    ports:
+      - "127.0.0.1:8088:8088" # Dashboard: http://localhost:8088
     volumes: !override
       - aluco-data:/data
 

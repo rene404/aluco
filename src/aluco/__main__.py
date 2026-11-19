@@ -42,6 +42,7 @@ def _parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("run", help="Dauerbetrieb")
     sub.add_parser("once", help="ein Lauf")
+    sub.add_parser("web", help="Dashboard starten")
 
     dev = sub.add_parser("device", help="Geräte verwalten").add_subparsers(
         dest="action", required=True
@@ -67,7 +68,34 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.command == "device":
         return _device_command(args)
+    if args.command == "web":
+        return _web_command()
     return _run_command(args.command)
+
+
+def _web_command() -> int:
+    import uvicorn
+
+    from aluco.web import WebConfig, create_app
+
+    try:
+        cfg = WebConfig.from_env()
+    except ConfigError as e:
+        log.error("Konfiguration: %s", e)
+        return 2
+    cfg.db_path.parent.mkdir(parents=True, exist_ok=True)
+    Store(cfg.db_path).close()  # Schema anlegen, falls der Runner noch nie lief
+    log.info("Dashboard auf http://%s:%s", cfg.host, cfg.port)
+    uvicorn.run(
+        create_app(cfg),
+        host=cfg.host,
+        port=cfg.port,
+        server_header=False,
+        proxy_headers=False,
+        access_log=False,  # keine IPs/Pfade im Log
+        log_level="info",
+    )
+    return 0
 
 
 def _device_command(args: argparse.Namespace) -> int:

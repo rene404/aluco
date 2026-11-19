@@ -11,6 +11,8 @@ from aluco.model import (
     Device,
     DeviceSighting,
     DnsQuery,
+    Event,
+    EventKind,
     Finding,
     Incident,
     IncidentStatus,
@@ -68,6 +70,16 @@ class Engine:
                 self._process_sighting(s, now, result, evaluate=not learn_only)
             for q in queries:
                 self._process_query(q, now, result, evaluate=not learn_only)
+            if learn_only and result.new_devices:
+                self._store.add_event(
+                    Event(
+                        id=None,
+                        at=now,
+                        kind=EventKind.INVENTORY,
+                        title=f"Inventar übernommen: {result.new_devices} Geräte",
+                        detail="Erster Lauf – vorhandene Geräte ohne Alarm übernommen",
+                    )
+                )
         return result
 
     def _process_sighting(
@@ -88,11 +100,24 @@ class Engine:
                 ip=s.ip,
                 hostname=s.hostname,
                 vendor=s.vendor,
+                online=s.online,
             )
         else:
             device = known.seen(s.at, ip=s.ip, hostname=s.hostname)
             if s.vendor and not device.vendor:
                 device = replace(device, vendor=s.vendor)
+            if s.online is not None:
+                device = replace(device, online=s.online)
+                if known.online is not None and known.online != s.online:
+                    self._store.add_event(
+                        Event(
+                            id=None,
+                            at=now,
+                            kind=EventKind.DEVICE_ONLINE if s.online else EventKind.DEVICE_OFFLINE,
+                            title=f"{device.label} ist {'online' if s.online else 'offline'}",
+                            device_mac=device.mac,
+                        )
+                    )
         self._store.save_device(device)
 
     def _process_query(
@@ -102,11 +127,13 @@ class Engine:
         device = self._store.device_by_ip(q.client_ip)
         if device is None:
             result.queries_unmatched += 1
+            self._store.count_query("", None, q.at, q.blocked)  # nur Gesamtzahl, ohne Domain
             return
         if device.is_company:
-            return  # Firmengeräte: nur passiv, keine Auswertung ihrer Anfragen
+            return  # Firmengeräte: nur passiv – weder Auswertung noch Statistik
         domain = base_domain(q.domain)
         first_time = self._store.record_domain(device.mac, domain, q.at)
+        self._store.count_query(device.mac, domain, q.at, q.blocked)
         if not evaluate:
             return
         ctx = DnsContext(
@@ -122,3 +149,14 @@ class Engine:
         result.incidents.append(incident)
         if before is None or before.status is IncidentStatus.RESOLVED:
             result.alerts.append(incident)
+            self._store.add_event(
+                Event(
+                    id=None,
+                    at=now,
+                    kind=EventKind.INCIDENT,
+                    title=incident.title,
+                    device_mac=incident.device_mac,
+                    detail="Vorfall wieder geöffnet" if before else "Neuer Vorfall",
+                    severity=incident.severity,
+                )
+            )

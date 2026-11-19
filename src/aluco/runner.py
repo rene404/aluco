@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from aluco.adapters.base import AdapterError, DeviceSource, DnsSource
 from aluco.config import Config
 from aluco.engine import Engine, RunResult
-from aluco.model import DeviceSighting, DnsQuery, Severity, utcnow
+from aluco.model import DeviceSighting, DnsQuery, Event, EventKind, Severity, utcnow
 from aluco.notify import Notifier, notify_all
 from aluco.store import Store
 
@@ -78,8 +78,16 @@ class Runner:
         for source, position in new_cursors.items():
             self._store.set_cursor(source, position)
 
+        # Für das Dashboard: wann lief Aluco zuletzt, welche Quellen fehlten?
+        self._record_source_changes(errors, now)
+        self._store.set_cursor("runner:last_run", now.isoformat())
+        self._store.set_cursor("runner:last_errors", "\n".join(errors))
+
         summary = RunSummary(result=result, learn_only=learn_only, errors=errors)
-        summary.purged = self._store.purge_closed_incidents(older_than=now - self._retention)
+        cutoff = now - self._retention
+        summary.purged = self._store.purge_closed_incidents(older_than=cutoff)
+        self._store.purge_events(older_than=cutoff)
+        self._store.purge_stats(older_than=cutoff)
 
         if self._notifier and result.alerts:
             summary.notified, summary.notify_failed = notify_all(
@@ -100,6 +108,30 @@ class Runner:
             summary.notified,
         )
         return summary
+
+    def _record_source_changes(self, errors: list[str], now: datetime) -> None:
+        """Nur Wechsel in die Chronik: Quelle fällt aus bzw. ist wieder erreichbar."""
+        before = {
+            e.split(":", 1)[0]
+            for e in (self._store.cursor("runner:last_errors") or "").split("\n")
+            if e
+        }
+        after = {e.split(":", 1)[0] for e in errors}
+        for name in sorted(after - before):
+            detail = next(e for e in errors if e.startswith(name + ":"))
+            self._store.add_event(
+                Event(
+                    id=None,
+                    at=now,
+                    kind=EventKind.SOURCE,
+                    title=f"{name} nicht erreichbar",
+                    detail=detail,
+                )
+            )
+        for name in sorted(before - after):
+            self._store.add_event(
+                Event(id=None, at=now, kind=EventKind.SOURCE, title=f"{name} wieder erreichbar")
+            )
 
 
 def build_runner(cfg: Config, store: Store) -> Runner:

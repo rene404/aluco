@@ -14,7 +14,7 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Protocol
 
-from aluco.model import Device, Finding, Incident, IncidentStatus, utcnow
+from aluco.model import Device, Event, EventKind, Finding, Incident, IncidentStatus, utcnow
 
 S = IncidentStatus
 ALLOWED_TRANSITIONS: dict[IncidentStatus, frozenset[IncidentStatus]] = {
@@ -23,6 +23,15 @@ ALLOWED_TRANSITIONS: dict[IncidentStatus, frozenset[IncidentStatus]] = {
     S.IGNORED: frozenset({S.NEW}),  # Ignorieren zurücknehmen
     S.DISCONNECTED: frozenset({S.RESOLVED}),
     S.RESOLVED: frozenset({S.NEW}),
+}
+
+
+STATUS_TEXT = {
+    S.NEW: "wieder geöffnet",
+    S.INVESTIGATING: "in Prüfung",
+    S.IGNORED: "ignoriert",
+    S.DISCONNECTED: "getrennt",
+    S.RESOLVED: "erledigt",
 }
 
 
@@ -35,6 +44,7 @@ class IncidentStore(Protocol):
     def incident_by_id(self, incident_id: int) -> Incident | None: ...
     def save_incident(self, incident: Incident) -> Incident: ...
     def device(self, mac: str) -> Device | None: ...
+    def add_event(self, event: Event) -> None: ...
 
 
 class IncidentService:
@@ -89,11 +99,17 @@ class IncidentService:
         if new_status is IncidentStatus.DISCONNECTED:
             self._check_disconnect_allowed(incident)
 
-        updated = replace(
-            incident,
-            status=new_status,
-            updated_at=at or utcnow(),
-            note=note or incident.note,
+        now = at or utcnow()
+        updated = replace(incident, status=new_status, updated_at=now, note=note or incident.note)
+        self._store.add_event(
+            Event(
+                id=None,
+                at=now,
+                kind=EventKind.INCIDENT_STATUS,
+                title=f"Vorfall {STATUS_TEXT[new_status]}: {incident.title}",
+                device_mac=incident.device_mac,
+                detail=f"Notiz: {note}" if note else "",
+            )
         )
         return self._store.save_incident(updated)
 
