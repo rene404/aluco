@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Vorfälle{% endblock %}
+{% block content %}
+<h1>Vorfälle</h1>
+<nav class="tabs" aria-label="Filter">
+  {% for key, label in [("open", "Offen"), ("ignored", "Ignoriert"), ("resolved", "Erledigt"), ("all", "Alle")] %}
+  <a href="/incidents?status={{ key }}" {% if filter == key %}aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+{% if incidents %}
+<div class="scroll">
+<table>
+  <thead><tr><th>Schwere</th><th>Vorfall</th><th>Gerät</th><th>Status</th><th>Zuletzt</th><th>Anzahl</th><th>Aktion</th></tr></thead>
+  <tbody>
+    {% for i in incidents %}{% include "_incident_row.html" %}{% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">Keine Vorfälle in dieser Ansicht.</p>
+{% endif %}
+{% endblock %}

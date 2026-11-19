@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Übersicht{% endblock %}
+{% block content %}
+<h1>Übersicht</h1>
+
+<div class="tiles">
+  <a class="tile" href="/incidents">
+    <span class="label">Offene Vorfälle</span>
+    <span class="value">{{ open_count }}</span>
+    <span class="sub">
+      {% for sev, n in by_severity.items() if n %}<span class="sev sev-{{ sev.name | lower }}">{{ n }} {{ SEVERITY_DE[sev] }}</span> {% else %}keine{% endfor %}
+    </span>
+  </a>
+  <a class="tile" href="/devices">
+    <span class="label">Geräte</span>
+    <span class="value">{{ devices | length }}</span>
+    <span class="sub">{% for t, n in by_trust.items() if n %}{{ n }} {{ TRUST_DE[t] }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+  </a>
+  <div class="tile">
+    <span class="label">Letzter Lauf</span>
+    <span class="value small">{{ last_run | local if last_run else "noch keiner" }}</span>
+    <span class="sub">{% if last_errors %}<span class="error">{{ last_errors | length }} Quelle(n) nicht erreichbar</span>{% else %}alle Quellen erreichbar{% endif %}</span>
+  </div>
+</div>
+
+{% if last_errors %}
+<section class="card warn">
+  <h2>Datenquellen</h2>
+  <ul>{% for e in last_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section>
+  <h2>Wichtigste offene Vorfälle</h2>
+  {% if top_incidents %}
+  <ul class="list">
+    {% for i in top_incidents %}
+    <li><span class="sev sev-{{ i.severity.name | lower }}">{{ SEVERITY_DE[i.severity] }}</span> {{ i.title }} <span class="muted">· {{ i.updated_at | local }}</span></li>
+    {% endfor %}
+  </ul>
+  <p><a href="/incidents">Alle Vorfälle →</a></p>
+  {% else %}
+  <p class="muted">Keine offenen Vorfälle. 🦉 Alles ruhig.</p>
+  {% endif %}
+</section>
+{% endblock %}

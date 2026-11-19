@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false, "allowScriptTags": false, "selfRequestsOnly": true}'>
+  <title>{% block title %}Aluco{% endblock %} · Aluco</title>
+  <link rel="stylesheet" href="/static/aluco.css">
+  <script src="/static/htmx-2.0.11.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" defer></script>
+</head>
+<body>
+  {% block nav %}
+  <header class="top">
+    <a class="brand" href="/">🦉 Aluco</a>
+    <nav>
+      <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Übersicht</a>
+      <a href="/incidents" {% if path.startswith("/incidents") %}aria-current="page"{% endif %}>Vorfälle</a>
+      <a href="/devices" {% if path.startswith("/devices") %}aria-current="page"{% endif %}>Geräte</a>
+    </nav>
+    <form method="post" action="/logout" class="logout"><button type="submit" class="link">Abmelden</button></form>
+  </header>
+  {% endblock %}
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>Aluco {{ version }} · Hausradar für dein Netz</footer>
+</body>
+</html>

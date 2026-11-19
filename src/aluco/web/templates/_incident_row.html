@@ -1,0 +1,17 @@
+{% set d = devices.get(i.device_mac) if i.device_mac else None %}
+<tr id="incident-{{ i.id }}">
+  <td><span class="sev sev-{{ i.severity.name | lower }}">{{ SEVERITY_DE[i.severity] }}</span></td>
+  <td>{{ i.title }}{% if i.note %}<br><span class="muted">Notiz: {{ i.note }}</span>{% endif %}</td>
+  <td>{% if d %}<a href="/devices/{{ d.mac }}">{{ d.label }}</a>{% elif i.device_mac %}{{ i.device_mac }}{% else %}–{% endif %}</td>
+  <td>{{ STATUS_DE[i.status] }}</td>
+  <td>{{ i.updated_at | local }}</td>
+  <td>{{ i.occurrences }}</td>
+  <td class="actions">
+    {% for target in transitions(i.status) %}
+    <form method="post" action="/incidents/{{ i.id }}/status" hx-post="/incidents/{{ i.id }}/status" hx-target="#incident-{{ i.id }}" hx-swap="outerHTML">
+      <input type="hidden" name="status" value="{{ target.value }}">
+      <button type="submit" class="small">{{ ACTION_DE[target] }}</button>
+    </form>
+    {% endfor %}
+  </td>
+</tr>

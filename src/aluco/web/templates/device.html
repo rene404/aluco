@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ d.label }}{% endblock %}
+{% block content %}
+<p><a href="/devices">← Geräte</a></p>
+<h1>{{ d.label }}</h1>
+<dl class="facts">
+  <dt>MAC</dt><dd class="mono">{{ d.mac }}</dd>
+  <dt>IP</dt><dd class="mono">{{ d.ip or "–" }}</dd>
+  <dt>Hostname</dt><dd>{{ d.hostname or "–" }}</dd>
+  <dt>Hersteller</dt><dd>{{ d.vendor or "–" }}</dd>
+  <dt>Stufe</dt><dd>{{ TRUST_DE[d.trust] }}{% if d.protected %} · auf der Schutzliste{% endif %}</dd>
+  <dt>Zuerst gesehen</dt><dd>{{ d.first_seen | local }}</dd>
+  <dt>Zuletzt gesehen</dt><dd>{{ d.last_seen | local }}</dd>
+</dl>
+
+<section>
+  <h2>Vorfälle</h2>
+  {% if incidents %}
+  <ul class="list">
+    {% for i in incidents %}<li><span class="sev sev-{{ i.severity.name | lower }}">{{ SEVERITY_DE[i.severity] }}</span> {{ i.title }} <span class="muted">· {{ STATUS_DE[i.status] }} · {{ i.updated_at | local }}</span></li>{% endfor %}
+  </ul>
+  {% else %}<p class="muted">Keine.</p>{% endif %}
+</section>
+
+<section>
+  <h2>Angefragte Domains</h2>
+  {% if d.is_company %}
+  <p class="muted">Firmengerät – Aluco speichert keine Domains.</p>
+  {% elif domains %}
+  <p class="muted">{{ domains | length }} Domains (zusammengefasst auf die Hauptdomain).</p>
+  <ul class="domains">{% for name in domains %}<li class="mono">{{ name }}</li>{% endfor %}</ul>
+  {% else %}
+  <p class="muted">Noch keine.</p>
+  {% endif %}
+</section>
+{% endblock %}

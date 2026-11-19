@@ -78,6 +78,10 @@ class Runner:
         for source, position in new_cursors.items():
             self._store.set_cursor(source, position)
 
+        # Für das Dashboard: wann lief Aluco zuletzt, welche Quellen fehlten?
+        self._store.set_cursor("runner:last_run", now.isoformat())
+        self._store.set_cursor("runner:last_errors", "\n".join(errors))
+
         summary = RunSummary(result=result, learn_only=learn_only, errors=errors)
         summary.purged = self._store.purge_closed_incidents(older_than=now - self._retention)
 

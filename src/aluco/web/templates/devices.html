@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Geräte{% endblock %}
+{% block content %}
+<h1>Geräte</h1>
+<p class="muted">Firmengeräte werden nur passiv beobachtet: Beim Markieren als <strong>Firma</strong> löscht Aluco alle gespeicherten Domains des Geräts. Geräte auf der Schutzliste werden nie getrennt.</p>
+{% if devices %}
+<div class="scroll">
+<table>
+  <thead><tr><th>Gerät</th><th>IP</th><th>Hersteller</th><th>Zuletzt</th><th>Name</th><th>Stufe</th><th>Schutz</th><th></th></tr></thead>
+  <tbody>
+    {% for d in devices %}{% include "_device_row.html" %}{% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">Noch keine Geräte. Sie erscheinen nach dem ersten Lauf von Aluco.</p>
+{% endif %}
+{% endblock %}

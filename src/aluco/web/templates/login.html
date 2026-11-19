@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Anmelden{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<section class="login card">
+  <h1>🦉 Aluco</h1>
+  <p class="muted">Hausradar für dein Netz</p>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/login">
+    <label for="password">Passwort</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+    <button type="submit">Anmelden</button>
+  </form>
+</section>
+{% endblock %}

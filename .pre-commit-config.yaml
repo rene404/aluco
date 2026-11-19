@@ -1,5 +1,8 @@
 # Installieren: uv run pre-commit install   (oder: pre-commit install)
 # Versionen sind auf Commit-SHAs festgelegt (Schutz vor manipulierten Tags).
+# Eingebundene Fremddateien unverändert lassen (sonst stimmt die SRI-Prüfsumme nicht).
+exclude: ^src/aluco/web/static/htmx-[0-9.]+\.min\.js$
+
 repos:
   - repo: local
     hooks:
