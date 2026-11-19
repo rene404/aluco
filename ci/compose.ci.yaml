@@ -1,0 +1,18 @@
+# Integrationstest (CI und lokal): zusätzlich zu compose.yaml + compose.local.yaml.
+# NetAlertX läuft hier ohne Host-Netz (kein echter Scan) – Geräte legt der Test per API an.
+services:
+  netalertx:
+    profiles: !reset []
+    network_mode: !reset null
+    ports:
+      - "127.0.0.1:20211:20211"
+      - "127.0.0.1:20212:20212"
+    volumes: !override
+      - nax-data:/data
+  aluco:
+    environment:
+      NETALERTX_URL: http://netalertx:20212
+    depends_on: !override [adguardhome, netalertx]
+
+volumes:
+  nax-data:
