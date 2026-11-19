@@ -139,10 +139,23 @@ def _dt(value: str) -> datetime:
 
 
 class Store:
-    def __init__(self, path: str | Path = ":memory:") -> None:
-        self._db = sqlite3.connect(path, isolation_level=None)  # autocommit; Transaktionen explizit
+    def __init__(self, path: str | Path = ":memory:", read_only: bool = False) -> None:
+        if read_only:
+            # Nur lesen (MCP-Server): SQLite verweigert jeden Schreibversuch selbst.
+            uri = f"file:{Path(path).resolve()}?mode=ro"
+            self._db = sqlite3.connect(uri, uri=True, isolation_level=None)
+        else:
+            self._db = sqlite3.connect(path, isolation_level=None)  # Transaktionen explizit
         self._db.row_factory = sqlite3.Row
         self._db.execute("PRAGMA foreign_keys = ON")
+        if read_only:
+            version = self._db.execute("PRAGMA user_version").fetchone()[0]
+            if version != SCHEMA_VERSION:
+                raise RuntimeError(
+                    f"Datenbank hat Schema v{version}, erwartet v{SCHEMA_VERSION} – "
+                    "erst den Aluco-Dienst starten"
+                )
+            return
         if str(path) != ":memory:":
             self._db.execute("PRAGMA journal_mode = WAL")
         self._migrate()

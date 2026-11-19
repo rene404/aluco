@@ -12,7 +12,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /src
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
-RUN uv sync --locked --no-dev --no-editable --extra ai
+RUN uv sync --locked --no-dev --no-editable --extra ai --extra mcp
 
 FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 RUN useradd --system --uid 10001 --user-group --no-create-home --shell /usr/sbin/nologin aluco \

@@ -15,6 +15,7 @@ Aluco ersetzt keine bewährten Tools, sondern setzt auf ihnen auf: OPNsense, AdG
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Zielbild, Grundsätze, Ausbaustufen 0–4 |
 | [docs/stage-0.md](docs/stage-0.md) | Stufe 0: AdGuard Home + NetAlertX einrichten, Rückweg, Abnahme |
+| [docs/mcp.md](docs/mcp.md) | MCP-Server: Claude Desktop/Code nach dem Netz fragen |
 | [docs/ai.md](docs/ai.md) | KI-Vorbewertung: was gesendet wird, Einrichtung, Kosten |
 | [docs/dashboard-concept.md](docs/dashboard-concept.md) | Unterseiten, Erkennungsregeln, Wege zum Trennen, Umgang mit Laptops und Firmengeräten |
 | [docs/roadmap.md](docs/roadmap.md) | Ausbau nach Stufe 4 mit Nutzen/Aufwand, Prioritäten, Risiken |
