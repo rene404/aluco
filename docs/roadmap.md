@@ -20,7 +20,7 @@ Stand: 2026-11-18 · Bewertung: Nutzen ⭐–⭐⭐⭐
 | Eigene Geräte auf Schwachstellen scannen (nmap, Greenbone) | Neue Ports, veraltete Firmware | ⭐⭐ | mittel |
 | Angriffsfläche von außen | Öffentliche IP scannen, Shodan, UPnP-Freigaben (UPnP abschalten) | ⭐⭐ | gering |
 | CVE-Abgleich | Hersteller/Modell → bekannte Lücken | ⭐⭐ | mittel |
-| Mac härten (Santa, KnockKnock, Datei-Integrität) | Nur freigegebene Programme auf privaten Laptops | ⭐⭐ | mittel |
+| Mac härten (Santa, KnockKnock, Datei-Integrität) | Nur freigegebene Programme auf privaten Laptops – **Teil umgesetzt:** Laptop-Agent prüft Autostart, Ports, Firewall/FileVault/Gatekeeper/SIP | ⭐⭐ | mittel |
 
 ## C. KI und Bedienung
 

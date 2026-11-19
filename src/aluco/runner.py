@@ -100,6 +100,7 @@ class Runner:
         summary.purged = self._store.purge_closed_incidents(older_than=cutoff)
         self._store.purge_events(older_than=cutoff)
         self._store.purge_stats(older_than=cutoff)
+        self._store.purge_host_items(older_than=cutoff)
 
         assessments = self._assess(result.alerts, now, summary)
         if self._notifier and result.alerts:

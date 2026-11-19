@@ -42,7 +42,7 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
 ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106"]  # Asserts und Test-Zugangsdaten erlaubt
+"tests/**" = ["S101", "S104", "S105", "S106"]  # Asserts und Test-Zugangsdaten erlaubt
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

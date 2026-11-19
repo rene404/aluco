@@ -33,6 +33,7 @@
         </span>
         <span class="pill trust-{{ d.trust.value }}">{{ TRUST_DE[d.trust] }}</span>
       </span>
+      {% if d.mac in agents %}<span class="pill neutral agent-pill" title="Laptop-Agent (osquery) aktiv">Agent</span>{% endif %}
       {% if d.is_company %}
       <span class="spark-empty small">Nur passiv beobachtet – keine Aktivitätsdaten</span>
       {% else %}

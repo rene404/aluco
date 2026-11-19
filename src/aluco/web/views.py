@@ -260,6 +260,24 @@ def explain(incident: Incident) -> list[str]:
             if d.get("blocked") == "true"
             else "Die Anfrage wurde NICHT blockiert – Domain in AdGuard sperren"
         )
+    elif incident.rule == "agent_port":
+        facts.append(
+            f"{d.get('program', '?')} nimmt Verbindungen auf Port {d.get('port')}/"
+            f"{d.get('protocol')} an – das war vorher nicht so"
+        )
+        facts.append(f"Programm: {d.get('path') or d.get('program')}")
+        facts.append("Prüfen, ob du das Programm kennst und der Port nötig ist")
+    elif incident.rule == "agent_autostart":
+        facts.append(f"Neuer Eintrag startet automatisch: {d.get('label') or d.get('path')}")
+        if d.get("program"):
+            facts.append(f"Programm: {d['program']}")
+        facts.append("Autostart ist ein typischer Weg, wie sich Schadsoftware festsetzt")
+    elif incident.rule == "agent_login":
+        facts.append(f"Anmeldung von {d.get('host') or 'unbekannt'} als {d.get('user')}")
+        facts.append("Fern-Anmeldungen (z. B. SSH) sind auf privaten Laptops selten")
+    elif incident.rule == "agent_posture":
+        facts.append(d.get("text", "Eine Sicherheitsgrundlage ist ausgeschaltet."))
+        facts.append("Wird automatisch erledigt, sobald der Agent sie wieder als an meldet")
     else:
         facts += [f"{k}: {v}" for k, v in sorted(d.items())]
     if incident.occurrences > 1:

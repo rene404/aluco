@@ -20,7 +20,7 @@ from types import FrameType
 from aluco import __version__
 from aluco.config import Config, ConfigError, db_path_from_env
 from aluco.devices import DeviceNotFoundError, set_name, set_protected, set_trust
-from aluco.model import TrustLevel
+from aluco.model import Device, TrustLevel, normalize_mac, utcnow
 from aluco.runner import build_runner
 from aluco.store import Store
 
@@ -44,6 +44,13 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("once", help="ein Lauf")
     sub.add_parser("web", help="Dashboard starten")
     sub.add_parser("mcp", help="MCP-Server über stdio (nur lesend)")
+    ag = sub.add_parser("agent", help="Laptop-Agenten verwalten").add_subparsers(
+        dest="action", required=True
+    )
+    for name, text in [("add", "Agent einrichten"), ("remove", "Agent entfernen")]:
+        ap = ag.add_parser(name, help=text)
+        ap.add_argument("device", help="MAC-Adresse oder Name")
+    ag.add_parser("list", help="Agenten anzeigen")
 
     dev = sub.add_parser("device", help="Geräte verwalten").add_subparsers(
         dest="action", required=True
@@ -73,7 +80,67 @@ def main(argv: list[str] | None = None) -> int:
         return _web_command()
     if args.command == "mcp":
         return _mcp_command()
+    if args.command == "agent":
+        return _agent_command(args)
     return _run_command(args.command)
+
+
+def _agent_command(args: argparse.Namespace) -> int:
+    from aluco.agent import new_token
+
+    path = db_path_from_env()
+    if not path.exists():
+        print(f"Keine Datenbank unter {path} – läuft der Aluco-Dienst schon?", file=sys.stderr)
+        return 2
+    store = Store(path)
+    try:
+        if args.action == "list":
+            agents = store.agents()
+            if not agents:
+                print("Keine Agenten.")
+            for mac, a in agents.items():
+                d = store.device(mac)
+                last = a["last_report_at"]
+                print(
+                    f"{mac}  {d.label if d else '?':<25}  letzter Bericht: {last or 'noch keiner'}"
+                )
+            return 0
+        device = _find_device(store, args.device)
+        if args.action == "remove":
+            with store.transaction():
+                n = store.delete_agent(device.mac)
+            print(f"{device.label}: {'Agent entfernt' if n else 'hatte keinen Agenten'}")
+            return 0
+        if device.is_company:
+            print("Fehler: Firmengeräte bekommen keinen Agenten.", file=sys.stderr)
+            return 1
+        token, token_hash = new_token()
+        with store.transaction():
+            store.add_agent(device.mac, token_hash, utcnow())
+        print(f"Agent für {device.label} ({device.mac}) eingerichtet.")
+        print("Token (wird nur jetzt angezeigt, wie ein Passwort behandeln):")
+        print(token)
+        return 0
+    except (DeviceNotFoundError, ValueError) as e:
+        print(f"Fehler: {e}", file=sys.stderr)
+        return 1
+    finally:
+        store.close()
+
+
+def _find_device(store: Store, needle: str) -> Device:
+    try:
+        d = store.device(normalize_mac(needle))
+        if d:
+            return d
+    except ValueError:
+        pass
+    hits = [d for d in store.devices() if needle.lower() in d.label.lower()]
+    if len(hits) != 1:
+        raise DeviceNotFoundError(
+            f"{len(hits)} Geräte passen zu {needle!r} – bitte MAC-Adresse angeben"
+        )
+    return hits[0]
 
 
 def _mcp_command() -> int:

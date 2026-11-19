@@ -36,6 +36,10 @@ RULE_TEXT = {
         "Ein Gerät hat eine Domain angefragt, die auf einer öffentlichen Bedrohungsliste "
         "(Malware, Phishing, Command-and-Control) steht."
     ),
+    "agent_port": "Auf einem privaten Laptop nimmt ein Programm neu Verbindungen an.",
+    "agent_autostart": "Auf einem privaten Laptop startet ein neues Programm automatisch.",
+    "agent_login": "Auf einem privaten Laptop gab es eine neue Fern-Anmeldung.",
+    "agent_posture": "Auf einem privaten Laptop ist eine Sicherheitsgrundlage ausgeschaltet.",
     "new_domain": (
         "Ein IoT-Gerät (z. B. Fernseher, Steckdose) hat nach abgeschlossener Lernphase eine "
         "Domain angefragt, die es noch nie angefragt hat."
@@ -120,6 +124,17 @@ def build_context(
         ctx["zufaellige_mac"] = details.get("randomized_mac") == "true"
         if details.get("vendor"):
             ctx["hersteller_laut_scan"] = details["vendor"]
+    elif incident.rule in {"agent_port", "agent_autostart"}:
+        ctx["programm"] = details.get("program")
+        ctx["pfad"] = details.get("path")  # Benutzername schon durch ~ ersetzt
+        if incident.rule == "agent_port":
+            ctx["port"] = f"{details.get('port')}/{details.get('protocol')}"
+        else:
+            ctx["autostart_label"] = details.get("label")
+    elif incident.rule == "agent_login":
+        ctx["fern_anmeldung"] = details.get("remote") == "true"
+    elif incident.rule == "agent_posture":
+        ctx["sicherheitsgrundlage_aus"] = details.get("name")
     elif incident.rule == "bad_domain":
         ctx["domain_auf_liste"] = details.get("domain")
         ctx["liste"] = details.get("list")

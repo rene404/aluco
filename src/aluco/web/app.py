@@ -8,8 +8,10 @@ Ressourcen. Gedacht nur fürs Heimnetz bzw. VPN – nie direkt ins Internet.
 from __future__ import annotations
 
 import ipaddress
+import json
 import os
 import re
+import time
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -24,11 +26,18 @@ from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
+from starlette.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from aluco import __version__
+from aluco.agent import POSTURE_CHECKS, AgentError, hash_token, process_report
 from aluco.ai import AssessmentError, Assessor, assess_incident
 from aluco.config import AiSettings, ConfigError, ai_settings_from_env, db_path_from_env
 from aluco.devices import (
@@ -54,6 +63,9 @@ from aluco.web.auth import LoginThrottle, Sessions, check_password
 HERE = Path(__file__).parent
 COOKIE = "aluco_session"
 PUBLIC_PATHS = ("/login", "/static/", "/healthz")
+AGENT_PATH = "/api/agent/"  # eigene Anmeldung per Token, kein Cookie → keine CSRF-Gefahr
+MAX_REPORT_BYTES = 1024 * 1024
+MIN_REPORT_INTERVAL = 30  # Sekunden zwischen zwei Berichten eines Agenten
 
 SEVERITY_DE = {
     Severity.INFO: "Info",
@@ -387,6 +399,7 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             all_devices = s.devices()
             hourly = s.dns_hourly_by_device(since=now - timedelta(hours=24))
             open_incidents = s.incidents(OPEN_STATUSES)
+            agents = s.agents()
         worst: dict[str, Severity] = {}
         open_count: dict[str, int] = {}
         for i in open_incidents:
@@ -422,6 +435,7 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             q=q,
             trust_filter=trust_filter,
             counts=counts,
+            agents=agents,
         )
 
     async def device_detail(request: Request) -> Response:
@@ -440,6 +454,8 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             domains = [] if device.is_company else s.device_domain_stats(mac, since=week_ago)
             items = [i for i in s.incidents() if i.device_mac == mac]
             history = s.events(limit=10, device_mac=mac)
+            agent = s.agent(mac)
+            host = s.host_items(mac) if agent else []
         if only_new:
             domains = [d for d in domains if d[1] >= week_ago]
         return render(
@@ -454,6 +470,11 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             only_new=only_new,
             incidents=items,
             history=history,
+            agent=agent,
+            host_ports=[h for h in host if h["kind"] == "port"],
+            host_autostart=[h for h in host if h["kind"] == "autostart"],
+            host_logins=[h for h in host if h["kind"] == "login"],
+            posture_names={k: v[0] for k, v in POSTURE_CHECKS.items()},
             saved=request.query_params.get("saved") == "1",
             deleted=(
                 request.query_params.get("deleted", "")
@@ -479,6 +500,45 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             target += f"&deleted={change.domains_deleted}-{change.incidents_deleted}"
         return RedirectResponse(target, status_code=303)
 
+    # --- Laptop-Agent ---------------------------------------------------------------
+
+    last_report: dict[str, float] = {}
+
+    async def agent_report(request: Request) -> Response:
+        auth = request.headers.get("authorization", "")
+        if not auth.startswith("Bearer ") or len(auth) > 200:
+            return JSONResponse({"error": "Token fehlt"}, status_code=401)
+        try:
+            length = int(request.headers.get("content-length", "0"))
+        except ValueError:
+            length = MAX_REPORT_BYTES + 1
+        if length > MAX_REPORT_BYTES:
+            return JSONResponse({"error": "Bericht zu groß"}, status_code=413)
+        body = await request.body()
+        if len(body) > MAX_REPORT_BYTES:
+            return JSONResponse({"error": "Bericht zu groß"}, status_code=413)
+        with store() as s:
+            agent = s.agent_by_token_hash(hash_token(auth.removeprefix("Bearer ").strip()))
+            if agent is None:
+                return JSONResponse({"error": "Token ungültig"}, status_code=401)
+            mac = str(agent["device_mac"])
+            now_mono = time.monotonic()
+            if now_mono - last_report.get(mac, -1e9) < MIN_REPORT_INTERVAL:
+                return JSONResponse({"error": "Zu häufig"}, status_code=429)
+            last_report[mac] = now_mono
+            try:
+                result = process_report(s, mac, json.loads(body))
+            except (AgentError, ValueError) as e:
+                return JSONResponse({"error": str(e)}, status_code=400)
+        return JSONResponse(
+            {
+                "ok": True,
+                "lernlauf": result.learn_only,
+                "neu": result.new_items,
+                "vorfaelle": result.incidents,
+            }
+        )
+
     # --- Middleware ---------------------------------------------------------------
 
     async def guard(
@@ -488,6 +548,10 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             # Schutz gegen DNS-Rebinding: fremde Hostnamen gar nicht erst bedienen.
             return PlainTextResponse("Unbekannter Hostname", status_code=400)
         path = request.url.path
+        if path.startswith(AGENT_PATH):
+            response = await call_next(request)  # Token-Prüfung im Handler
+            response.headers["Cache-Control"] = "no-store"
+            return response
         if not path.startswith(PUBLIC_PATHS) and not sessions.valid(request.cookies.get(COOKIE)):
             if is_htmx(request):
                 return Response(status_code=401, headers={"HX-Redirect": "/login"})
@@ -515,6 +579,7 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
         Route("/login", login, methods=["POST"]),
         Route("/logout", logout, methods=["POST"]),
         Route("/healthz", healthz),
+        Route("/api/agent/report", agent_report, methods=["POST"]),
         Route("/", overview),
         Route("/incidents", incidents),
         Route("/incidents/{incident_id:int}/status", incident_status, methods=["POST"]),
