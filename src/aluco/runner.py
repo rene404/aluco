@@ -13,6 +13,7 @@ from aluco.engine import Engine, RunResult
 from aluco.model import DeviceSighting, DnsQuery, Event, EventKind, Incident, Severity, utcnow
 from aluco.notify import Notifier, notify_all
 from aluco.store import Store
+from aluco.threatintel import ThreatIntel
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +42,9 @@ class Runner:
         engine: Engine | None = None,
         assessor: Assessor | None = None,
         ai_max_per_run: int = 5,
+        threat_intel: ThreatIntel | None = None,
     ) -> None:
+        self._intel = threat_intel
         self._assessor = assessor
         self._ai_max = ai_max_per_run
         self._store = store
@@ -55,6 +58,8 @@ class Runner:
     def run_once(self, now: datetime | None = None) -> RunSummary:
         now = now or utcnow()
         errors: list[str] = []
+        if self._intel is not None:
+            errors += self._intel.refresh(now)  # Listen aktuell halten (Fehler: alte weiter)
 
         sightings: list[DeviceSighting] = []
         for device_source in self._device_sources:
@@ -183,6 +188,12 @@ def build_runner(cfg: Config, store: Store) -> Runner:
         if cfg.ntfy_url
         else None
     )
+    from aluco.rules import KnownBadDomainRule, default_dns_rules
+    from aluco.threatintel import ThreatIntel, parse_feeds
+
+    feeds = parse_feeds(cfg.threat_feeds)
+    intel = ThreatIntel(feeds, cache_dir=cfg.db_path.parent / "threatintel") if feeds else None
+    dns_rules = [*default_dns_rules(), *([KnownBadDomainRule(intel)] if intel else [])]
     assessor = None
     if cfg.ai.enabled:
         from aluco.ai import ClaudeAssessor
@@ -197,4 +208,6 @@ def build_runner(cfg: Config, store: Store) -> Runner:
         retention=timedelta(days=cfg.retention_days),
         assessor=assessor,
         ai_max_per_run=cfg.ai.max_per_run,
+        threat_intel=intel,
+        engine=Engine(store, dns_rules=dns_rules),
     )

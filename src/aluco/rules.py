@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Protocol
+from typing import Any, Protocol
 
 from aluco.model import (
     Device,
@@ -117,6 +117,40 @@ class NewDomainRule:
             device_mac=ctx.device.mac,
             key=ctx.domain,
             details={"domain": ctx.domain, "query": ctx.query.domain},
+        )
+
+
+class ThreatMatcher(Protocol):
+    def match(self, domain: str) -> Any: ...
+
+
+@dataclass(slots=True)
+class KnownBadDomainRule:
+    """Gerät fragt eine Domain von einer Bedrohungsliste an (Malware, Phishing, C2).
+
+    Gilt für alle Geräte außer Firmengeräten (deren Anfragen wertet Aluco nie aus) und
+    auch dann, wenn AdGuard die Anfrage blockiert hat – der Versuch selbst ist das Signal.
+    """
+
+    intel: ThreatMatcher
+    name: str = "bad_domain"
+
+    def check(self, ctx: DnsContext) -> Iterable[Finding]:
+        hit = self.intel.match(ctx.query.domain)
+        if hit is None:
+            return
+        yield Finding(
+            rule=self.name,
+            severity=Severity.HIGH,
+            title=f"{ctx.device.label} fragt bekannte Schad-Domain an: {hit.entry}",
+            device_mac=ctx.device.mac,
+            key=hit.entry,
+            details={
+                "domain": hit.entry,
+                "query": ctx.query.domain,
+                "list": hit.feed,
+                "blocked": "true" if ctx.query.blocked else "false",
+            },
         )
 
 

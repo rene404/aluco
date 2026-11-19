@@ -65,6 +65,7 @@ class Config:
     notify_min_severity: Severity = Severity.MEDIUM
     notify_minimal: bool = False  # nur "neuer Vorfall" ohne Gerät/Domain im Text
     ai: AiSettings = field(default_factory=AiSettings)
+    threat_feeds: str | None = None  # None = Standardliste; "off" = aus
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Config:
@@ -107,7 +108,14 @@ class Config:
             notify_min_severity=severity,
             notify_minimal=(opt("ALUCO_NOTIFY_MINIMAL") or "false").lower() in {"1", "true", "yes"},
             ai=ai_settings_from_env(e),
+            threat_feeds=opt("ALUCO_THREAT_FEEDS"),
         )
+        try:
+            from aluco.threatintel import ThreatIntelError, parse_feeds
+
+            parse_feeds(cfg.threat_feeds)
+        except ThreatIntelError as exc:
+            raise ConfigError(f"ALUCO_THREAT_FEEDS: {exc}") from exc
         if cfg.adguard_url and not (cfg.adguard_user and cfg.adguard_password):
             raise ConfigError("ADGUARD_URL gesetzt, aber ADGUARD_USER/ADGUARD_PASSWORD fehlen")
         if cfg.netalertx_url and not cfg.netalertx_token:

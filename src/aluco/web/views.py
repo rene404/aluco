@@ -250,6 +250,16 @@ def explain(incident: Incident) -> list[str]:
         facts.append("IoT-Gerät: verhält sich normalerweise vorhersehbar, Lernphase abgeschlossen")
         if d.get("query") and d.get("query") != d.get("domain"):
             facts.append(f"Angefragt: {d['query']}")
+    elif incident.rule == "bad_domain":
+        facts.append(f"{d.get('domain', '?')} steht auf der Bedrohungsliste „{d.get('list', '?')}“")
+        if d.get("query") and d.get("query") != d.get("domain"):
+            facts.append(f"Angefragt: {d['query']}")
+        facts.append(
+            "AdGuard hat die Anfrage blockiert – der Versuch deutet trotzdem auf "
+            "Schadsoftware oder einen Phishing-Link hin"
+            if d.get("blocked") == "true"
+            else "Die Anfrage wurde NICHT blockiert – Domain in AdGuard sperren"
+        )
     else:
         facts += [f"{k}: {v}" for k, v in sorted(d.items())]
     if incident.occurrences > 1:

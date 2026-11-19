@@ -70,6 +70,15 @@ docker compose run --rm aluco device name <MAC> "Fernseher"       # Namen vergeb
 
 Stufen: `known`, `iot`, `guest`, `unknown`, `company`. Den Aluco-Server selbst und die Firewall auf die Schutzliste setzen.
 
+### Bekannte Schad-Domains
+
+Aluco gleicht jede DNS-Anfrage mit öffentlichen Bedrohungslisten ab (Malware, Phishing, Command-and-Control). Ein Treffer ist ein Vorfall mit Schweregrad **hoch** – auch wenn AdGuard die Anfrage schon blockiert hat, denn der Versuch selbst deutet auf Schadsoftware oder einen Phishing-Link hin. Firmengeräte sind ausgenommen.
+
+- Standardliste: [HaGeZi Threat Intelligence Feeds](https://github.com/hagezi/dns-blocklists) (mini, ~210 000 Domains, ohne Schlüssel, GPL-3.0). Wird alle 12 Stunden geladen und im Datenordner zwischengespeichert; fällt der Download aus, gilt die letzte Liste weiter.
+- Weitere Listen (z. B. abuse.ch URLhaus/ThreatFox mit kostenlosem Auth-Key) über `ALUCO_THREAT_FEEDS`, Formate: Domains, Hosts-Datei, Adblock.
+- Tipp: dieselbe Liste zusätzlich in AdGuard unter *Filter → DNS-Sperrlisten* eintragen, dann wird auch blockiert.
+- Speicherbedarf ca. 20–40 MB.
+
 ## DNS im Router umstellen
 
 Erst wenn AdGuard am Server antwortet.
