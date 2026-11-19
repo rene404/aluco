@@ -224,3 +224,6 @@ __marimo__/
 
 # Private Notizen (Setup, Strategie, Marktanalyse) – nie committen
 private/
+
+# Aluco: Container-Daten
+/data/

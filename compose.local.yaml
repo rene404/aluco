@@ -1,0 +1,25 @@
+# Lokaler Test am Mac (Docker Desktop): ohne Host-Netz, nur auf localhost erreichbar.
+#   docker compose -f compose.yaml -f compose.local.yaml up -d
+#   Einrichtung:  http://localhost:3300
+#   DNS-Test:     dig @127.0.0.1 -p 5300 example.com
+# NetAlertX bleibt aus: ARP-Scan braucht ein echtes Linux-Host-Netz.
+
+services:
+  adguardhome:
+    network_mode: !reset null
+    ports:
+      - "127.0.0.1:5300:53/udp"
+      - "127.0.0.1:5300:53/tcp"
+      - "127.0.0.1:3300:3000/tcp" # Einrichtungsassistent
+      - "127.0.0.1:8300:80/tcp" # Oberfläche nach der Einrichtung
+    # Benannte Volumes statt Ordner: Docker Desktop darf nicht jeden Pfad einbinden.
+    volumes: !override
+      - adguard-work:/opt/adguardhome/work
+      - adguard-conf:/opt/adguardhome/conf
+
+  netalertx:
+    profiles: [linux-only]
+
+volumes:
+  adguard-work:
+  adguard-conf:
