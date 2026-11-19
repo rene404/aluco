@@ -1,0 +1,7 @@
+# Nur das Nötige ins Build-Kontext – vor allem keine Secrets und keine privaten Daten.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+**/__pycache__

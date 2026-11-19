@@ -17,9 +17,19 @@ services:
       - adguard-work:/opt/adguardhome/work
       - adguard-conf:/opt/adguardhome/conf
 
+  aluco:
+    network_mode: !reset null
+    depends_on: !override [adguardhome]
+    environment:
+      ADGUARD_URL: http://adguardhome:80 # Name des Containers im lokalen Docker-Netz
+      NETALERTX_URL: "" # lokal kein NetAlertX
+    volumes: !override
+      - aluco-data:/data
+
   netalertx:
     profiles: [linux-only]
 
 volumes:
   adguard-work:
   adguard-conf:
+  aluco-data:

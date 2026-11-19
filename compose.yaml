@@ -42,6 +42,29 @@ services:
     pids_limit: 256
     logging: *logging
 
+  aluco:
+    build: .
+    image: aluco:local
+    container_name: aluco
+    # Host-Netz: erreicht AdGuard (127.0.0.1:80) und NetAlertX (127.0.0.1:20212) direkt.
+    network_mode: host
+    restart: unless-stopped
+    depends_on: [adguardhome, netalertx]
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    env_file: .env
+    environment:
+      ALUCO_DB_PATH: /data/aluco.db
+    volumes:
+      # Ordner muss dem Benutzer 10001 gehören (siehe docs/stage-0.md)
+      - ${ALUCO_DATA_DIR:-./data}/aluco:/data
+    mem_limit: ${ALUCO_MEM_LIMIT:-256m}
+    pids_limit: 64
+    logging: *logging
+
   netalertx:
     image: ghcr.io/netalertx/netalertx:26.10.28@sha256:ebce55cdbccc0f71544e6997541fe81db803b8c8bec3079435b8cd0a40d49b7e
     container_name: aluco-netalertx

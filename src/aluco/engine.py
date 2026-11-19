@@ -7,7 +7,15 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 
 from aluco.incidents import IncidentService
-from aluco.model import Device, DeviceSighting, DnsQuery, Incident, utcnow
+from aluco.model import (
+    Device,
+    DeviceSighting,
+    DnsQuery,
+    Finding,
+    Incident,
+    IncidentStatus,
+    utcnow,
+)
 from aluco.rules import (
     DeviceRule,
     DnsContext,
@@ -25,7 +33,8 @@ class RunResult:
     new_devices: int = 0
     queries_seen: int = 0
     queries_unmatched: int = 0  # Client-IP keinem Gerät zuordenbar
-    incidents: list[Incident] = field(default_factory=list)
+    incidents: list[Incident] = field(default_factory=list)  # neu oder aktualisiert
+    alerts: list[Incident] = field(default_factory=list)  # neu oder wieder geöffnet → melden
 
 
 class Engine:
@@ -69,7 +78,7 @@ class Engine:
         if evaluate:
             for rule in self._device_rules:
                 for finding in rule.check(s, known):
-                    result.incidents.append(self._incidents.ingest(finding, at=now))
+                    self._ingest(finding, now, result)
         if known is None:
             result.new_devices += 1
             device = Device(
@@ -105,4 +114,11 @@ class Engine:
         )
         for rule in self._dns_rules:
             for finding in rule.check(ctx):
-                result.incidents.append(self._incidents.ingest(finding, at=now))
+                self._ingest(finding, now, result)
+
+    def _ingest(self, finding: Finding, now: datetime, result: RunResult) -> None:
+        before = self._store.incident_by_fingerprint(finding.fingerprint)
+        incident = self._incidents.ingest(finding, at=now)
+        result.incidents.append(incident)
+        if before is None or before.status is IncidentStatus.RESOLVED:
+            result.alerts.append(incident)
