@@ -48,7 +48,15 @@
           {% for target in transitions(i.status) %}
           <button type="submit" name="status" value="{{ target.value }}" class="btn {{ 'btn-primary' if target.value == 'resolved' else '' }}">{{ ACTION_DE[target] }}</button>
           {% endfor %}
-          {% if is_open %}<button type="button" class="btn btn-disabled" disabled title="Kommt mit der Firewall (Stufe 1)">Trennen</button>{% endif %}
+          {% if is_open %}
+          {% if firewall_enabled and d and d.can_disconnect and d.ip %}
+          <button type="submit" name="status" value="disconnected" class="btn btn-danger" hx-vals='{"confirm": "ja"}' hx-confirm="{{ d.label }} ({{ d.ip }}) wirklich vom Internet trennen? Freigeben geht im Gerätedetail.">Trennen</button>
+          {% elif firewall_enabled and d and not d.can_disconnect %}
+          <button type="button" class="btn btn-disabled" disabled title="Schutzliste oder Firmengerät – wird nie getrennt">Trennen</button>
+          {% else %}
+          <button type="button" class="btn btn-disabled" disabled title="Braucht die Firewall (Stufe 1)">Trennen</button>
+          {% endif %}
+          {% endif %}
         </div>
       </form>
     </div>

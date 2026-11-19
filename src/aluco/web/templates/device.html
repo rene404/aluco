@@ -9,6 +9,18 @@
 </div>
 {% endif %}
 
+{% if released %}<div class="card notice notice-ok" role="status">Gerät wieder freigegeben.</div>{% endif %}
+{% if block %}
+<section class="card notice notice-blocked" role="status">
+  <strong>Getrennt seit {{ rel(block.blocked_at) }}</strong> – IP {{ block.ip }} ist in der Firewall gesperrt (kein Internet).
+  {% if firewall_enabled %}
+  <form method="post" action="/devices/{{ d.mac }}/release" class="inline-form">
+    <button type="submit" class="btn" hx-confirm="{{ d.label }} wieder freigeben?" hx-post="/devices/{{ d.mac }}/release" hx-target="body" hx-push-url="/devices/{{ d.mac }}?released=1">Freigeben</button>
+  </form>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="device-hero" aria-label="Gerät">
   <span class="abbr abbr-lg">{{ abbr(d) }}<span class="status-dot {{ 'on' if d.online else ('off' if d.online is false else 'unknown') }}" aria-hidden="true"></span></span>
   <div class="device-hero-text">

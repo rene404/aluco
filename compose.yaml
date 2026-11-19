@@ -75,6 +75,13 @@ services:
       ALUCO_AI_MODEL: ${ALUCO_AI_MODEL:-claude-opus-5-5}
       ALUCO_AI_MAX_PER_RUN: ${ALUCO_AI_MAX_PER_RUN:-5}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPNSENSE_URL: ${OPNSENSE_URL:-}
+      OPNSENSE_API_KEY: ${OPNSENSE_API_KEY:-}
+      OPNSENSE_API_SECRET: ${OPNSENSE_API_SECRET:-}
+      OPNSENSE_CERT_SHA256: ${OPNSENSE_CERT_SHA256:-}
+      OPNSENSE_CA_FILE: ${OPNSENSE_CA_FILE:-}
+      OPNSENSE_ALIAS: ${OPNSENSE_ALIAS:-aluco_quarantine}
+      OPNSENSE_ARP: ${OPNSENSE_ARP:-true}
     volumes:
       # Ordner muss dem Benutzer 10001 gehören (siehe docs/stage-0.md)
       - ${ALUCO_DATA_DIR:-./data}/aluco:/data
@@ -107,6 +114,12 @@ services:
       ALUCO_AI_ENABLED: ${ALUCO_AI_ENABLED:-false}
       ALUCO_AI_MODEL: ${ALUCO_AI_MODEL:-claude-opus-5-5}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPNSENSE_URL: ${OPNSENSE_URL:-}
+      OPNSENSE_API_KEY: ${OPNSENSE_API_KEY:-}
+      OPNSENSE_API_SECRET: ${OPNSENSE_API_SECRET:-}
+      OPNSENSE_CERT_SHA256: ${OPNSENSE_CERT_SHA256:-}
+      OPNSENSE_CA_FILE: ${OPNSENSE_CA_FILE:-}
+      OPNSENSE_ALIAS: ${OPNSENSE_ALIAS:-aluco_quarantine}
     volumes:
       - ${ALUCO_DATA_DIR:-./data}/aluco:/data
     healthcheck:

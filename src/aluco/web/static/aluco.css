@@ -387,3 +387,9 @@ g:hover .bar-allowed, g:hover .bar-blocked { opacity: .8; }
 .posture-off { background: var(--sev-high-bg); color: var(--sev-high-fg); }
 .agent-pill { align-self: flex-start; }
 .card h3 { margin-top: .8rem; }
+
+/* --- Trennen ------------------------------------------------------------------- */
+.btn-danger { border-color: #b4380c; color: #b4380c; background: transparent; font-weight: 600; }
+.btn-danger:hover { background: var(--sev-high-bg); color: var(--sev-high-fg); }
+.notice-blocked { border-color: var(--sev-high-line); background: var(--sev-high-bg); color: var(--sev-high-fg); display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; }
+.inline-form { margin: 0; }
