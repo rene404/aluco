@@ -43,6 +43,19 @@ jobs:
       - name: Shell-Skripte prüfen
         run: shellcheck scripts/*.sh agent/*.sh
 
+  integration:
+    # Ganzer Stack: AdGuard, NetAlertX, Runner, Dashboard, Agent-API, MCP, HTTPS.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Integrationstest
+        env:
+          CI: "true"
+        run: scripts/integration-test.sh
+
   secrets:
     runs-on: ubuntu-latest
     steps:
