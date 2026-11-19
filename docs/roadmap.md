@@ -16,18 +16,18 @@ Stand: 2026-11-18 · Bewertung: Nutzen ⭐–⭐⭐⭐
 | Ausbau | Was er bringt | Nutzen | Aufwand |
 |---|---|---|---|
 | Honeypot & Canary-Tokens (OpenCanary) | Jeder Zugriff ist ein echter Alarm; bestes Signal pro Aufwand | ⭐⭐⭐ | gering |
-| Listen bekannter Angreifer (CrowdSec, abuse.ch, Spamhaus DROP) | Bekannte bösartige IPs/Domains sperren und melden | ⭐⭐⭐ | gering |
+| Listen bekannter Angreifer (CrowdSec, abuse.ch, Spamhaus DROP) | Bekannte bösartige IPs/Domains sperren und melden – **Domains umgesetzt** (HaGeZi TIF, erweiterbar) | ⭐⭐⭐ | gering |
 | Eigene Geräte auf Schwachstellen scannen (nmap, Greenbone) | Neue Ports, veraltete Firmware | ⭐⭐ | mittel |
 | Angriffsfläche von außen | Öffentliche IP scannen, Shodan, UPnP-Freigaben (UPnP abschalten) | ⭐⭐ | gering |
 | CVE-Abgleich | Hersteller/Modell → bekannte Lücken | ⭐⭐ | mittel |
-| Mac härten (Santa, KnockKnock, Datei-Integrität) | Nur freigegebene Programme auf privaten Laptops | ⭐⭐ | mittel |
+| Mac härten (Santa, KnockKnock, Datei-Integrität) | Nur freigegebene Programme auf privaten Laptops – **Teil umgesetzt:** Laptop-Agent prüft Autostart, Ports, Firewall/FileVault/Gatekeeper/SIP | ⭐⭐ | mittel |
 
 ## C. KI und Bedienung
 
 | Ausbau | Was er bringt | Nutzen | Aufwand |
 |---|---|---|---|
-| KI-Vorbewertung von Vorfällen | Zusammenfassung, Erklärung, Vorschlag; Tagesbericht | ⭐⭐⭐ | gering–mittel |
-| MCP-Server für das Netz | „Was hat der Fernseher letzte Nacht gemacht?“ | ⭐⭐ | mittel |
+| KI-Vorbewertung von Vorfällen | Zusammenfassung, Erklärung, Vorschlag; Tagesbericht – **Vorbewertung umgesetzt** | ⭐⭐⭐ | gering–mittel |
+| MCP-Server für das Netz | „Was hat der Fernseher letzte Nacht gemacht?“ – **umgesetzt** (nur lesend, stdio über SSH) | ⭐⭐ | mittel |
 | Push-Meldungen (ntfy, Telegram, Pushover) | Alarm aufs Handy, Abendzusammenfassung | ⭐⭐⭐ | gering |
 | „Trennen“ direkt aus der Meldung | Nur mit Bestätigung/Login (Angriffspunkt) | ⭐⭐ | gering |
 | Dashboard als PWA | App-Gefühl am Handy | ⭐ | gering |

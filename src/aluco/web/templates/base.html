@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false, "allowScriptTags": false, "selfRequestsOnly": true}'>
+  <title>{% block title %}Aluco{% endblock %} · Aluco</title>
+  <link rel="stylesheet" href="/static/aluco.css">
+  <script src="/static/htmx-2.0.11.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" defer></script>
+</head>
+<body>
+  {% block nav %}
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">
+        <svg class="owl" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle class="owl-head" cx="14" cy="14" r="13"></circle><circle class="owl-eye" cx="9.5" cy="12" r="4"></circle><circle class="owl-eye" cx="18.5" cy="12" r="4"></circle><circle class="owl-pupil" cx="9.5" cy="12" r="1.8"></circle><circle class="owl-pupil" cx="18.5" cy="12" r="1.8"></circle><path class="owl-beak" d="M12.5 17 L14 20 L15.5 17 Z"></path></svg>
+        Aluco
+      </a>
+      <nav class="mainnav" aria-label="Hauptnavigation">
+        <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Übersicht</a>
+        <a href="/incidents" {% if path.startswith("/incidents") %}aria-current="page"{% endif %}>Vorfälle{% if nav_open %} <span class="count" aria-label="{{ nav_open }} offen">{{ nav_open }}</span>{% endif %}</a>
+        <a href="/devices" {% if path.startswith("/devices") %}aria-current="page"{% endif %}>Geräte</a>
+      </nav>
+      <form class="search" method="get" action="/devices" role="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input type="search" name="q" placeholder="Gerät, IP oder MAC suchen" aria-label="Geräte suchen">
+      </form>
+      <form method="post" action="/logout" class="logout"><button type="submit" class="btn-link">Abmelden</button></form>
+    </div>
+  </header>
+  {% endblock %}
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">Aluco {{ version }} · Hausradar für dein Netz</footer>
+</body>
+</html>

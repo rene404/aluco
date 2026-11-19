@@ -1,0 +1,56 @@
+{% set d = devices.get(i.device_mac) if i.device_mac else None %}
+{% set is_open = i.status.value in ("new", "investigating") %}
+<li class="card incident {{ 'incident-open sev-border-' ~ (i.severity.name | lower) if is_open else 'incident-closed' }}" id="incident-{{ i.id }}">
+  <details {% if open %}open{% endif %}>
+    <summary>
+      <span class="incident-meta">
+        <span class="pill sev-{{ i.severity.name | lower }}">{{ SEVERITY_DE[i.severity] }}</span>
+        <span class="pill status-{{ i.status.value }}">{{ STATUS_DE[i.status] }}</span>
+        <span class="muted small" title="{{ i.updated_at | local }}">{{ rel(i.updated_at) }} · {{ i.occurrences }}×</span>
+      </span>
+      <span class="incident-title">{{ i.title }}</span>
+      {% if d %}
+      <span class="incident-device"><span class="abbr abbr-sm">{{ abbr(d) }}</span>{{ d.label }} <span class="mono muted">{{ d.ip or "" }}</span></span>
+      {% endif %}
+    </summary>
+    <div class="incident-body">
+      <div class="why">
+        <h3>Warum auffällig</h3>
+        <ul>{% for f in explain(i) %}<li>{{ f }}</li>{% endfor %}</ul>
+        {% if d %}<a href="/devices/{{ d.mac }}">Gerät ansehen</a>{% endif %}
+      </div>
+      {% set a = assessments.get(i.id) if assessments else None %}
+      {% if a or ai_enabled %}
+      <section class="ai-box" aria-label="KI-Einschätzung">
+        <h3><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path></svg> KI-Einschätzung</h3>
+        {% if a %}
+        <p class="ai-verdict"><span class="pill ai-{{ a.verdict }}">{{ a.verdict_de }}</span> <span class="muted small">Risiko {{ a.risk }} · Empfehlung: {{ a.action_de }}</span></p>
+        <p>{{ a.summary }}</p>
+        {% if a.reasons %}<ul>{% for r in a.reasons %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+        <p class="muted small">{{ a.model }} · {{ rel(a.created_at) }} · Vorschlag, keine Entscheidung</p>
+        {% else %}
+        <p class="muted small">Noch keine Einschätzung.</p>
+        {% endif %}
+        {% if ai_error %}<p class="error small" role="alert">{{ ai_error }}</p>{% endif %}
+        {% if ai_enabled %}
+        <form method="post" action="/incidents/{{ i.id }}/assess" hx-post="/incidents/{{ i.id }}/assess" hx-target="#incident-{{ i.id }}" hx-swap="outerHTML">
+          <button type="submit" class="btn btn-ai">{{ "Neu bewerten" if a else "KI-Einschätzung anfordern" }}</button>
+          <span class="muted small">Gesendet werden nur Regel, Stufe, Hersteller und ggf. die Domain – kein Name, keine IP/MAC.</span>
+        </form>
+        {% endif %}
+      </section>
+      {% endif %}
+      <form class="incident-actions" method="post" action="/incidents/{{ i.id }}/status" hx-post="/incidents/{{ i.id }}/status" hx-target="#incident-{{ i.id }}" hx-swap="outerHTML">
+        <label class="field">Notiz
+          <input type="text" name="note" maxlength="500" value="{{ i.note }}" placeholder="z. B. Besuch, Gastgerät">
+        </label>
+        <div class="btn-row">
+          {% for target in transitions(i.status) %}
+          <button type="submit" name="status" value="{{ target.value }}" class="btn {{ 'btn-primary' if target.value == 'resolved' else '' }}">{{ ACTION_DE[target] }}</button>
+          {% endfor %}
+          {% if is_open %}<button type="button" class="btn btn-disabled" disabled title="Kommt mit der Firewall (Stufe 1)">Trennen</button>{% endif %}
+        </div>
+      </form>
+    </div>
+  </details>
+</li>

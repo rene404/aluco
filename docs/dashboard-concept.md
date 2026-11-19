@@ -41,3 +41,24 @@ Regel: Trennen nur auf Knopfdruck mit Bestätigung. Automatisch nur „unbekannt
 |---|---|
 | Private Laptops | Kleiner Agent (osquery oder eigenes Skript) meldet an den Aluco-Server; unterwegs per WireGuard. |
 | Firmengeräte | Nichts installieren (IT-Richtlinien, EDR). Im Dashboard „Firma – nur beobachten“: online/offline, Datenmenge. Nie automatisch sperren, keine Daten an die KI. Mit Firmen-VPN ist ohnehin nur der Tunnel sichtbar. |
+
+## Design V1 (Stand 2026-11-19)
+
+Umgesetzt in `src/aluco/web/` (Dashboard v2). Diese Fassung ist die Referenz für weitere Seiten.
+
+**Seiten:** Übersicht (Lagebild, Kennzahlen, DNS-Diagramm 24 h/7 Tage, Chronik, aktivste Geräte, meistblockierte Domains) · Vorfälle (aufklappbare Karten mit „Warum auffällig“, Notiz, Aktionen) · Geräte (Karten mit Online-Status, Stufe, Mini-Verlauf, Suche/Filter) · Gerätedetail (Aktivität 7 Tage, typisches Verhalten, Domains, Einstellungen, Vorfälle, Verlauf).
+
+**Farben (hell / dunkel):**
+
+| Rolle | Hell | Dunkel |
+|---|---|---|
+| Akzent | `#1d4ed8` | `#7ea2f7` |
+| Akzent dunkel | `#1e3a8a` | `#b3c8fb` |
+| Akzent-Hintergrund | `#dbe6fd` | `#1c2b4d` |
+| Seite / Fläche | `#f3f5f7` / `#ffffff` | `#0f1318` / `#171c22` |
+| Text / Nebentext | `#151a1f` / `#56606b` | `#e8edf2` / `#9aa5b1` |
+| Diagramm erlaubt / blockiert | `#3b6ee0` / `#d9822b` | `#6f95ef` / `#e39a4f` |
+
+Farbe trägt nur Bedeutung: Orange/Rot = Schwere, Grün = online/erledigt, Grau = niedrig/offline, Türkis = IoT, Violett = KI. Keine Emojis, Logo ist die SVG-Eule.
+
+**Technik:** serverseitig gerendert (Jinja2), htmx lokal eingebunden, Diagramme als SVG-Attribute, keine Inline-Styles (strikte CSP), Farben als CSS-Variablen in `static/aluco.css`.

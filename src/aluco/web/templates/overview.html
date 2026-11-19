@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Übersicht{% endblock %}
+{% block content %}
+<section class="banner banner-{{ situation.level }}" aria-label="Lagebild">
+  <span class="pulse" aria-hidden="true"></span>
+  <div class="banner-text">
+    <strong>{{ situation.title }}</strong>
+    {% if prev_visit %}
+    <span>Seit deinem letzten Besuch ({{ rel(prev_visit) }}): {{ since_text or "nichts Neues" }}</span>
+    {% else %}
+    <span>Willkommen. Hier siehst du ab jetzt, was sich seit deinem letzten Besuch getan hat.</span>
+    {% endif %}
+  </div>
+  {% if open_count %}<a class="btn btn-primary" href="/incidents">Vorfälle prüfen</a>{% endif %}
+</section>
+
+<section class="kpis" aria-label="Kennzahlen">
+  <a class="card kpi" href="/devices">
+    <span class="kpi-label">Geräte online</span>
+    <span class="kpi-value">{{ online }} <small>von {{ devices | length }}</small></span>
+    <span class="kpi-sub"><span class="dot dot-ok"></span>{{ online }} online <span class="dot dot-muted"></span>{{ offline }} offline</span>
+  </a>
+  <a class="card kpi" href="/incidents">
+    <span class="kpi-label">Offene Vorfälle</span>
+    <span class="kpi-value">{{ open_count }}</span>
+    <span class="kpi-sub">{% for sev, n in by_severity.items() if n %}<span class="pill sev-{{ sev.name | lower }}">{{ n }} {{ SEVERITY_DE[sev] }}</span> {% else %}keine{% endfor %}</span>
+  </a>
+  <div class="card kpi">
+    <span class="kpi-label">DNS-Anfragen (24 h)</span>
+    <span class="kpi-value">{{ fmt_int(total24) }}</span>
+    <span class="kpi-sub">{{ fmt_int(blocked24) }} blockiert ({{ blocked_pct }} %){% if change is not none %} · <span class="{{ 'up' if change >= 0 else 'down' }}">{{ '+' if change >= 0 else '' }}{{ change }} %</span> ggü. Vortag{% endif %}</span>
+  </div>
+  <div class="card kpi">
+    <span class="kpi-label">Datenquellen</span>
+    <span class="kpi-value">{% if last_errors %}<span class="warn-text">{{ last_errors | length }} gestört</span>{% else %}ok{% endif %}</span>
+    <span class="kpi-sub">Letzter Lauf: {{ rel(last_run) if last_run else "noch keiner" }}</span>
+  </div>
+</section>
+
+{% if last_errors %}
+<section class="card notice" role="alert">
+  <strong>Datenquelle nicht erreichbar</strong>
+  <ul>{% for e in last_errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="card" id="dns" aria-labelledby="dns-title">
+  <div class="card-head">
+    <h2 id="dns-title">DNS-Aktivität</h2>
+    <div class="legend"><span><i class="sw sw-allowed"></i>erlaubt</span><span><i class="sw sw-blocked"></i>blockiert</span></div>
+    <nav class="segmented" aria-label="Zeitraum">
+      <a href="/?range=24h&amp;events={{ event_filter }}" hx-get="/?range=24h&amp;events={{ event_filter }}" hx-target="#dns" hx-select="#dns" hx-swap="outerHTML" {% if rng == "24h" %}aria-current="true"{% endif %}>24 h</a>
+      <a href="/?range=7d&amp;events={{ event_filter }}" hx-get="/?range=7d&amp;events={{ event_filter }}" hx-target="#dns" hx-select="#dns" hx-swap="outerHTML" {% if rng == "7d" %}aria-current="true"{% endif %}>7 Tage</a>
+    </nav>
+  </div>
+  {% if chart.total %}
+  {% include "_chart.html" %}
+  <p class="muted small">Spitze: {{ chart.peak_label }}. Mit der Maus über einen Balken fahren für Details.</p>
+  {% else %}
+  <p class="muted">Noch keine DNS-Daten in diesem Zeitraum.</p>
+  {% endif %}
+</section>
+
+<div class="columns">
+  <section class="card col-main" id="chronik" aria-labelledby="chronik-title">
+    <div class="card-head">
+      <h2 id="chronik-title">Chronik</h2>
+      <nav class="chips" aria-label="Chronik filtern">
+        {% for key, label in [("all", "Alles"), ("incidents", "Vorfälle"), ("devices", "Geräte"), ("system", "System")] %}
+        <a class="chip" href="/?events={{ key }}&amp;range={{ rng }}" hx-get="/?events={{ key }}&amp;range={{ rng }}" hx-target="#chronik" hx-select="#chronik" hx-swap="outerHTML" {% if event_filter == key %}aria-current="true"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+    {% if events %}
+    <ol class="timeline">
+      {% for e in events %}
+      <li>
+        <time datetime="{{ e.at.isoformat() }}" title="{{ e.at | local }}">{{ rel(e.at) }}</time>
+        <span class="dot dot-{{ tone(e) }}" aria-hidden="true"></span>
+        <span class="tl-body">
+          {% if e.device_mac and e.device_mac in devices %}<a href="/devices/{{ e.device_mac }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}
+          {% if e.detail %}<span class="muted small">{{ e.detail }}</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="muted">Noch keine Ereignisse.</p>
+    {% endif %}
+  </section>
+
+  <div class="col-side">
+    <section class="card" aria-labelledby="top-dev">
+      <h2 id="top-dev">Aktivste Geräte <small>· 24 h</small></h2>
+      {% for d, n, pct in top %}
+      <a class="toprow" href="/devices/{{ d.mac if d else '' }}">
+        <span class="toprow-head"><span>{{ d.label if d else "unbekannt" }}</span><span class="num">{{ fmt_int(n) }}</span></span>
+        <svg class="meter" viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true"><rect class="meter-track" x="0" y="0" width="100" height="6" rx="3"></rect><rect class="meter-fill" x="0" y="0" width="{{ pct }}" height="6" rx="3"></rect></svg>
+      </a>
+      {% else %}
+      <p class="muted">Noch keine Daten.</p>
+      {% endfor %}
+    </section>
+    <section class="card" aria-labelledby="top-blocked">
+      <h2 id="top-blocked">Meistblockiert <small>· 24 h</small></h2>
+      {% if top_blocked %}
+      <ul class="plain">
+        {% for domain, n in top_blocked %}<li><span class="mono ellipsis">{{ domain }}</span><span class="num">{{ fmt_int(n) }}</span></li>{% endfor %}
+      </ul>
+      {% else %}
+      <p class="muted">Nichts blockiert.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

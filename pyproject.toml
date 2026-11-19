@@ -1,0 +1,53 @@
+[project]
+name = "aluco"
+version = "0.1.0"
+description = "Hausradar für dein Netz – Monitoring für Heimnetz und Laptops"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.13"
+dependencies = [
+    "starlette>=1.0",       # Web-Grundgerüst (Basis von FastAPI)
+    "uvicorn>=0.30",        # ASGI-Server
+    "jinja2>=3.1",          # HTML-Vorlagen mit Auto-Escaping
+    "python-multipart>=0.0.20",  # Formulare
+]
+
+[project.optional-dependencies]
+# KI-Vorbewertung von Vorfällen (Claude). Optional: ohne dieses Extra läuft Aluco ohne KI.
+ai = ["anthropic>=2.8"]
+# MCP-Server: Aluco-Daten für Claude Desktop/Code & Co. (nur lesend, stdio)
+mcp = ["mcp>=2.3"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28",  # Testclient für Starlette
+    "pytest>=8",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aluco"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
+# Deutsche Texte nutzen Gedankenstriche und Anführungszeichen.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S104", "S105", "S106"]  # Asserts und Test-Zugangsdaten erlaubt
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+filterwarnings = [
+    # Starlette empfiehlt httpx2 für den Testclient; httpx bleibt vorerst (nur Tests).
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]

@@ -1,0 +1,43 @@
+# Lokaler Test am Mac (Docker Desktop): ohne Host-Netz, nur auf localhost erreichbar.
+#   docker compose -f compose.yaml -f compose.local.yaml up -d
+#   Einrichtung:  http://localhost:3300
+#   DNS-Test:     dig @127.0.0.1 -p 5300 example.com
+#   Dashboard:    http://localhost:8088
+# NetAlertX bleibt aus: ARP-Scan braucht ein echtes Linux-Host-Netz.
+
+services:
+  adguardhome:
+    network_mode: !reset null
+    ports:
+      - "127.0.0.1:5300:53/udp"
+      - "127.0.0.1:5300:53/tcp"
+      - "127.0.0.1:3300:3000/tcp" # Einrichtungsassistent
+      - "127.0.0.1:8300:80/tcp" # Oberfläche nach der Einrichtung
+    # Benannte Volumes statt Ordner: Docker Desktop darf nicht jeden Pfad einbinden.
+    volumes: !override
+      - adguard-work:/opt/adguardhome/work
+      - adguard-conf:/opt/adguardhome/conf
+
+  aluco:
+    network_mode: !reset null
+    depends_on: !override [adguardhome]
+    environment:
+      ADGUARD_URL: http://adguardhome:80 # Name des Containers im lokalen Docker-Netz
+      NETALERTX_URL: "" # lokal kein NetAlertX
+    volumes: !override
+      - aluco-data:/data
+
+  aluco-web:
+    network_mode: !reset null
+    ports:
+      - "127.0.0.1:8088:8088" # Dashboard: http://localhost:8088
+    volumes: !override
+      - aluco-data:/data
+
+  netalertx:
+    profiles: [linux-only]
+
+volumes:
+  adguard-work:
+  adguard-conf:
+  aluco-data:
