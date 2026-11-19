@@ -12,9 +12,9 @@ Neue Vorfälle werden von Claude vorbewertet: **harmlos / beobachten / verdächt
 | Schweregrad, Anzahl | IP- und MAC-Adressen |
 | Vertrauensstufe (bekannt, IoT, Gast, unbekannt) | Titel des Vorfalls (enthält oft den Gerätenamen) |
 | Hersteller laut Scan, ob die MAC-Adresse zufällig ist | Daten von **Firmengeräten** – diese werden nie bewertet |
-| Bei „neue Domain“: die Domain und bis zu 15 bisher bekannte Hauptdomains des Geräts | DNS-Protokolle, Verlauf |
+| Bei Domain-Regeln: die Hauptdomain und bis zu 15 meistgenutzte Hauptdomains des Geräts (7 Tage) | vollständige Anfragen, lokale Namen (`*.arpa`, `.local`, `.lan`, `fritz.box` …), DNS-Protokolle, Verlauf |
 
-Die Daten werden als Daten gekennzeichnet; Anweisungen darin (z. B. in einem präparierten Domainnamen) befolgt die KI nicht.
+Die Daten werden als Daten gekennzeichnet; Anweisungen darin (z. B. in einem präparierten Domainnamen) soll die KI nicht befolgen. Ein Gerät im Netz könnte trotzdem versuchen, die Einschätzung zu beeinflussen – deshalb bleibt sie ein **Vorschlag**, Aluco handelt nie automatisch danach.
 
 ## Einrichten
 

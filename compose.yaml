@@ -55,9 +55,26 @@ services:
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
-    env_file: .env
+    # Nur die Variablen, die der Runner braucht (kein Dashboard-Passwort).
     environment:
       ALUCO_DB_PATH: /data/aluco.db
+      TZ: ${TZ:-UTC}
+      ALUCO_INTERVAL_SECONDS: ${ALUCO_INTERVAL_SECONDS:-300}
+      ALUCO_RETENTION_DAYS: ${ALUCO_RETENTION_DAYS:-30}
+      ADGUARD_URL: ${ADGUARD_URL:-}
+      ADGUARD_USER: ${ADGUARD_USER:-}
+      ADGUARD_PASSWORD: ${ADGUARD_PASSWORD:-}
+      NETALERTX_URL: ${NETALERTX_URL:-}
+      NETALERTX_API_TOKEN: ${NETALERTX_API_TOKEN:-}
+      NTFY_URL: ${NTFY_URL:-}
+      NTFY_TOKEN: ${NTFY_TOKEN:-}
+      ALUCO_NOTIFY_MIN_SEVERITY: ${ALUCO_NOTIFY_MIN_SEVERITY:-medium}
+      ALUCO_NOTIFY_MINIMAL: ${ALUCO_NOTIFY_MINIMAL:-false}
+      ALUCO_THREAT_FEEDS: ${ALUCO_THREAT_FEEDS:-}
+      ALUCO_AI_ENABLED: ${ALUCO_AI_ENABLED:-false}
+      ALUCO_AI_MODEL: ${ALUCO_AI_MODEL:-claude-opus-5-5}
+      ALUCO_AI_MAX_PER_RUN: ${ALUCO_AI_MAX_PER_RUN:-5}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       # Ordner muss dem Benutzer 10001 gehören (siehe docs/stage-0.md)
       - ${ALUCO_DATA_DIR:-./data}/aluco:/data
@@ -77,9 +94,17 @@ services:
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
-    env_file: .env
+    # Nur die Variablen des Dashboards – keine AdGuard-/NetAlertX-/ntfy-Zugangsdaten.
     environment:
       ALUCO_DB_PATH: /data/aluco.db
+      TZ: ${TZ:-UTC}
+      ALUCO_DASHBOARD_PASSWORD: ${ALUCO_DASHBOARD_PASSWORD:-}
+      ALUCO_WEB_PORT: ${ALUCO_WEB_PORT:-8088}
+      ALUCO_WEB_SECURE_COOKIES: ${ALUCO_WEB_SECURE_COOKIES:-false}
+      ALUCO_WEB_ALLOWED_HOSTS: ${ALUCO_WEB_ALLOWED_HOSTS:-}
+      ALUCO_AI_ENABLED: ${ALUCO_AI_ENABLED:-false}
+      ALUCO_AI_MODEL: ${ALUCO_AI_MODEL:-claude-opus-5-5}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - ${ALUCO_DATA_DIR:-./data}/aluco:/data
     healthcheck:

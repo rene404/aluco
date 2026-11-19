@@ -134,7 +134,7 @@ class Runner:
                 continue
             try:
                 a = assess_incident(self._store, self._assessor, incident.id, now)
-            except AssessmentError as e:
+            except (AssessmentError, KeyError) as e:
                 summary.ai_errors.append(str(e))
                 log.warning("KI-Vorbewertung von Vorfall %s fehlgeschlagen: %s", incident.id, e)
                 continue

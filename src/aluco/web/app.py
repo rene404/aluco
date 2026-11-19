@@ -7,7 +7,9 @@ Ressourcen. Gedacht nur fürs Heimnetz bzw. VPN – nie direkt ins Internet.
 
 from __future__ import annotations
 
+import ipaddress
 import os
+import re
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -98,6 +100,8 @@ class WebConfig:
     session_hours: int = 12
     timezone: str = "UTC"
     ai: AiSettings = field(default_factory=AiSettings)
+    # Zusätzlich erlaubte Hostnamen (IP-Adressen und localhost sind immer erlaubt).
+    allowed_hosts: tuple[str, ...] = ()
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> WebConfig:
@@ -122,6 +126,11 @@ class WebConfig:
             secure_cookies=e.get("ALUCO_WEB_SECURE_COOKIES", "").lower() in {"1", "true", "yes"},
             timezone=tz,
             ai=ai_settings_from_env(e),
+            allowed_hosts=tuple(
+                h.strip().lower()
+                for h in e.get("ALUCO_WEB_ALLOWED_HOSTS", "").replace(",", " ").split()
+                if h.strip()
+            ),
         )
 
 
@@ -218,6 +227,8 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
     async def overview(request: Request) -> Response:
         rng = "7d" if request.query_params.get("range") == "7d" else "24h"
         flt = request.query_params.get("events", "all")
+        if flt not in views.EVENT_GROUPS:
+            flt = "all"
         kinds = views.EVENT_GROUPS.get(flt)
         now = utcnow()
         day_ago = now - timedelta(hours=24)
@@ -346,8 +357,7 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
         error = ""
         with store() as s:
             try:
-                with s.transaction():
-                    result = assess_incident(s, assessor, incident_id)
+                result = assess_incident(s, assessor, incident_id)  # schreibt nur am Ende
                 if result is None:
                     error = "Firmengeräte werden nicht von der KI bewertet."
             except KeyError:
@@ -445,7 +455,11 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             incidents=items,
             history=history,
             saved=request.query_params.get("saved") == "1",
-            deleted=request.query_params.get("deleted", ""),
+            deleted=(
+                request.query_params.get("deleted", "")
+                if re.fullmatch(r"\d{1,6}-\d{1,6}", request.query_params.get("deleted", ""))
+                else ""
+            ),
         )
 
     async def device_update(request: Request) -> Response:
@@ -470,6 +484,9 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
     async def guard(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        if not _host_allowed(request.headers.get("host", ""), cfg.allowed_hosts):
+            # Schutz gegen DNS-Rebinding: fremde Hostnamen gar nicht erst bedienen.
+            return PlainTextResponse("Unbekannter Hostname", status_code=400)
         path = request.url.path
         if not path.startswith(PUBLIC_PATHS) and not sessions.valid(request.cookies.get(COOKIE)):
             if is_htmx(request):
@@ -508,6 +525,24 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
         Mount("/static", StaticFiles(directory=HERE / "static"), name="static"),
     ]
     return Starlette(routes=routes, middleware=[Middleware(BaseHTTPMiddleware, dispatch=guard)])
+
+
+def _host_allowed(host_header: str, extra: tuple[str, ...]) -> bool:
+    """IP-Adressen, localhost und ausdrücklich eingetragene Namen."""
+    host = host_header.strip().lower()
+    if host.startswith("["):  # [IPv6]:port
+        host = host[1 : host.find("]")] if "]" in host else host
+    elif host.count(":") == 1:
+        host = host.split(":", 1)[0]
+    if not host:
+        return False
+    if host in {"localhost", "testserver"} or host in extra:
+        return True
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True
 
 
 def _same_origin(request: Request) -> bool:

@@ -58,29 +58,46 @@ class Sessions:
 
 
 class LoginThrottle:
-    """Höchstens ``max_failures`` Fehlversuche pro Client in ``window_seconds``."""
+    """Höchstens ``max_failures`` Fehlversuche pro Client und ``max_global`` insgesamt
+    in ``window_seconds`` – die globale Grenze greift auch, wenn ein Angreifer im LAN
+    ständig neue IP-Adressen nutzt."""
 
-    def __init__(self, max_failures: int = 5, window_seconds: int = 900) -> None:
+    def __init__(
+        self, max_failures: int = 5, window_seconds: int = 900, max_global: int = 20
+    ) -> None:
         self._max = max_failures
+        self._max_global = max_global
         self._window = window_seconds
         self._failures: dict[str, deque[float]] = defaultdict(deque)
+        self._all: deque[float] = deque()
         self._lock = threading.Lock()
 
     def blocked(self, client: str) -> bool:
         with self._lock:
-            return len(self._recent(client)) >= self._max
+            self._prune()
+            return (
+                len(self._failures.get(client, ())) >= self._max
+                or len(self._all) >= self._max_global
+            )
 
     def fail(self, client: str) -> None:
         with self._lock:
-            self._recent(client).append(time.monotonic())
+            now = time.monotonic()
+            self._failures[client].append(now)
+            self._all.append(now)
+            self._prune()
 
     def reset(self, client: str) -> None:
         with self._lock:
             self._failures.pop(client, None)
 
-    def _recent(self, client: str) -> deque[float]:
-        q = self._failures[client]
+    def _prune(self) -> None:
         cutoff = time.monotonic() - self._window
-        while q and q[0] < cutoff:
-            q.popleft()
-        return q
+        while self._all and self._all[0] < cutoff:
+            self._all.popleft()
+        for client in list(self._failures):
+            q = self._failures[client]
+            while q and q[0] < cutoff:
+                q.popleft()
+            if not q:
+                del self._failures[client]

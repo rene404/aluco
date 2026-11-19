@@ -86,6 +86,14 @@ def _web_command() -> int:
     cfg.db_path.parent.mkdir(parents=True, exist_ok=True)
     Store(cfg.db_path).close()  # Schema anlegen, falls der Runner noch nie lief
     log.info("Dashboard auf http://%s:%s", cfg.host, cfg.port)
+    if not cfg.secure_cookies:
+        log.warning(
+            "Dashboard läuft ohne HTTPS: Passwort und Sitzung gehen unverschlüsselt durchs "
+            "Netz. Für den Dauerbetrieb einen Reverse-Proxy mit TLS davorschalten und "
+            "ALUCO_WEB_SECURE_COOKIES=true setzen (docs/stage-0.md)."
+        )
+    if not cfg.allowed_hosts:
+        log.info("Erreichbar nur über IP-Adresse oder localhost (ALUCO_WEB_ALLOWED_HOSTS)")
     uvicorn.run(
         create_app(cfg),
         host=cfg.host,

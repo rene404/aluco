@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from aluco.incidents import IncidentService
 from aluco.model import (
@@ -16,6 +16,7 @@ from aluco.model import (
     Finding,
     Incident,
     IncidentStatus,
+    is_local_name,
     utcnow,
 )
 from aluco.rules import (
@@ -27,6 +28,9 @@ from aluco.rules import (
     default_dns_rules,
 )
 from aluco.store import Store
+
+# Wie lange nach der letzten Sichtung eine IP noch als die des Geräts gilt.
+STALE_AFTER = timedelta(hours=2)
 
 
 @dataclass(slots=True)
@@ -118,6 +122,8 @@ class Engine:
                             device_mac=device.mac,
                         )
                     )
+        if device.ip:
+            self._store.release_ip(device.ip, device.mac)
         self._store.save_device(device)
 
     def _process_query(
@@ -125,12 +131,20 @@ class Engine:
     ) -> None:
         result.queries_seen += 1
         device = self._store.device_by_ip(q.client_ip)
+        # Nur sicher zuordnen: Ein Gerät, das offline ist oder lange nicht gesehen wurde,
+        # hat die IP womöglich schon abgegeben (DHCP) – z. B. an ein Firmengerät.
+        if device is not None and (device.online is False or q.at - device.last_seen > STALE_AFTER):
+            device = None
         if device is None:
             result.queries_unmatched += 1
             self._store.count_query("", None, q.at, q.blocked)  # nur Gesamtzahl, ohne Domain
             return
         if device.is_company:
             return  # Firmengeräte: nur passiv – weder Auswertung noch Statistik
+        if is_local_name(q.domain):
+            # Reverse-DNS/mDNS/Router-Namen: nur zählen, nie als Domain auswerten.
+            self._store.count_query(device.mac, None, q.at, q.blocked)
+            return
         domain = base_domain(q.domain)
         first_time = self._store.record_domain(device.mac, domain, q.at)
         self._store.count_query(device.mac, domain, q.at, q.blocked)

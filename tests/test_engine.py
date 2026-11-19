@@ -44,13 +44,16 @@ def test_dns_baseline_then_new_domain_alert(store: Store) -> None:
     # Lernphase: alles still, Domains werden gemerkt.
     day1 = T0 + timedelta(days=1)
     learning = engine.process(
-        queries=[DnsQuery(client_ip=IP_A, domain="api.vendor.example", at=day1)], now=day1
+        sightings=[DeviceSighting(mac=MAC_A, at=day1, ip=IP_A)],
+        queries=[DnsQuery(client_ip=IP_A, domain="api.vendor.example", at=day1)],
+        now=day1,
     )
     assert learning.incidents == []
 
     # Nach der Lernphase: bekannte Domain (anderer Host) still, neue Domain meldet sich.
     day10 = T0 + timedelta(days=10)
     result = engine.process(
+        sightings=[DeviceSighting(mac=MAC_A, at=day10, ip=IP_A)],
         queries=[
             DnsQuery(client_ip=IP_A, domain="cdn.vendor.example", at=day10),
             DnsQuery(client_ip=IP_A, domain="x.unknown-tracker.example", at=day10),

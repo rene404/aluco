@@ -20,7 +20,9 @@ def _company_candidate(store: Store) -> None:
     set_trust(store, MAC_A, TrustLevel.IOT)
     later = T0 + timedelta(days=10)
     engine.process(
-        queries=[DnsQuery(client_ip=IP_A, domain="intranet.example", at=later)], now=later
+        sightings=[DeviceSighting(mac=MAC_A, at=later, ip=IP_A)],
+        queries=[DnsQuery(client_ip=IP_A, domain="intranet.example", at=later)],
+        now=later,
     )
     assert store.device_domains(MAC_A)
     assert any(i.rule == "new_domain" for i in store.incidents())

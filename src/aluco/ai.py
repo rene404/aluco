@@ -1,8 +1,9 @@
 """KI-Vorbewertung von Vorfällen mit Claude.
 
 Datensparsam: An die KI gehen nur Regel, Schweregrad, Anzahl, Vertrauensstufe, Hersteller,
-ob die MAC-Adresse zufällig ist, und – bei "neue Domain" – die Domain plus bis zu 15
-bereits bekannte Hauptdomains des Geräts. **Nie** Hostname, Gerätename, IP, MAC oder Notizen.
+ob die MAC-Adresse zufällig ist, und – bei Domain-Regeln – die Hauptdomain plus bis zu 15
+meistgenutzte Hauptdomains des Geräts (7 Tage). **Nie** Hostname, Gerätename, IP, MAC,
+Notizen, vollständige Anfragen oder lokale Namen (*.arpa, *.local, *.lan …).
 Firmengeräte werden nie bewertet.
 
 Das Anthropic-SDK ist optional (Extra ``ai``) und wird erst beim Gebrauch importiert.
@@ -13,10 +14,10 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Literal, Protocol
 
-from aluco.model import Device, Incident, utcnow
+from aluco.model import Device, Incident, is_local_name, utcnow
 
 log = logging.getLogger(__name__)
 
@@ -121,12 +122,10 @@ def build_context(
             ctx["hersteller_laut_scan"] = details["vendor"]
     elif incident.rule == "bad_domain":
         ctx["domain_auf_liste"] = details.get("domain")
-        ctx["angefragt"] = details.get("query")
         ctx["liste"] = details.get("list")
         ctx["von_adguard_blockiert"] = details.get("blocked") == "true"
     elif incident.rule == "new_domain":
         ctx["neue_domain"] = details.get("domain")
-        ctx["angefragt"] = details.get("query")
         ctx["bisher_bekannte_domains"] = [d for d in known_domains if d != details.get("domain")][
             :15
         ]
@@ -192,6 +191,8 @@ class ClaudeAssessor:
             raise AssessmentError(f"API-Fehler {e.status_code}") from e
         except anthropic.APIConnectionError as e:
             raise AssessmentError("Claude-API nicht erreichbar") from e
+        except anthropic.AnthropicError as e:
+            raise AssessmentError(f"Fehler der Claude-API: {type(e).__name__}") from e
 
         if response.stop_reason == "refusal":
             raise AssessmentError("Bewertung von der KI abgelehnt")
@@ -211,15 +212,28 @@ class ClaudeAssessor:
 def assess_incident(
     store: Any, assessor: Assessor, incident_id: int, now: datetime | None = None
 ) -> Assessment | None:
-    """Vorfall bewerten und speichern. ``None`` bei Firmengeräten."""
+    """Vorfall bewerten und speichern. ``None`` bei Firmengeräten.
+
+    Der (langsame) KI-Aufruf läuft ohne offene Transaktion; nur das Speichern schreibt.
+    """
     incident = store.incident_by_id(incident_id)
     if incident is None:
         raise KeyError(incident_id)
     device = store.device(incident.device_mac) if incident.device_mac else None
     if not may_assess(device):
         return None
-    known = store.device_domains(device.mac) if device is not None else []
-    j = assessor.judge(build_context(incident, device, known))
+    known: list[str] = []
+    if device is not None:
+        week_ago = (now or utcnow()) - timedelta(days=7)
+        stats = store.device_domain_stats(device.mac, since=week_ago)
+        known = [d for d, _, n, _ in sorted(stats, key=lambda x: -x[2]) if not is_local_name(d)]
+    try:
+        j = assessor.judge(build_context(incident, device, known))
+    except AssessmentError:
+        raise
+    except Exception as e:  # nichts darf den Lauf oder die Seite abbrechen
+        log.exception("Unerwarteter Fehler bei der KI-Vorbewertung")
+        raise AssessmentError(f"Unerwarteter Fehler: {type(e).__name__}") from e
     assessment = Assessment(
         incident_id=incident_id,
         created_at=now or utcnow(),
