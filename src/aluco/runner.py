@@ -7,9 +7,10 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from aluco.adapters.base import AdapterError, DeviceSource, DnsSource
+from aluco.ai import Assessment, AssessmentError, Assessor, assess_incident
 from aluco.config import Config
 from aluco.engine import Engine, RunResult
-from aluco.model import DeviceSighting, DnsQuery, Event, EventKind, Severity, utcnow
+from aluco.model import DeviceSighting, DnsQuery, Event, EventKind, Incident, Severity, utcnow
 from aluco.notify import Notifier, notify_all
 from aluco.store import Store
 
@@ -24,6 +25,8 @@ class RunSummary:
     purged: int = 0
     notified: int = 0
     notify_failed: int = 0
+    assessed: int = 0
+    ai_errors: list[str] = field(default_factory=list)
 
 
 class Runner:
@@ -36,7 +39,11 @@ class Runner:
         notify_min_severity: Severity = Severity.MEDIUM,
         retention: timedelta = timedelta(days=30),
         engine: Engine | None = None,
+        assessor: Assessor | None = None,
+        ai_max_per_run: int = 5,
     ) -> None:
+        self._assessor = assessor
+        self._ai_max = ai_max_per_run
         self._store = store
         self._device_sources = device_sources
         self._dns_sources = dns_sources
@@ -89,9 +96,10 @@ class Runner:
         self._store.purge_events(older_than=cutoff)
         self._store.purge_stats(older_than=cutoff)
 
+        assessments = self._assess(result.alerts, now, summary)
         if self._notifier and result.alerts:
             summary.notified, summary.notify_failed = notify_all(
-                self._notifier, result.alerts, self._min_severity
+                self._notifier, result.alerts, self._min_severity, assessments
             )
 
         for err in errors:
@@ -108,6 +116,27 @@ class Runner:
             summary.notified,
         )
         return summary
+
+    def _assess(
+        self, alerts: list[Incident], now: datetime, summary: RunSummary
+    ) -> dict[int, Assessment]:
+        """Neue Vorfälle vorbewerten – höchstens ``ai_max_per_run`` pro Lauf (Kosten)."""
+        done: dict[int, Assessment] = {}
+        if self._assessor is None:
+            return done
+        for incident in sorted(alerts, key=lambda i: -i.severity)[: self._ai_max]:
+            if incident.id is None:
+                continue
+            try:
+                a = assess_incident(self._store, self._assessor, incident.id, now)
+            except AssessmentError as e:
+                summary.ai_errors.append(str(e))
+                log.warning("KI-Vorbewertung von Vorfall %s fehlgeschlagen: %s", incident.id, e)
+                continue
+            if a is not None:
+                done[incident.id] = a
+                summary.assessed += 1
+        return done
 
     def _record_source_changes(self, errors: list[str], now: datetime) -> None:
         """Nur Wechsel in die Chronik: Quelle fällt aus bzw. ist wieder erreichbar."""
@@ -154,6 +183,11 @@ def build_runner(cfg: Config, store: Store) -> Runner:
         if cfg.ntfy_url
         else None
     )
+    assessor = None
+    if cfg.ai.enabled:
+        from aluco.ai import ClaudeAssessor
+
+        assessor = ClaudeAssessor(model=cfg.ai.model)
     return Runner(
         store,
         device_sources,
@@ -161,4 +195,6 @@ def build_runner(cfg: Config, store: Store) -> Runner:
         notifier=notifier,
         notify_min_severity=cfg.notify_min_severity,
         retention=timedelta(days=cfg.retention_days),
+        assessor=assessor,
+        ai_max_per_run=cfg.ai.max_per_run,
     )

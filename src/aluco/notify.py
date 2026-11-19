@@ -8,6 +8,7 @@ import urllib.request
 from collections.abc import Callable
 from typing import Protocol
 
+from aluco.ai import Assessment
 from aluco.model import Incident, Severity
 
 log = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ _SEVERITY_DE = {
 
 
 class Notifier(Protocol):
-    def send(self, incident: Incident) -> None: ...
+    def send(self, incident: Incident, assessment: Assessment | None = None) -> None: ...
 
 
 # (URL, Body, Header) → None; austauschbar für Tests.
@@ -64,13 +65,18 @@ class NtfyNotifier:
     def __repr__(self) -> str:
         return "NtfyNotifier(…)"
 
-    def send(self, incident: Incident) -> None:
+    def send(self, incident: Incident, assessment: Assessment | None = None) -> None:
         severity = _SEVERITY_DE[incident.severity]
         if self._minimal:
             title, body = "Aluco: neuer Vorfall", f"Schweregrad {severity}. Details im Dashboard."
         else:
             title = f"Aluco ({severity})"
             body = incident.title
+            if assessment is not None:
+                body += (
+                    f"\n\nKI: {assessment.verdict_de} – {assessment.summary}"
+                    f"\nEmpfehlung: {assessment.action_de}"
+                )
         headers = {
             "Title": title,
             "Priority": _PRIORITY[incident.severity],
@@ -83,7 +89,10 @@ class NtfyNotifier:
 
 
 def notify_all(
-    notifier: Notifier, incidents: list[Incident], min_severity: Severity
+    notifier: Notifier,
+    incidents: list[Incident],
+    min_severity: Severity,
+    assessments: dict[int, Assessment] | None = None,
 ) -> tuple[int, int]:
     """Meldet Vorfälle ab ``min_severity``. Fehler beim Senden stoppen den Lauf nicht.
 
@@ -94,7 +103,7 @@ def notify_all(
         if incident.severity < min_severity:
             continue
         try:
-            notifier.send(incident)
+            notifier.send(incident, (assessments or {}).get(incident.id or -1))
             sent += 1
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
             failed += 1

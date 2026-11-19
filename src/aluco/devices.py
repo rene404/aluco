@@ -42,6 +42,7 @@ def set_trust(store: Store, mac: str, trust: TrustLevel) -> TrustChange:
         domains = incidents = 0
         if trust is TrustLevel.COMPANY:
             domains = store.delete_device_domains(device.mac)
+            store.delete_device_assessments(device.mac)  # Bewertungen nennen Verhalten
             incidents = store.delete_incidents(device.mac, BEHAVIOUR_RULES)
             store.delete_device_stats(device.mac)
             # Vorfall-Ereignisse nennen z. B. angefragte Domains → ebenfalls entfernen.

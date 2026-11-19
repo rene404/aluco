@@ -18,6 +18,29 @@ class ConfigError(ValueError):
     pass
 
 
+@dataclass(frozen=True, slots=True)
+class AiSettings:
+    enabled: bool = False
+    model: str = "claude-opus-5-5"
+    max_per_run: int = 5
+
+
+def ai_settings_from_env(env: Mapping[str, str] | None = None) -> AiSettings:
+    """KI-Vorbewertung: nur aktiv mit ALUCO_AI_ENABLED=true und gesetztem ANTHROPIC_API_KEY."""
+    e = os.environ if env is None else env
+    enabled = e.get("ALUCO_AI_ENABLED", "").strip().lower() in {"1", "true", "yes"}
+    if enabled and not e.get("ANTHROPIC_API_KEY", "").strip():
+        raise ConfigError("ALUCO_AI_ENABLED=true, aber ANTHROPIC_API_KEY fehlt")
+    raw_max = e.get("ALUCO_AI_MAX_PER_RUN", "").strip() or "5"
+    if not raw_max.isdigit():
+        raise ConfigError("ALUCO_AI_MAX_PER_RUN muss eine Zahl sein")
+    return AiSettings(
+        enabled=enabled,
+        model=e.get("ALUCO_AI_MODEL", "").strip() or "claude-opus-5-5",
+        max_per_run=int(raw_max),
+    )
+
+
 def db_path_from_env(env: Mapping[str, str] | None = None) -> Path:
     """Nur der Datenbankpfad – für Befehle, die keine Datenquellen brauchen."""
     e = os.environ if env is None else env
@@ -41,6 +64,7 @@ class Config:
     ntfy_token: str | None = field(default=None, repr=False)
     notify_min_severity: Severity = Severity.MEDIUM
     notify_minimal: bool = False  # nur "neuer Vorfall" ohne Gerät/Domain im Text
+    ai: AiSettings = field(default_factory=AiSettings)
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Config:
@@ -82,6 +106,7 @@ class Config:
             ntfy_token=opt("NTFY_TOKEN"),
             notify_min_severity=severity,
             notify_minimal=(opt("ALUCO_NOTIFY_MINIMAL") or "false").lower() in {"1", "true", "yes"},
+            ai=ai_settings_from_env(e),
         )
         if cfg.adguard_url and not (cfg.adguard_user and cfg.adguard_password):
             raise ConfigError("ADGUARD_URL gesetzt, aber ADGUARD_USER/ADGUARD_PASSWORD fehlen")

@@ -41,7 +41,7 @@ class Inbox:
     def __init__(self) -> None:
         self.sent: list[Incident] = []
 
-    def send(self, incident: Incident) -> None:
+    def send(self, incident: Incident, assessment: object = None) -> None:
         self.sent.append(incident)
 
 
