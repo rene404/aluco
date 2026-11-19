@@ -11,6 +11,14 @@ updates:
       python:
         patterns: ["*"]
 
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+
   - package-ecosystem: github-actions
     directory: /
     target-branch: develop

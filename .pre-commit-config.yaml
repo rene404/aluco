@@ -21,6 +21,7 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
       - id: check-yaml
+        args: [--unsafe] # nur Syntax; Compose nutzt eigene Tags (!reset, !override)
       - id: check-toml
       - id: end-of-file-fixer
       - id: trailing-whitespace

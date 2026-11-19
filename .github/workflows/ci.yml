@@ -25,6 +25,20 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pytest
 
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Compose-Dateien prüfen
+        run: |
+          cp .env.example .env
+          docker compose config -q
+          docker compose -f compose.yaml -f compose.local.yaml config -q
+      - name: Shell-Skripte prüfen
+        run: shellcheck scripts/*.sh
+
   secrets:
     runs-on: ubuntu-latest
     steps:
