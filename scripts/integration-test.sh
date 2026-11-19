@@ -111,7 +111,11 @@ dc exec -T aluco python - <<'PY' || fail "MCP"
 import anyio
 from mcp import Client, StdioServerParameters
 async def main():
-    async with Client(StdioServerParameters(command="python", args=["-m", "aluco", "mcp"])) as c:
+    # Das SDK startet den Server mit minimaler Umgebung → Datenbankpfad explizit mitgeben.
+    params = StdioServerParameters(
+        command="python", args=["-m", "aluco", "mcp"], env={"ALUCO_DB_PATH": "/data/aluco.db"}
+    )
+    async with Client(params) as c:
         names = {t.name for t in (await c.list_tools()).tools}
         assert {"get_overview", "device_activity"} <= names, names
         o = (await c.call_tool("get_overview", {})).structured_content
