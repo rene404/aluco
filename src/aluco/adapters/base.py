@@ -46,7 +46,11 @@ class HttpJsonClient:
     base_url: str
     username: str | None = None
     password: str | None = None
+    bearer_token: str | None = None
     timeout: float = 10.0
+
+    def __repr__(self) -> str:  # Zugangsdaten nie in Logs/Tracebacks
+        return f"HttpJsonClient(base_url={self.base_url!r})"
 
     def __call__(self, method: str, path: str, params: Mapping[str, str]) -> Any:
         if not self.base_url.startswith(("http://", "https://")):
@@ -56,7 +60,9 @@ class HttpJsonClient:
             url += "?" + urllib.parse.urlencode(params)
         req = urllib.request.Request(url, method=method)  # noqa: S310 – Schema oben geprüft
         req.add_header("Accept", "application/json")
-        if self.username is not None:
+        if self.bearer_token is not None:
+            req.add_header("Authorization", f"Bearer {self.bearer_token}")
+        elif self.username is not None:
             token = base64.b64encode(f"{self.username}:{self.password or ''}".encode()).decode()
             req.add_header("Authorization", f"Basic {token}")
         try:

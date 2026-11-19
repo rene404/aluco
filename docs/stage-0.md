@@ -42,6 +42,7 @@ dig +short @127.0.0.1 example.com                  # liefert eine IP
 2. `SCAN_SUBNETS` auf das eigene Netz setzen, z. B. `192.0.2.0/24 --interface=eth0` (Netz und Schnittstelle mit `ip -4 addr` prüfen).
 3. Benachrichtigung bei neuem Gerät einschalten (z. B. ntfy oder E-Mail).
 4. Oberfläche mit Passwort schützen (`SETPWD_enable_password`).
+5. **API-Token für Aluco:** Settings → `API_TOKEN` kopieren und in `.env` als `NETALERTX_API_TOKEN` eintragen. Das Token erlaubt auch Schreiben und Löschen – Aluco nutzt es nur lesend, trotzdem wie ein Passwort behandeln.
 
 ## DNS im Router umstellen
 

@@ -85,3 +85,22 @@ def test_queries_of_device_seen_in_same_run_are_matched(store: Store) -> None:
     )
     assert result.queries_unmatched == 0
     assert store.device_domains(MAC_B) == ["example.com"]
+
+
+def test_learn_only_imports_inventory_without_incidents(store: Store) -> None:
+    engine = Engine(store)
+    result = engine.process(
+        sightings=[DeviceSighting(mac=MAC_A, at=T0, ip=IP_A)],
+        queries=[DnsQuery(client_ip=IP_A, domain="example.com", at=T0)],
+        now=T0,
+        learn_only=True,
+    )
+    assert result.new_devices == 1
+    assert result.incidents == []
+    assert store.device_domains(MAC_A) == ["example.com"]
+
+    # Danach normal: bekanntes Gerät still, wirklich neues Gerät meldet sich.
+    later = engine.process(
+        sightings=[DeviceSighting(mac=MAC_A, at=T0), DeviceSighting(mac=MAC_B, at=T0)], now=T0
+    )
+    assert [i.device_mac for i in later.incidents] == [MAC_B]
