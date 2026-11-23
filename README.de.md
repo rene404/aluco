@@ -9,7 +9,7 @@ Monitoring für Heimnetz und Laptops: Geräteinventar, Erkennung ungewöhnlicher
 
 Aluco ersetzt keine bewährten Tools, sondern setzt auf ihnen auf: OPNsense, AdGuard Home, NetAlertX und Suricata liefern die Daten, Aluco führt sie zusammen und macht daraus einen Ablauf von *Vorfall → bewerten → handeln*.
 
-**Status:** v0.1.0 – Software für Stufe 0 fertig (Dashboard, KI-Vorbewertung, MCP, Laptop-Agent); Stufe 1 (OPNsense) und lokale KI (Ollama) in `develop`; Inbetriebnahme auf dem Raspberry Pi steht aus. Änderungen: [CHANGELOG.md](CHANGELOG.md).
+**Status:** v0.2.0 – Software für Stufe 0 und 1 fertig (Dashboard, KI-Vorbewertung mit Claude oder lokal mit Ollama, MCP, Laptop-Agent, Trennen über OPNsense); Inbetriebnahme auf dem Raspberry Pi steht aus. Änderungen: [CHANGELOG.md](CHANGELOG.md).
 
 ## Dokumente
 
