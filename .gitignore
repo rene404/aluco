@@ -227,3 +227,5 @@ private/
 
 # Aluco: Container-Daten
 /data/
+# Sicherungen von scripts/backup.sh: enthalten Passwörter, Tokens und den CA-Schlüssel
+/backups/
