@@ -4,7 +4,8 @@ Trennen = IP-Adresse in den Alias ``aluco_quarantine`` (Typ Host) eintragen. Ein
 Firewall-Regel blockiert diesen Alias Richtung Internet (Einrichtung: docs/opnsense.md).
 ``alias_util/add`` und ``delete`` speichern bei Host-Aliasen dauerhaft in der Konfiguration.
 
-Der API-Schlüssel braucht nur die Rechte für Aliase (und optional Diagnose/ARP).
+Rechte des API-Schlüssels (an OPNsense 26.7 geprüft): „Diagnostics: PF Table IP addresses“
+(alias_util), „Firewall: Aliases“ (Alias lesen) und optional „Diagnostics: ARP Table“.
 TLS: OPNsense nutzt meist ein selbstsigniertes Zertifikat – geprüft wird entweder gegen
 eine CA-Datei oder gegen den festgelegten SHA-256-Fingerprint des Zertifikats.
 """
@@ -133,11 +134,44 @@ class OPNsense:
             msg = (result or {}).get("status_msg", status) if isinstance(result, dict) else result
             raise AdapterError(f"OPNsense: {action} fehlgeschlagen ({msg})")
 
+    def _configured(self) -> set[str]:
+        """IP-Adressen, die dauerhaft in der Alias-Konfiguration stehen (nicht nur in pf)."""
+        found = self._client.request(
+            "GET", f"/api/firewall/alias/getAliasUUID/{quote(self._alias)}"
+        )
+        uuid = found.get("uuid") if isinstance(found, dict) else None
+        if not uuid or not re.fullmatch(r"[0-9a-f-]{36}", str(uuid)):
+            raise AdapterError(f"OPNsense: Alias {self._alias} nicht gefunden")
+        item = self._client.request("GET", f"/api/firewall/alias/getItem/{uuid}")
+        content = (item or {}).get("alias", {}).get("content", {}) if isinstance(item, dict) else {}
+        out = set()
+        for value, opt in content.items() if isinstance(content, dict) else []:
+            if not (isinstance(opt, dict) and opt.get("selected")):
+                continue
+            try:
+                out.add(str(ipaddress.ip_address(str(value).split("/")[0])))
+            except ValueError:
+                continue
+        return out
+
     def block(self, ip: str) -> None:
-        self._alias_call("add", self._check_ip(ip))
+        ip = self._check_ip(ip)
+        # OPNsense hängt eine IP, die an erster Stelle des Alias steht, bei erneutem
+        # alias_util/add ein zweites Mal an (array_search liefert 0). Darum nur hinzufügen,
+        # wenn sie nicht schon wirksam gesperrt und gespeichert ist.
+        if ip in self.blocked() and ip in self._configured():
+            return
+        self._alias_call("add", ip)
 
     def unblock(self, ip: str) -> None:
-        self._alias_call("delete", self._check_ip(ip))
+        ip = self._check_ip(ip)
+        # delete entfernt je Aufruf nur ein Vorkommen aus der Konfiguration – so oft
+        # wiederholen, bis die IP auch nach einem Neuladen der Firewall nicht mehr gesperrt wäre.
+        for _ in range(10):
+            self._alias_call("delete", ip)
+            if ip not in self._configured():
+                return
+        raise AdapterError(f"OPNsense: {ip} bleibt in der Alias-Konfiguration stehen")
 
     def blocked(self) -> set[str]:
         result = self._client.request("GET", f"/api/firewall/alias_util/list/{quote(self._alias)}")
@@ -153,7 +187,7 @@ class OPNsense:
 
     def fetch_sightings(self) -> list[DeviceSighting]:
         """Aktuelle ARP-Einträge der Firewall (ohne abgelaufene)."""
-        rows = self._client.request("GET", "/api/diagnostics/interface/getArp")
+        rows = self._client.request("GET", "/api/diagnostics/interface/get_arp")  # ACL: get_arp*
         if not isinstance(rows, list):
             raise AdapterError("OPNsense: unerwartete Antwort der ARP-Tabelle")
         now = datetime.now(UTC)

@@ -44,20 +44,114 @@ class FakeClient:
 # --- Adapter -----------------------------------------------------------------------
 
 
+ALIAS_UUID = "44d21bc7-fceb-4795-b330-f4dc84e15687"
+
+
+class OPNsenseSim:
+    """Bildet alias_util und die Alias-Konfiguration nach – inklusive des OPNsense-Fehlers,
+    dass eine IP an Position 0 bei erneutem add doppelt in die Konfiguration kommt
+    (AliasUtilController: ``if (!array_search(...))``). Verhalten an OPNsense 26.7 geprüft."""
+
+    def __init__(self) -> None:
+        self.config: list[str] = []  # <content> in config.xml, Reihenfolge zählt
+        self.table: set[str] = set()  # pf-Tabelle
+        self.calls: list[tuple[str, str, Any]] = []
+
+    def request(self, method: str, path: str, body: Any = None) -> Any:
+        self.calls.append((method, path, body))
+        if path.startswith("/api/firewall/alias_util/add/"):
+            ip = body["address"]
+            if not (self.config.index(ip) if ip in self.config else False):  # wie PHP
+                self.config.append(ip)
+            self.table.add(ip)
+            return {"status": "done"}
+        if path.startswith("/api/firewall/alias_util/delete/"):
+            ip = body["address"]
+            if ip in self.config:
+                self.config.remove(ip)  # nur ein Vorkommen
+            self.table.discard(ip)
+            return {"status": "done"}
+        if path.startswith("/api/firewall/alias_util/list/"):
+            return {"rows": [{"ip": ip} for ip in sorted(self.table)]}
+        if path.startswith("/api/firewall/alias/getAliasUUID/"):
+            return {"uuid": ALIAS_UUID}
+        if path == f"/api/firewall/alias/getItem/{ALIAS_UUID}":
+            content = {ip: {"value": ip, "selected": 1} for ip in self.config}
+            content["bogons"] = {"value": "bogons", "selected": 0}
+            return {"alias": {"content": content}}
+        raise AssertionError(path)
+
+
 def test_block_unblock_and_list() -> None:
-    client = FakeClient(
-        {"/api/firewall/alias_util/list/": {"rows": [{"ip": "192.0.2.10/32"}, {"ip": "kaputt"}]}}
-    )
-    fw = OPNsense(client)
+    sim = OPNsenseSim()
+    fw = OPNsense(sim)
     fw.block("192.0.2.10")
-    fw.unblock("192.0.2.10")
-    assert client.calls[0] == (
+    assert sim.calls[-1] == (
         "POST",
         "/api/firewall/alias_util/add/aluco_quarantine",
         {"address": "192.0.2.10"},
     )
-    assert client.calls[1][1] == "/api/firewall/alias_util/delete/aluco_quarantine"
     assert fw.blocked() == {"192.0.2.10"}
+    fw.unblock("192.0.2.10")
+    assert ("POST", "/api/firewall/alias_util/delete/aluco_quarantine") in {
+        c[:2] for c in sim.calls
+    }
+    assert fw.blocked() == set() and sim.config == []
+
+
+def test_list_skips_garbage() -> None:
+    fw = OPNsense(
+        FakeClient(
+            {"/api/firewall/alias_util/list/": {"rows": [{"ip": "192.0.2.10/32"}, {"ip": "x"}]}}
+        )
+    )
+    assert fw.blocked() == {"192.0.2.10"}
+
+
+def test_double_block_does_not_survive_release() -> None:
+    """Zweimal trennen, einmal freigeben → auch in der gespeicherten Konfiguration frei."""
+    sim = OPNsenseSim()
+    fw = OPNsense(sim)
+    fw.block("192.0.2.10")
+    fw.block("192.0.2.10")
+    assert sim.config == ["192.0.2.10"]
+    fw.unblock("192.0.2.10")
+    assert sim.config == [] and sim.table == set()
+
+
+def test_release_cleans_up_existing_duplicates() -> None:
+    """Doppelte Einträge, die schon in OPNsense stehen (z. B. von Hand), werden ganz entfernt."""
+    sim = OPNsenseSim()
+    sim.config = ["192.0.2.10", "192.0.2.10", "192.0.2.11"]
+    sim.table = {"192.0.2.10", "192.0.2.11"}
+    OPNsense(sim).unblock("192.0.2.10")
+    assert sim.config == ["192.0.2.11"] and sim.table == {"192.0.2.11"}
+
+
+def test_block_restores_pf_table_when_only_in_config() -> None:
+    sim = OPNsenseSim()
+    sim.config = ["192.0.2.10"]  # pf-Tabelle leer, z. B. nach Fehler
+    OPNsense(sim).block("192.0.2.10")
+    assert sim.table == {"192.0.2.10"}
+
+
+def test_unblock_gives_up_if_entry_stays() -> None:
+    class Stuck(OPNsenseSim):
+        def request(self, method: str, path: str, body: Any = None) -> Any:
+            if path.startswith("/api/firewall/alias_util/delete/"):
+                return {"status": "done"}
+            return super().request(method, path, body)
+
+    sim = Stuck()
+    sim.config = ["192.0.2.10"]
+    with pytest.raises(AdapterError, match="bleibt"):
+        OPNsense(sim).unblock("192.0.2.10")
+
+
+def test_missing_alias_is_reported() -> None:
+    fw = OPNsense(FakeClient({"/api/firewall/alias/getAliasUUID/": {"uuid": ""}}))
+    with pytest.raises(AdapterError, match="nicht gefunden"):
+        fw.unblock("192.0.2.10")
 
 
 def test_block_rejects_bad_input_and_failures() -> None:
@@ -93,7 +187,7 @@ def test_arp_table_as_device_source() -> None:
         {"mac": "00:00:5e:00:53:03", "ip": "192.0.2.12", "expired": True},
         {"mac": "kaputt", "ip": "192.0.2.13"},
     ]
-    [s] = OPNsense(FakeClient({"/api/diagnostics/interface/getArp": rows})).fetch_sightings()
+    [s] = OPNsense(FakeClient({"/api/diagnostics/interface/get_arp": rows})).fetch_sightings()
     assert (s.mac, s.ip, s.hostname, s.vendor, s.online, s.source) == (
         "00:00:5e:00:53:01", "192.0.2.10", "tv", "Beispiel", True, "opnsense",
     )  # fmt: skip
