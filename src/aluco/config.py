@@ -21,24 +21,76 @@ class ConfigError(ValueError):
 @dataclass(frozen=True, slots=True)
 class AiSettings:
     enabled: bool = False
+    provider: str = "claude"  # claude | ollama
     model: str = "claude-opus-5-5"
     max_per_run: int = 5
+    ollama_url: str = ""
 
 
 def ai_settings_from_env(env: Mapping[str, str] | None = None) -> AiSettings:
-    """KI-Vorbewertung: nur aktiv mit ALUCO_AI_ENABLED=true und gesetztem ANTHROPIC_API_KEY."""
+    """KI-Vorbewertung: Claude (API-Schlüssel nötig) oder lokales Modell über Ollama."""
     e = os.environ if env is None else env
     enabled = e.get("ALUCO_AI_ENABLED", "").strip().lower() in {"1", "true", "yes"}
-    if enabled and not e.get("ANTHROPIC_API_KEY", "").strip():
+    provider = e.get("ALUCO_AI_PROVIDER", "").strip().lower() or "claude"
+    if provider not in {"claude", "ollama"}:
+        raise ConfigError("ALUCO_AI_PROVIDER muss claude oder ollama sein")
+    model = e.get("ALUCO_AI_MODEL", "").strip()
+    ollama_url = e.get("ALUCO_AI_OLLAMA_URL", "").strip()
+    if enabled and provider == "claude" and not e.get("ANTHROPIC_API_KEY", "").strip():
         raise ConfigError("ALUCO_AI_ENABLED=true, aber ANTHROPIC_API_KEY fehlt")
+    if enabled and provider == "ollama":
+        if not ollama_url.startswith(("http://", "https://")):
+            raise ConfigError("ALUCO_AI_OLLAMA_URL fehlt (z. B. http://192.0.2.5:11434)")
+        if not model or model.startswith("claude"):
+            raise ConfigError("ALUCO_AI_MODEL: lokales Modell angeben (z. B. qwen3:4b)")
     raw_max = e.get("ALUCO_AI_MAX_PER_RUN", "").strip() or "5"
     if not raw_max.isdigit():
         raise ConfigError("ALUCO_AI_MAX_PER_RUN muss eine Zahl sein")
     return AiSettings(
         enabled=enabled,
-        model=e.get("ALUCO_AI_MODEL", "").strip() or "claude-opus-5-5",
+        provider=provider,
+        model=model or "claude-opus-5-5",
         max_per_run=int(raw_max),
+        ollama_url=ollama_url,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class FirewallSettings:
+    url: str | None = None
+    key: str | None = field(default=None, repr=False)
+    secret: str | None = field(default=None, repr=False)
+    cert_sha256: str | None = None
+    ca_file: str | None = None
+    alias: str = "aluco_quarantine"
+    arp: bool = True
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.url)
+
+
+def firewall_settings_from_env(env: Mapping[str, str] | None = None) -> FirewallSettings:
+    """OPNsense: nur aktiv mit OPNSENSE_URL, Schlüssel und TLS-Prüfung (Fingerprint oder CA)."""
+    e = os.environ if env is None else env
+    get = lambda k: (e.get(k, "") or "").strip() or None  # noqa: E731
+    fw = FirewallSettings(
+        url=get("OPNSENSE_URL"),
+        key=get("OPNSENSE_API_KEY"),
+        secret=get("OPNSENSE_API_SECRET"),
+        cert_sha256=get("OPNSENSE_CERT_SHA256"),
+        ca_file=get("OPNSENSE_CA_FILE"),
+        alias=get("OPNSENSE_ALIAS") or "aluco_quarantine",
+        arp=(get("OPNSENSE_ARP") or "true").lower() in {"1", "true", "yes"},
+    )
+    if fw.enabled:
+        if not fw.url or not fw.url.startswith("https://"):
+            raise ConfigError("OPNSENSE_URL muss mit https:// beginnen")
+        if not (fw.key and fw.secret):
+            raise ConfigError("OPNSENSE_URL gesetzt, aber OPNSENSE_API_KEY/SECRET fehlen")
+        if not (fw.cert_sha256 or fw.ca_file):
+            raise ConfigError("OPNsense: OPNSENSE_CERT_SHA256 oder OPNSENSE_CA_FILE angeben")
+    return fw
 
 
 def db_path_from_env(env: Mapping[str, str] | None = None) -> Path:
@@ -65,6 +117,7 @@ class Config:
     notify_min_severity: Severity = Severity.MEDIUM
     notify_minimal: bool = False  # nur "neuer Vorfall" ohne Gerät/Domain im Text
     ai: AiSettings = field(default_factory=AiSettings)
+    firewall: FirewallSettings = field(default_factory=FirewallSettings)
     threat_feeds: str | None = None  # None = Standardliste; "off" = aus
 
     @classmethod
@@ -108,6 +161,7 @@ class Config:
             notify_min_severity=severity,
             notify_minimal=(opt("ALUCO_NOTIFY_MINIMAL") or "false").lower() in {"1", "true", "yes"},
             ai=ai_settings_from_env(e),
+            firewall=firewall_settings_from_env(e),
             threat_feeds=opt("ALUCO_THREAT_FEEDS"),
         )
         try:
@@ -120,6 +174,6 @@ class Config:
             raise ConfigError("ADGUARD_URL gesetzt, aber ADGUARD_USER/ADGUARD_PASSWORD fehlen")
         if cfg.netalertx_url and not cfg.netalertx_token:
             raise ConfigError("NETALERTX_URL gesetzt, aber NETALERTX_API_TOKEN fehlt")
-        if not (cfg.adguard_url or cfg.netalertx_url):
+        if not (cfg.adguard_url or cfg.netalertx_url or cfg.firewall.enabled):
             raise ConfigError("Keine Datenquelle: ADGUARD_URL und/oder NETALERTX_URL setzen")
         return cfg

@@ -73,8 +73,17 @@ services:
       ALUCO_THREAT_FEEDS: ${ALUCO_THREAT_FEEDS:-}
       ALUCO_AI_ENABLED: ${ALUCO_AI_ENABLED:-false}
       ALUCO_AI_MODEL: ${ALUCO_AI_MODEL:-claude-opus-5-5}
+      ALUCO_AI_PROVIDER: ${ALUCO_AI_PROVIDER:-claude}
+      ALUCO_AI_OLLAMA_URL: ${ALUCO_AI_OLLAMA_URL:-}
       ALUCO_AI_MAX_PER_RUN: ${ALUCO_AI_MAX_PER_RUN:-5}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPNSENSE_URL: ${OPNSENSE_URL:-}
+      OPNSENSE_API_KEY: ${OPNSENSE_API_KEY:-}
+      OPNSENSE_API_SECRET: ${OPNSENSE_API_SECRET:-}
+      OPNSENSE_CERT_SHA256: ${OPNSENSE_CERT_SHA256:-}
+      OPNSENSE_CA_FILE: ${OPNSENSE_CA_FILE:-}
+      OPNSENSE_ALIAS: ${OPNSENSE_ALIAS:-aluco_quarantine}
+      OPNSENSE_ARP: ${OPNSENSE_ARP:-true}
     volumes:
       # Ordner muss dem Benutzer 10001 gehören (siehe docs/stage-0.md)
       - ${ALUCO_DATA_DIR:-./data}/aluco:/data
@@ -102,9 +111,19 @@ services:
       ALUCO_WEB_PORT: ${ALUCO_WEB_PORT:-8088}
       ALUCO_WEB_SECURE_COOKIES: ${ALUCO_WEB_SECURE_COOKIES:-false}
       ALUCO_WEB_ALLOWED_HOSTS: ${ALUCO_WEB_ALLOWED_HOSTS:-}
+      ALUCO_WEB_HOST: ${ALUCO_WEB_HOST:-0.0.0.0}
+      ALUCO_WEB_TRUST_PROXY: ${ALUCO_WEB_TRUST_PROXY:-false}
       ALUCO_AI_ENABLED: ${ALUCO_AI_ENABLED:-false}
       ALUCO_AI_MODEL: ${ALUCO_AI_MODEL:-claude-opus-5-5}
+      ALUCO_AI_PROVIDER: ${ALUCO_AI_PROVIDER:-claude}
+      ALUCO_AI_OLLAMA_URL: ${ALUCO_AI_OLLAMA_URL:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPNSENSE_URL: ${OPNSENSE_URL:-}
+      OPNSENSE_API_KEY: ${OPNSENSE_API_KEY:-}
+      OPNSENSE_API_SECRET: ${OPNSENSE_API_SECRET:-}
+      OPNSENSE_CERT_SHA256: ${OPNSENSE_CERT_SHA256:-}
+      OPNSENSE_CA_FILE: ${OPNSENSE_CA_FILE:-}
+      OPNSENSE_ALIAS: ${OPNSENSE_ALIAS:-aluco_quarantine}
     volumes:
       - ${ALUCO_DATA_DIR:-./data}/aluco:/data
     healthcheck:
@@ -117,6 +136,33 @@ services:
       timeout: 5s
       retries: 3
     mem_limit: ${ALUCO_WEB_MEM_LIMIT:-256m}
+    pids_limit: 64
+    logging: *logging
+
+  caddy:
+    # Optional: HTTPS vor dem Dashboard. Start mit: docker compose --profile https up -d
+    profiles: [https]
+    image: caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
+    container_name: aluco-caddy
+    network_mode: host # Port ALUCO_HTTPS_PORT (Standard 8443); Dashboard dann nur noch lokal
+    restart: unless-stopped
+    depends_on: [aluco-web]
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ALUCO_HTTPS_SITES: ${ALUCO_HTTPS_SITES:-https://localhost:8443}
+      ALUCO_UPSTREAM: 127.0.0.1:${ALUCO_WEB_PORT:-8088}
+      XDG_DATA_HOME: /data
+      XDG_CONFIG_HOME: /config
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${ALUCO_DATA_DIR:-./data}/caddy/data:/data # Zertifikate (sichern!)
+      - ${ALUCO_DATA_DIR:-./data}/caddy/config:/config
+    mem_limit: 128m
     pids_limit: 64
     logging: *logging
 

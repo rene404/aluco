@@ -1,0 +1,26 @@
+# Aluco – HTTPS vor dem Dashboard (Caddy mit eigener, lokaler Zertifizierungsstelle).
+# Adressen kommen aus ALUCO_HTTPS_SITES, z. B. "https://aluco.lan:8443, https://192.0.2.2:8443".
+# Das Stammzertifikat liegt danach unter data/caddy/data/caddy/pki/authorities/local/root.crt
+# und muss einmal auf den Geräten als vertrauenswürdig eingetragen werden (docs/https.md).
+{
+	admin off
+	auto_https disable_redirects
+	skip_install_trust
+	local_certs
+}
+
+{$ALUCO_HTTPS_SITES:https://localhost:8443} {
+	tls internal
+	encode zstd gzip
+	reverse_proxy {$ALUCO_UPSTREAM:127.0.0.1:8088} {
+		header_up X-Forwarded-Proto https
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	log {
+		# Kein Zugriffsprotokoll mit IPs/Pfaden – nur Fehler.
+		level ERROR
+	}
+}

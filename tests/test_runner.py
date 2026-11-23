@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from pathlib import Path
+
+import pytest
 
 from aluco.adapters.base import AdapterError
 from aluco.model import DeviceSighting, DnsQuery, Incident, IncidentStatus, Severity
@@ -118,3 +121,29 @@ def test_low_severity_not_notified_and_old_closed_incidents_purged(store: Store)
     assert summary.purged == 1
     assert store.incident_by_id(old.id or 0) is None
     assert inbox.sent == []
+
+
+def test_disk_warning(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import shutil as _shutil
+    from collections import namedtuple
+
+    from aluco import runner as runner_mod
+
+    usage = namedtuple("usage", "total used free")
+    monkeypatch.setattr(_shutil, "disk_usage", lambda _p: usage(100 * 1024**3, 0, 50 * 1024**3))
+    assert runner_mod.disk_warning(tmp_path) is None
+    monkeypatch.setattr(_shutil, "disk_usage", lambda _p: usage(32 * 1024**3, 0, 512 * 1024**2))
+    assert "0.5 GB frei" in (runner_mod.disk_warning(tmp_path) or "")
+    monkeypatch.setattr(_shutil, "disk_usage", lambda _p: usage(1000 * 1024**3, 0, 20 * 1024**3))
+    assert "2%" in (runner_mod.disk_warning(tmp_path) or "")  # 20 GB, aber < 5 %
+
+
+def test_runner_reports_low_disk(
+    store: Store, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from aluco import runner as runner_mod
+
+    monkeypatch.setattr(runner_mod, "disk_warning", lambda _p: "nur noch 0.3 GB frei (1%)")
+    summary = Runner(store, [], [], disk_path=tmp_path).run_once(now=T0)
+    assert summary.errors == ["speicher: nur noch 0.3 GB frei (1%)"]
+    assert store.events()[0].title == "Speicherplatz knapp"
