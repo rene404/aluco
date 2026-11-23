@@ -1,32 +1,36 @@
 # Aluco
 
-> **Aluco – Hausradar für dein Netz.**
-> Benannt nach dem Waldkauz (*Strix aluco*), der nachts wacht und jede Bewegung bemerkt.
+**English** · [Deutsch](README.de.md)
 
-Monitoring für Heimnetz und Laptops: Geräteinventar, Erkennung ungewöhnlicher Vorgänge, Vorfall-Protokoll und Trennen von Geräten per Klick, mit KI-Vorbewertung und MCP-Zugang.
+> **Aluco – a home radar for your network.**
+> Named after the tawny owl (*Strix aluco*), which keeps watch at night and notices every movement.
 
-Aluco ersetzt keine bewährten Tools, sondern setzt auf ihnen auf: OPNsense, AdGuard Home, NetAlertX und Suricata liefern die Daten, Aluco führt sie zusammen und macht daraus einen Ablauf von *Vorfall → bewerten → handeln*.
+Monitoring for home networks and laptops: device inventory, detection of unusual activity, an incident log and one-click device disconnect, with AI pre-assessment and MCP access.
 
-**Status:** v0.1.0 – Software für Stufe 0 fertig (Dashboard, KI-Vorbewertung, MCP, Laptop-Agent); Inbetriebnahme auf dem Raspberry Pi steht aus. Änderungen: [CHANGELOG.md](CHANGELOG.md).
+Aluco does not replace proven tools, it builds on them: OPNsense, AdGuard Home, NetAlertX and Suricata provide the data, Aluco brings it together and turns it into a workflow of *incident → assess → act*.
 
-## Dokumente
+**Status:** v0.1.0 – software for stage 0 complete (dashboard, AI pre-assessment, MCP, laptop agent); stage 1 (OPNsense) and local AI (Ollama) in `develop`; deployment on the Raspberry Pi is pending. Changes: [CHANGELOG.md](CHANGELOG.md).
 
-| Datei | Inhalt |
+> The user interface and the documentation in `docs/` are in German for now.
+
+## Documents
+
+| File | Contents |
 |---|---|
-| [docs/architecture.md](docs/architecture.md) | Zielbild, Grundsätze, Ausbaustufen 0–4 |
-| [docs/stage-0.md](docs/stage-0.md) | Stufe 0: AdGuard Home + NetAlertX einrichten, Rückweg, Abnahme |
-| [docs/opnsense.md](docs/opnsense.md) | Stufe 1: Geräte über OPNsense trennen, ARP-Tabelle |
-| [docs/operations.md](docs/operations.md) | Betrieb: Sicherung, Wiederherstellung, Update, Speicherplatz |
-| [docs/https.md](docs/https.md) | HTTPS fürs Dashboard mit Caddy und lokaler Zertifizierungsstelle |
-| [docs/laptop-agent.md](docs/laptop-agent.md) | Laptop-Agent (osquery): Ports, Autostart, Sicherheitsgrundlagen |
-| [docs/mcp.md](docs/mcp.md) | MCP-Server: Claude Desktop/Code nach dem Netz fragen |
-| [docs/ai.md](docs/ai.md) | KI-Vorbewertung: was gesendet wird, Einrichtung, Kosten |
-| [docs/dashboard-concept.md](docs/dashboard-concept.md) | Unterseiten, Erkennungsregeln, Wege zum Trennen, Umgang mit Laptops und Firmengeräten |
-| [docs/roadmap.md](docs/roadmap.md) | Ausbau nach Stufe 4 mit Nutzen/Aufwand, Prioritäten, Risiken |
-| [docs/naming.md](docs/naming.md) | Herkunft des Namens |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Branches (Gitflow), Entwicklungsumgebung, Prüfungen |
-| [SECURITY.md](SECURITY.md) | Sicherheitslücken melden |
+| [docs/architecture.md](docs/architecture.md) | Target picture, principles, stages 0–4 |
+| [docs/stage-0.md](docs/stage-0.md) | Stage 0: set up AdGuard Home + NetAlertX, rollback, acceptance |
+| [docs/opnsense.md](docs/opnsense.md) | Stage 1: disconnect devices via OPNsense, ARP table |
+| [docs/operations.md](docs/operations.md) | Operations: backup, restore, update, disk space |
+| [docs/https.md](docs/https.md) | HTTPS for the dashboard with Caddy and a local certificate authority |
+| [docs/laptop-agent.md](docs/laptop-agent.md) | Laptop agent (osquery): ports, autostart, security basics |
+| [docs/mcp.md](docs/mcp.md) | MCP server: ask Claude Desktop/Code about your network |
+| [docs/ai.md](docs/ai.md) | AI pre-assessment: what is sent, setup, cost, local models with Ollama |
+| [docs/dashboard-concept.md](docs/dashboard-concept.md) | Pages, detection rules, ways to disconnect, handling laptops and company devices |
+| [docs/roadmap.md](docs/roadmap.md) | Beyond stage 4: benefit/effort, priorities, risks |
+| [docs/naming.md](docs/naming.md) | Origin of the name |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Branches (Gitflow), development setup, checks |
+| [SECURITY.md](SECURITY.md) | Reporting security vulnerabilities |
 
-## Lizenz
+## License
 
 [MIT](LICENSE)
