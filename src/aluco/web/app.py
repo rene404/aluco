@@ -37,9 +37,17 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from aluco import __version__
+from aluco.adapters.base import AdapterError
 from aluco.agent import POSTURE_CHECKS, AgentError, hash_token, process_report
 from aluco.ai import AssessmentError, Assessor, assess_incident
-from aluco.config import AiSettings, ConfigError, ai_settings_from_env, db_path_from_env
+from aluco.config import (
+    AiSettings,
+    ConfigError,
+    FirewallSettings,
+    ai_settings_from_env,
+    db_path_from_env,
+    firewall_settings_from_env,
+)
 from aluco.devices import (
     DeviceNotFoundError,
     set_name,
@@ -56,6 +64,7 @@ from aluco.model import (
     normalize_mac,
     utcnow,
 )
+from aluco.quarantine import Blocker, QuarantineError, disconnect, release
 from aluco.store import Store
 from aluco.web import views
 from aluco.web.auth import LoginThrottle, Sessions, check_password
@@ -112,6 +121,7 @@ class WebConfig:
     session_hours: int = 12
     timezone: str = "UTC"
     ai: AiSettings = field(default_factory=AiSettings)
+    firewall: FirewallSettings = field(default_factory=FirewallSettings)
     # Zusätzlich erlaubte Hostnamen (IP-Adressen und localhost sind immer erlaubt).
     allowed_hosts: tuple[str, ...] = ()
     # Hinter Caddy: X-Forwarded-For/-Proto von 127.0.0.1 übernehmen (echte Client-IP).
@@ -140,6 +150,7 @@ class WebConfig:
             secure_cookies=e.get("ALUCO_WEB_SECURE_COOKIES", "").lower() in {"1", "true", "yes"},
             timezone=tz,
             ai=ai_settings_from_env(e),
+            firewall=firewall_settings_from_env(e),
             trust_proxy=e.get("ALUCO_WEB_TRUST_PROXY", "").lower() in {"1", "true", "yes"},
             allowed_hosts=tuple(
                 h.strip().lower()
@@ -149,8 +160,14 @@ class WebConfig:
         )
 
 
-def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
-    """``assessor``: KI-Bewerter (Tests); sonst aus ``cfg.ai`` erzeugt, falls aktiviert."""
+def create_app(
+    cfg: WebConfig, assessor: Assessor | None = None, blocker: Blocker | None = None
+) -> Starlette:
+    """``assessor``/``blocker``: für Tests; sonst aus der Konfiguration erzeugt."""
+    if blocker is None and cfg.firewall.enabled:
+        from aluco.runner import build_firewall
+
+        blocker = build_firewall(cfg.firewall)
     if assessor is None and cfg.ai.enabled:
         from aluco.ai import ClaudeAssessor
 
@@ -179,6 +196,7 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
         tone=views.event_tone,
         explain=views.explain,
         ai_enabled=assessor is not None,
+        firewall_enabled=blocker is not None,
     )
     templates.filters["local"] = lambda dt: dt.astimezone(tz).strftime("%d.%m.%Y %H:%M")
     templates.filters["localdate"] = lambda dt: dt.astimezone(tz).strftime("%d.%m.%Y")
@@ -339,18 +357,26 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             new_status = IncidentStatus(str(form.get("status", "")))
         except ValueError:
             return PlainTextResponse("Unbekannter Status", status_code=400)
-        if new_status is IncidentStatus.DISCONNECTED:
-            # Echtes Trennen kommt mit der Firewall (Stufe 1); bis dahin kein Schein-Status.
-            return PlainTextResponse("Trennen ist noch nicht verfügbar", status_code=400)
         note = str(form.get("note", ""))[:500]
+        if new_status is IncidentStatus.DISCONNECTED:
+            # Nur mit Firewall und ausdrücklicher Bestätigung – nie ein Schein-Status.
+            if blocker is None:
+                return PlainTextResponse("Trennen braucht die Firewall (Stufe 1)", status_code=400)
+            if form.get("confirm") != "ja":
+                return PlainTextResponse("Trennen muss bestätigt werden", status_code=400)
         with store() as s:
             try:
-                with s.transaction():
-                    updated = IncidentService(s).transition(incident_id, new_status, note=note)
+                if new_status is IncidentStatus.DISCONNECTED:
+                    updated = disconnect(s, blocker, incident_id, note=note)  # type: ignore[arg-type]
+                else:
+                    with s.transaction():
+                        updated = IncidentService(s).transition(incident_id, new_status, note=note)
             except KeyError:
                 return PlainTextResponse("Vorfall nicht gefunden", status_code=404)
             except TransitionError as e:
                 return PlainTextResponse(str(e), status_code=409)
+            except (AdapterError, QuarantineError) as e:
+                return PlainTextResponse(f"Trennen fehlgeschlagen: {e}", status_code=502)
             devices = {d.mac: d for d in s.devices()}
             assessments = s.assessments()
         if is_htmx(request):
@@ -403,6 +429,7 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             hourly = s.dns_hourly_by_device(since=now - timedelta(hours=24))
             open_incidents = s.incidents(OPEN_STATUSES)
             agents = s.agents()
+            blocks = s.blocks()
         worst: dict[str, Severity] = {}
         open_count: dict[str, int] = {}
         for i in open_incidents:
@@ -439,6 +466,7 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             trust_filter=trust_filter,
             counts=counts,
             agents=agents,
+            blocks=blocks,
         )
 
     async def device_detail(request: Request) -> Response:
@@ -459,6 +487,7 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             history = s.events(limit=10, device_mac=mac)
             agent = s.agent(mac)
             host = s.host_items(mac) if agent else []
+            block = s.block(mac)
         if only_new:
             domains = [d for d in domains if d[1] >= week_ago]
         return render(
@@ -474,17 +503,34 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
             incidents=items,
             history=history,
             agent=agent,
+            block=block,
             host_ports=[h for h in host if h["kind"] == "port"],
             host_autostart=[h for h in host if h["kind"] == "autostart"],
             host_logins=[h for h in host if h["kind"] == "login"],
             posture_names={k: v[0] for k, v in POSTURE_CHECKS.items()},
             saved=request.query_params.get("saved") == "1",
+            released=request.query_params.get("released") == "1",
             deleted=(
                 request.query_params.get("deleted", "")
                 if re.fullmatch(r"\d{1,6}-\d{1,6}", request.query_params.get("deleted", ""))
                 else ""
             ),
         )
+
+    async def device_release(request: Request) -> Response:
+        """Getrenntes Gerät wieder freigeben."""
+        if blocker is None:
+            return PlainTextResponse("Keine Firewall eingerichtet", status_code=400)
+        try:
+            mac = normalize_mac(request.path_params["mac"])
+        except ValueError:
+            return PlainTextResponse("Ungültige MAC-Adresse", status_code=400)
+        with store() as s:
+            try:
+                release(s, blocker, mac)
+            except (AdapterError, QuarantineError) as e:
+                return PlainTextResponse(f"Freigeben fehlgeschlagen: {e}", status_code=502)
+        return RedirectResponse(f"/devices/{mac}?released=1", status_code=303)
 
     async def device_update(request: Request) -> Response:
         form = await request.form()
@@ -590,6 +636,7 @@ def create_app(cfg: WebConfig, assessor: Assessor | None = None) -> Starlette:
         Route("/devices", devices_page),
         Route("/devices/{mac}", device_detail),
         Route("/devices/{mac}", device_update, methods=["POST"]),
+        Route("/devices/{mac}/release", device_release, methods=["POST"]),
         Mount("/static", StaticFiles(directory=HERE / "static"), name="static"),
     ]
     return Starlette(routes=routes, middleware=[Middleware(BaseHTTPMiddleware, dispatch=guard)])

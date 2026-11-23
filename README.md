@@ -15,6 +15,7 @@ Aluco ersetzt keine bewährten Tools, sondern setzt auf ihnen auf: OPNsense, AdG
 |---|---|
 | [docs/architecture.md](docs/architecture.md) | Zielbild, Grundsätze, Ausbaustufen 0–4 |
 | [docs/stage-0.md](docs/stage-0.md) | Stufe 0: AdGuard Home + NetAlertX einrichten, Rückweg, Abnahme |
+| [docs/opnsense.md](docs/opnsense.md) | Stufe 1: Geräte über OPNsense trennen, ARP-Tabelle |
 | [docs/operations.md](docs/operations.md) | Betrieb: Sicherung, Wiederherstellung, Update, Speicherplatz |
 | [docs/https.md](docs/https.md) | HTTPS fürs Dashboard mit Caddy und lokaler Zertifizierungsstelle |
 | [docs/laptop-agent.md](docs/laptop-agent.md) | Laptop-Agent (osquery): Ports, Autostart, Sicherheitsgrundlagen |

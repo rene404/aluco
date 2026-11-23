@@ -7,13 +7,15 @@ import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from aluco.adapters.base import AdapterError, DeviceSource, DnsSource
 from aluco.ai import Assessment, AssessmentError, Assessor, assess_incident
-from aluco.config import Config
+from aluco.config import Config, FirewallSettings
 from aluco.engine import Engine, RunResult
 from aluco.model import DeviceSighting, DnsQuery, Event, EventKind, Incident, Severity, utcnow
 from aluco.notify import Notifier, notify_all
+from aluco.quarantine import Blocker, resync
 from aluco.store import Store
 from aluco.threatintel import ThreatIntel
 
@@ -62,9 +64,11 @@ class Runner:
         ai_max_per_run: int = 5,
         threat_intel: ThreatIntel | None = None,
         disk_path: Path | None = None,
+        blocker: Blocker | None = None,
     ) -> None:
         self._intel = threat_intel
         self._disk_path = disk_path
+        self._blocker = blocker
         self._assessor = assessor
         self._ai_max = ai_max_per_run
         self._store = store
@@ -113,6 +117,13 @@ class Runner:
         # Lesepositionen erst nach erfolgreicher Verarbeitung weiterschieben.
         for source, position in new_cursors.items():
             self._store.set_cursor(source, position)
+
+        if self._blocker is not None:
+            try:
+                for change in resync(self._store, self._blocker):
+                    log.info("Getrenntes Gerät mit neuer IP nachgeführt: %s", change)
+            except AdapterError as e:
+                errors.append(f"opnsense: {e}")
 
         # Für das Dashboard: wann lief Aluco zuletzt, welche Quellen fehlten?
         self._record_source_changes(errors, now)
@@ -203,6 +214,9 @@ def build_runner(cfg: Config, store: Store) -> Runner:
     if cfg.netalertx_url:
         client = HttpJsonClient(cfg.netalertx_url, bearer_token=cfg.netalertx_token)
         device_sources.append(NetAlertX(client))
+    firewall = build_firewall(cfg.firewall)
+    if firewall is not None and cfg.firewall.arp:
+        device_sources.append(firewall)
     if cfg.adguard_url:
         client = HttpJsonClient(cfg.adguard_url, cfg.adguard_user, cfg.adguard_password)
         dns_sources.append(AdGuardHome(client))
@@ -234,4 +248,21 @@ def build_runner(cfg: Config, store: Store) -> Runner:
         threat_intel=intel,
         engine=Engine(store, dns_rules=dns_rules),
         disk_path=cfg.db_path.parent,
+        blocker=firewall,
     )
+
+
+def build_firewall(fw: FirewallSettings) -> Any:
+    """OPNsense-Adapter aus der Konfiguration, oder ``None``."""
+    if not fw.enabled:
+        return None
+    from aluco.adapters.opnsense import OPNsense, OPNsenseClient
+
+    client = OPNsenseClient(
+        fw.url or "",
+        fw.key or "",
+        fw.secret or "",
+        ca_file=fw.ca_file,
+        cert_sha256=fw.cert_sha256,
+    )
+    return OPNsense(client, alias=fw.alias)

@@ -20,7 +20,7 @@ from aluco.model import (
     TrustLevel,
 )
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS devices (
@@ -140,7 +140,17 @@ CREATE TABLE IF NOT EXISTS host_items (
 );
 """
 
-_MIGRATIONS = {1: _SCHEMA, 2: _SCHEMA_V2, 3: _SCHEMA_V3, 4: _SCHEMA_V4}
+# v5: über die Firewall getrennte Geräte.
+_SCHEMA_V5 = """
+CREATE TABLE IF NOT EXISTS blocks (
+    device_mac  TEXT PRIMARY KEY REFERENCES devices(mac) ON DELETE CASCADE,
+    ip          TEXT NOT NULL,
+    blocked_at  TEXT NOT NULL,
+    incident_id INTEGER
+);
+"""
+
+_MIGRATIONS = {1: _SCHEMA, 2: _SCHEMA_V2, 3: _SCHEMA_V3, 4: _SCHEMA_V4, 5: _SCHEMA_V5}
 
 
 def hour_key(at: datetime) -> str:
@@ -608,6 +618,25 @@ class Store:
             "DELETE FROM host_items WHERE last_seen < ?", (_ts(older_than),)
         ).rowcount
 
+    # --- Getrennte Geräte (Firewall) -----------------------------------------------
+
+    def save_block(self, mac: str, ip: str, at: datetime, incident_id: int | None) -> None:
+        self._db.execute(
+            "INSERT INTO blocks (device_mac, ip, blocked_at, incident_id) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(device_mac) DO UPDATE SET ip = excluded.ip",
+            (mac, ip, _ts(at), incident_id),
+        )
+
+    def block(self, mac: str) -> dict[str, object] | None:
+        r = self._db.execute("SELECT * FROM blocks WHERE device_mac = ?", (mac,)).fetchone()
+        return _block(r) if r else None
+
+    def blocks(self) -> dict[str, dict[str, object]]:
+        return {r["device_mac"]: _block(r) for r in self._db.execute("SELECT * FROM blocks")}
+
+    def delete_block(self, mac: str) -> int:
+        return self._db.execute("DELETE FROM blocks WHERE device_mac = ?", (mac,)).rowcount
+
     # --- Lesepositionen der Datenquellen ------------------------------------------
 
     def cursor(self, source: str) -> str | None:
@@ -690,4 +719,13 @@ def _agent(r: sqlite3.Row) -> dict[str, object]:
         "hostname": r["hostname"],
         "os": r["os"],
         "posture": json.loads(r["posture"]),
+    }
+
+
+def _block(r: sqlite3.Row) -> dict[str, object]:
+    return {
+        "device_mac": r["device_mac"],
+        "ip": r["ip"],
+        "blocked_at": _dt(r["blocked_at"]),
+        "incident_id": r["incident_id"],
     }
