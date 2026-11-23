@@ -2,6 +2,32 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
 
+## [0.2.0] – 2026-11-23
+
+Stufe 1 in der Software: Geräte über **OPNsense** trennen, KI-Vorbewertung auch **lokal mit Ollama**, dazu HTTPS, Sicherung/Update und ein Integrationstest des ganzen Stacks. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
+
+### Neu
+- **OPNsense (Stufe 1, optional):** Gerät eines Vorfalls per Klick vom Internet **trennen** und wieder **freigeben** (IP im Firewall-Alias `aluco_quarantine`), immer mit Rückfrage; Schutzliste und Firmengeräte nie. Bei DHCP-Wechsel wird die neue IP nachgezogen. ARP-Tabelle der Firewall als weitere Geräte-Quelle. Gegen OPNsense 26.7 mit Minimalrechten geprüft ([docs/opnsense.md](docs/opnsense.md)).
+- **Lokale KI mit Ollama (optional):** `ALUCO_AI_PROVIDER=ollama` – Vorfallsdaten verlassen das Heimnetz nicht, keine API-Kosten ([docs/ai.md](docs/ai.md)).
+- **HTTPS fürs Dashboard:** Caddy mit lokaler Zertifizierungsstelle, Compose-Profil `https` ([docs/https.md](docs/https.md)).
+- **Betrieb:** `scripts/backup.sh`, `restore.sh`, `update.sh`; Warnung bei wenig Speicherplatz ([docs/operations.md](docs/operations.md)).
+- **README auf Englisch**, deutsche Fassung in `README.de.md`.
+
+### Geändert
+- KI-Prompt: Eine zufällige (private) MAC-Adresse allein gilt nicht mehr als verdächtig; eine Domain von einer Bedrohungsliste bleibt ein starker Hinweis, auch wenn AdGuard sie blockiert hat.
+- Datenbankschema v5 (Tabelle `blocks` für getrennte Geräte) – wird beim Start automatisch migriert. Vor dem Update `scripts/backup.sh` ausführen.
+
+### Behoben
+- OPNsense legt eine IP bei erneutem Sperren unter Umständen doppelt in der Konfiguration ab, entfernt beim Löschen aber nur einen Eintrag; Aluco räumt beim Freigeben jetzt vollständig auf, sonst wäre das Gerät nach dem nächsten Neuladen der Firewall wieder gesperrt.
+
+### Intern
+- CI: Integrationstest des ganzen Stacks (Job `integration`), Pflichtprüfung für `main` und `develop`.
+
+### Bekannte Grenzen
+- Getrennt wird vom **Internet**, nicht vom übrigen Heimnetz (dafür braucht es VLANs).
+- Dass die Block-Regel echten Verkehr stoppt, ist noch nicht mit einem echten Gerät hinter OPNsense geprüft.
+- Keine Datenmengen pro Gerät; NetAlertX-Scan und Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
+
 ## [0.1.0] – 2026-11-19
 
 Erste Version: Software für **Stufe 0** (Inventar + DNS-Protokoll ohne Netzumbau) samt Dashboard, KI-Vorbewertung, MCP-Server und Laptop-Agent. Noch nicht auf echter Hardware im Dauerbetrieb geprüft.
@@ -26,4 +52,5 @@ Erste Version: Software für **Stufe 0** (Inventar + DNS-Protokoll ohne Netzumba
 - Dashboard ohne eingebautes HTTPS – Reverse-Proxy mit TLS empfohlen.
 - NetAlertX-Scan und Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
 
+[0.2.0]: https://github.com/rene404/aluco/releases/tag/v0.2.0
 [0.1.0]: https://github.com/rene404/aluco/releases/tag/v0.1.0
