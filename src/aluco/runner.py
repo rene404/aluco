@@ -231,11 +231,9 @@ def build_runner(cfg: Config, store: Store) -> Runner:
     feeds = parse_feeds(cfg.threat_feeds)
     intel = ThreatIntel(feeds, cache_dir=cfg.db_path.parent / "threatintel") if feeds else None
     dns_rules = [*default_dns_rules(), *([KnownBadDomainRule(intel)] if intel else [])]
-    assessor = None
-    if cfg.ai.enabled:
-        from aluco.ai import ClaudeAssessor
+    from aluco.ai import build_assessor
 
-        assessor = ClaudeAssessor(model=cfg.ai.model)
+    assessor = build_assessor(cfg.ai)
     return Runner(
         store,
         device_sources,

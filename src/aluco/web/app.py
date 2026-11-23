@@ -169,9 +169,9 @@ def create_app(
 
         blocker = build_firewall(cfg.firewall)
     if assessor is None and cfg.ai.enabled:
-        from aluco.ai import ClaudeAssessor
+        from aluco.ai import build_assessor
 
-        assessor = ClaudeAssessor(model=cfg.ai.model)
+        assessor = build_assessor(cfg.ai)
     sessions = Sessions(cfg.session_hours * 3600)
     throttle = LoginThrottle()
     tz = ZoneInfo(cfg.timezone)
