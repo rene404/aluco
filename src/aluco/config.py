@@ -21,23 +21,37 @@ class ConfigError(ValueError):
 @dataclass(frozen=True, slots=True)
 class AiSettings:
     enabled: bool = False
+    provider: str = "claude"  # claude | ollama
     model: str = "claude-opus-5-5"
     max_per_run: int = 5
+    ollama_url: str = ""
 
 
 def ai_settings_from_env(env: Mapping[str, str] | None = None) -> AiSettings:
-    """KI-Vorbewertung: nur aktiv mit ALUCO_AI_ENABLED=true und gesetztem ANTHROPIC_API_KEY."""
+    """KI-Vorbewertung: Claude (API-Schlüssel nötig) oder lokales Modell über Ollama."""
     e = os.environ if env is None else env
     enabled = e.get("ALUCO_AI_ENABLED", "").strip().lower() in {"1", "true", "yes"}
-    if enabled and not e.get("ANTHROPIC_API_KEY", "").strip():
+    provider = e.get("ALUCO_AI_PROVIDER", "").strip().lower() or "claude"
+    if provider not in {"claude", "ollama"}:
+        raise ConfigError("ALUCO_AI_PROVIDER muss claude oder ollama sein")
+    model = e.get("ALUCO_AI_MODEL", "").strip()
+    ollama_url = e.get("ALUCO_AI_OLLAMA_URL", "").strip()
+    if enabled and provider == "claude" and not e.get("ANTHROPIC_API_KEY", "").strip():
         raise ConfigError("ALUCO_AI_ENABLED=true, aber ANTHROPIC_API_KEY fehlt")
+    if enabled and provider == "ollama":
+        if not ollama_url.startswith(("http://", "https://")):
+            raise ConfigError("ALUCO_AI_OLLAMA_URL fehlt (z. B. http://192.0.2.5:11434)")
+        if not model or model.startswith("claude"):
+            raise ConfigError("ALUCO_AI_MODEL: lokales Modell angeben (z. B. qwen3:4b)")
     raw_max = e.get("ALUCO_AI_MAX_PER_RUN", "").strip() or "5"
     if not raw_max.isdigit():
         raise ConfigError("ALUCO_AI_MAX_PER_RUN muss eine Zahl sein")
     return AiSettings(
         enabled=enabled,
-        model=e.get("ALUCO_AI_MODEL", "").strip() or "claude-opus-5-5",
+        provider=provider,
+        model=model or "claude-opus-5-5",
         max_per_run=int(raw_max),
+        ollama_url=ollama_url,
     )
 
 
