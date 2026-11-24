@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import urllib.error
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -14,9 +15,10 @@ from aluco.ai import Assessment, AssessmentError, Assessor, assess_incident
 from aluco.config import Config, FirewallSettings
 from aluco.engine import Engine, RunResult
 from aluco.model import DeviceSighting, DnsQuery, Event, EventKind, Incident, Severity, utcnow
-from aluco.notify import Notifier, notify_all
+from aluco.notify import Notifier, TextSender, notify_all
 from aluco.nrd import NewlyRegistered
 from aluco.quarantine import Blocker, resync
+from aluco.report import REPORT_CURSOR, Schedule, build_report
 from aluco.store import Store
 from aluco.threatintel import ThreatIntel
 
@@ -51,6 +53,7 @@ class RunSummary:
     notify_failed: int = 0
     assessed: int = 0
     ai_errors: list[str] = field(default_factory=list)
+    report_sent: bool = False
 
 
 class Runner:
@@ -67,11 +70,13 @@ class Runner:
         ai_max_per_run: int = 5,
         threat_intel: ThreatIntel | None = None,
         nrd: NewlyRegistered | None = None,
+        report: tuple[Schedule, TextSender] | None = None,
         disk_path: Path | None = None,
         blocker: Blocker | None = None,
     ) -> None:
         self._intel = threat_intel
         self._nrd = nrd
+        self._report = report
         self._disk_path = disk_path
         self._blocker = blocker
         self._assessor = assessor
@@ -151,6 +156,8 @@ class Runner:
                 self._notifier, result.alerts, self._min_severity, assessments
             )
 
+        summary.report_sent = self._weekly_report(now)
+
         for err in errors:
             log.warning("Datenquelle nicht erreichbar: %s", err)
         log.info(
@@ -165,6 +172,28 @@ class Runner:
             summary.notified,
         )
         return summary
+
+    def _weekly_report(self, now: datetime) -> bool:
+        """Wochenbericht senden, wenn fällig. Beim ersten Lauf nur den Startpunkt merken."""
+        if self._report is None:
+            return False
+        schedule, sender = self._report
+        raw = self._store.cursor(REPORT_CURSOR)
+        if raw is None:
+            self._store.set_cursor(REPORT_CURSOR, now.isoformat())
+            return False
+        if not schedule.is_due(now, datetime.fromisoformat(raw)):
+            return False
+        report = build_report(self._store, end=now)
+        # Auch bei Fehlern als erledigt merken – sonst käme jeder Lauf erneut.
+        self._store.set_cursor(REPORT_CURSOR, now.isoformat())
+        try:
+            sender.send_text(f"Aluco: {report.headline}", report.text())
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
+            log.warning("Wochenbericht nicht gesendet: %s", e)
+            return False
+        log.info("Wochenbericht gesendet: %s", report.headline)
+        return True
 
     def _assess(
         self, alerts: list[Incident], now: datetime, summary: RunSummary
@@ -266,6 +295,11 @@ def build_runner(cfg: Config, store: Store) -> Runner:
         ai_max_per_run=cfg.ai.max_per_run,
         threat_intel=intel,
         nrd=nrd,
+        report=(
+            (Schedule(cfg.report_weekday, cfg.report_hour, cfg.timezone), notifier)
+            if notifier is not None and cfg.report_enabled
+            else None
+        ),
         engine=Engine(store, dns_rules=dns_rules),
         disk_path=cfg.db_path.parent,
         blocker=firewall,

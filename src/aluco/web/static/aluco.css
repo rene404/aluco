@@ -116,6 +116,8 @@ h3 { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color:
 .num { font-variant-numeric: tabular-nums; text-align: right; }
 .ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .warn-text { color: var(--sev-high-fg); }
+.ok-text { color: var(--ok-text); }
+.week-headline { margin: 0 0 .4rem; }
 .up { color: var(--ok-text); font-weight: 600; }
 .down { color: var(--muted); font-weight: 600; }
 .error { color: var(--sev-critical-bg); }

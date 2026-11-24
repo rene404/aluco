@@ -8,6 +8,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 - **Regel „neu registrierte Domain“ (#25):** Anfragen an Domains, die jünger als 14 Tage sind (HaGeZi NRD, ~5 Mio. Domains), Schweregrad mittel. Binärsuche direkt in der Datei statt im Speicher (unter 30 MB), Erlaubnisliste `ALUCO_NRD_ALLOW`, abschaltbar mit `ALUCO_NRD_FEEDS=off`. ~90 MB Download pro Tag ([docs/stage-0.md](docs/stage-0.md#neu-registrierte-domains)).
 - **Beispielsatz für die KI-Vorbewertung (#30):** `aluco ai-eval` misst die Bewertungsqualität eines Modells ([docs/ai.md](docs/ai.md)).
 - **Regel-Qualität (#28):** neue Seite „Regeln“ im Dashboard und MCP-Werkzeug `rule_quality` – je Regel ausgelöst, ignoriert, erledigt, getrennt, Ignorier-Quote und Zeit bis zur Entscheidung; Regeln mit über 70 % ignorierten Vorfällen werden hervorgehoben. Datenbank-Schema v6 (Verlauf ohne Gerätekennungen, 400 Tage).
+- **Wochenbericht (#27):** jeden Sonntag 18 Uhr per ntfy „Ruhige Woche – alles normal“ oder was los war – nur Zahlen, keine Namen. Tag und Uhrzeit einstellbar (`ALUCO_REPORT_WEEKDAY`, `ALUCO_REPORT_HOUR`), abschaltbar (`ALUCO_REPORT=off`). Im Dashboard als Karte in der Übersicht.
 
 ### Geändert
 - **KI-Prompt v2 (#31):** erklärt, was „sperren“ bewirkt, verbietet Wissen von außen und härtet gegen eingeschleuste Anweisungen; qwen3:4b von 75 % auf 88 % Treffer.
