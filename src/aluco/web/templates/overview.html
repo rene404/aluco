@@ -90,6 +90,13 @@
   </section>
 
   <div class="col-side">
+    <section class="card" aria-labelledby="week-title">
+      <h2 id="week-title">Wochenbericht <small>· 7 Tage</small></h2>
+      <p class="week-headline {{ 'ok-text' if week_report.quiet else 'warn-text' }}"><strong>{{ week_report.headline }}</strong></p>
+      <ul class="plain week-lines">
+        {% for line in week_report.lines() %}<li>{{ line }}</li>{% endfor %}
+      </ul>
+    </section>
     <section class="card" aria-labelledby="top-dev">
       <h2 id="top-dev">Aktivste Geräte <small>· 24 h</small></h2>
       {% for d, n, pct in top %}

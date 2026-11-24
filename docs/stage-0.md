@@ -52,6 +52,7 @@ dig +short @127.0.0.1 example.com                  # liefert eine IP
 
 1. In `.env` eintragen: `ADGUARD_PASSWORD` (aus `adguard-setup.sh`), `NETALERTX_API_TOKEN` (siehe oben).
 2. Optional Meldungen: `NTFY_URL` (komplette Topic-URL). Bei öffentlichem ntfy-Server einen langen, zufälligen Topic-Namen wählen und `ALUCO_NOTIFY_MINIMAL=true` setzen – dann verlassen keine Geräte- oder Domainnamen das Heimnetz.
+   - **Wochenbericht:** Mit ntfy kommt jeden Sonntag um 18 Uhr (Zeitzone `TZ`) eine leise Meldung – „Ruhige Woche – alles normal“ oder was los war: neue Geräte, Vorfälle je Schweregrad, Entscheidungen, Offenes, getrennte Geräte, DNS-Anfragen und Blockquote, Laptops, ausgefallene Datenquellen. Nur Zahlen, keine Namen. Einstellbar mit `ALUCO_REPORT_WEEKDAY` (mo … so) und `ALUCO_REPORT_HOUR`, abschaltbar mit `ALUCO_REPORT=off`. Der erste Bericht kommt zum ersten Termin nach dem Start; war Aluco zum Termin aus, wird er beim nächsten Lauf nachgeholt. Dieselben Zahlen zeigt die Übersicht im Dashboard (Karte „Wochenbericht“, letzte 7 Tage).
 3. Dashboard-Passwort setzen: `ALUCO_DASHBOARD_PASSWORD` (mindestens 12 Zeichen).
 4. Starten: `docker compose up -d --build aluco aluco-web`, Kontrolle: `docker logs -f aluco`.
 5. Dashboard: `http://<server>:8088/` – nur im Heimnetz bzw. per VPN, nie per Portfreigabe ins Internet. Aufruf über die IP-Adresse; für einen Namen (z. B. `aluco.lan`) diesen in `ALUCO_WEB_ALLOWED_HOSTS` eintragen.
@@ -80,6 +81,17 @@ Aluco gleicht jede DNS-Anfrage mit öffentlichen Bedrohungslisten ab (Malware, P
 - Weitere Listen (z. B. abuse.ch URLhaus/ThreatFox mit kostenlosem Auth-Key) über `ALUCO_THREAT_FEEDS`, Formate: Domains, Hosts-Datei, Adblock.
 - Tipp: dieselbe Liste zusätzlich in AdGuard unter *Filter → DNS-Sperrlisten* eintragen, dann wird auch blockiert.
 - Speicherbedarf ca. 20–40 MB.
+
+### Neu registrierte Domains
+
+Aluco meldet Anfragen an Domains, die erst in den letzten 14 Tagen registriert wurden. Solche Domains nutzen Betrüger gern für Phishing, Schadsoftware und Command-and-Control, weil sie billig und schnell wieder weg sind. Viele neue Domains sind aber harmlos (neue Webseiten, Kampagnen, Dienste) – darum nur Schweregrad **mittel**. Firmengeräte sind ausgenommen.
+
+- Ein Vorfall je Gerät und registrierter Domain (`login.neu.example` und `neu.example` zählen zusammen), Wiederholungen zählen hoch.
+- Steht die Domain zugleich auf einer Bedrohungsliste, meldet Aluco nur die Schad-Domain (hoch).
+- Standardliste: [HaGeZi NRD](https://github.com/hagezi/nrd), letzte 14 Tage (`nrd7` + `nrd14-8`, ~5 Mio. Domains). Wird einmal am Tag geladen (**~90 MB Download pro Tag**, ~2,6 GB im Monat) und im Datenordner zwischengespeichert (~90 MB); fällt der Download aus, gilt die letzte Liste weiter.
+- Arbeitsspeicher: kaum (unter 30 MB). Aluco sucht per Binärsuche direkt in der sortierten Datei, statt 5 Mio. Domains in den Speicher zu laden (wären ~500 MB).
+- `ALUCO_NRD_ALLOW`: eigene oder bekannte neue Domains, die nie als neu registriert gelten (inkl. Subdomains), z. B. `meinverein-2026.at, neuer-shop.example`.
+- `ALUCO_NRD_FEEDS=off` schaltet die Regel ab, z. B. bei knappem Datenvolumen. Eigene Listen: `name=https-URL` (reine Domains).
 
 ## DNS im Router umstellen
 

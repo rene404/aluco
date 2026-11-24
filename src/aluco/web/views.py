@@ -16,6 +16,32 @@ from aluco.model import Device, Event, EventKind, Incident, Severity
 
 WEEKDAYS_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
+RULE_NAME_DE = {
+    "new_device": "Neues Gerät",
+    "new_domain": "Neue Domain (IoT)",
+    "bad_domain": "Schad-Domain",
+    "newly_registered_domain": "Neu registrierte Domain",
+    "agent_port": "Laptop: neuer offener Port",
+    "agent_autostart": "Laptop: neuer Autostart",
+    "agent_login": "Laptop: Fern-Anmeldung",
+    "agent_posture": "Laptop: Sicherheitsgrundlage aus",
+}
+
+
+def duration(td: timedelta | None) -> str:
+    """Kurze Dauer für Laien: '–', '12 Min.', '3 Std.', '2 Tage'."""
+    if td is None:
+        return "–"
+    minutes = td.total_seconds() / 60
+    if minutes < 1:
+        return "< 1 Min."
+    if minutes < 60:
+        return f"{round(minutes)} Min."
+    hours = minutes / 60
+    if hours < 48:
+        return f"{round(hours)} Std."
+    return f"{round(hours / 24)} Tage"
+
 
 def fmt_int(n: int) -> str:
     """1234567 → '1.234.567'."""
@@ -259,6 +285,16 @@ def explain(incident: Incident) -> list[str]:
             "Schadsoftware oder einen Phishing-Link hin"
             if d.get("blocked") == "true"
             else "Die Anfrage wurde NICHT blockiert – Domain in AdGuard sperren"
+        )
+    elif incident.rule == "newly_registered_domain":
+        facts.append(f"{d.get('domain', '?')} wurde in den letzten 14 Tagen registriert")
+        if d.get("query") and d.get("query") != d.get("domain"):
+            facts.append(f"Angefragt: {d['query']}")
+        facts.append(
+            "Neue Domains nutzen Betrüger gern für Phishing und Schadsoftware – viele sind aber "
+            "harmlos. Kennst du die Seite nicht, Domain in AdGuard sperren."
+            if d.get("blocked") != "true"
+            else "AdGuard hat die Anfrage bereits blockiert"
         )
     elif incident.rule == "agent_port":
         facts.append(

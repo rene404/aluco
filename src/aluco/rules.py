@@ -154,6 +154,41 @@ class KnownBadDomainRule:
         )
 
 
+@dataclass(slots=True)
+class NewlyRegisteredDomainRule:
+    """Gerät fragt eine neu registrierte Domain an (jünger als ~14 Tage).
+
+    Neue Domains sind ein häufiges Werkzeug für Phishing, Schadsoftware und
+    Command-and-Control, aber nicht jede ist schädlich – darum nur mittlere Schwere.
+    Steht die Domain zugleich auf einer Bedrohungsliste, meldet nur ``bad_domain``.
+    Ein Vorfall je Gerät und registrierter Domain; Wiederholungen zählen hoch.
+    """
+
+    nrd: ThreatMatcher
+    threats: ThreatMatcher | None = None
+    name: str = "newly_registered_domain"
+
+    def check(self, ctx: DnsContext) -> Iterable[Finding]:
+        hit = self.nrd.match(ctx.query.domain)
+        if hit is None:
+            return
+        if self.threats is not None and self.threats.match(ctx.query.domain) is not None:
+            return
+        yield Finding(
+            rule=self.name,
+            severity=Severity.MEDIUM,
+            title=f"{ctx.device.label} fragt neu registrierte Domain an: {hit.entry}",
+            device_mac=ctx.device.mac,
+            key=hit.entry,
+            details={
+                "domain": hit.entry,
+                "query": ctx.query.domain,
+                "list": hit.feed,
+                "blocked": "true" if ctx.query.blocked else "false",
+            },
+        )
+
+
 def default_device_rules() -> list[DeviceRule]:
     return [NewDeviceRule()]
 

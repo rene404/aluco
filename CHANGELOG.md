@@ -2,6 +2,26 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
 
+## [0.3.0] – 2026-11-24
+
+Mehr Erkennung, weniger Abstumpfen: neue Regel für **neu registrierte Domains**, eine Übersicht zur **Regel-Qualität**, ein **Wochenbericht** und ein Beispielsatz, mit dem sich die KI-Vorbewertung messen lässt. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
+
+### Neu
+- **Regel „neu registrierte Domain“ (#25):** Anfragen an Domains, die jünger als 14 Tage sind (HaGeZi NRD, ~5 Mio. Domains), Schweregrad mittel. Binärsuche direkt in der Datei statt im Speicher (unter 30 MB), Erlaubnisliste `ALUCO_NRD_ALLOW`, abschaltbar mit `ALUCO_NRD_FEEDS=off`. ~90 MB Download pro Tag ([docs/stage-0.md](docs/stage-0.md#neu-registrierte-domains)).
+- **Beispielsatz für die KI-Vorbewertung (#30):** `aluco ai-eval` misst die Bewertungsqualität eines Modells ([docs/ai.md](docs/ai.md)).
+- **Regel-Qualität (#28):** neue Seite „Regeln“ im Dashboard und MCP-Werkzeug `rule_quality` – je Regel ausgelöst, ignoriert, erledigt, getrennt, Ignorier-Quote und Zeit bis zur Entscheidung; Regeln mit über 70 % ignorierten Vorfällen werden hervorgehoben. Datenbank-Schema v6 (Verlauf ohne Gerätekennungen, 400 Tage).
+- **Wochenbericht (#27):** jeden Sonntag 18 Uhr per ntfy „Ruhige Woche – alles normal“ oder was los war – nur Zahlen, keine Namen. Tag und Uhrzeit einstellbar (`ALUCO_REPORT_WEEKDAY`, `ALUCO_REPORT_HOUR`), abschaltbar (`ALUCO_REPORT=off`). Im Dashboard als Karte in der Übersicht.
+
+### Geändert
+- **KI-Prompt v2 (#31):** erklärt, was „sperren“ bewirkt, verbietet Wissen von außen und härtet gegen eingeschleuste Anweisungen; qwen3:4b von 75 % auf 88 % Treffer ([docs/ai.md](docs/ai.md)).
+- Datenbankschema v6 (Tabelle `incident_history`) – wird beim Start automatisch migriert; vorhandene Vorfälle zählen als „ausgelöst“, frühere Entscheidungen lassen sich nicht rekonstruieren. Vor dem Update `scripts/backup.sh` ausführen.
+- Breite Tabellen verbreitern auf dem Handy nicht mehr die ganze Seite.
+
+### Bekannte Grenzen
+- Die NRD-Listen kosten ~90 MB Download pro Tag (~2,6 GB im Monat); bei knappem Datenvolumen `ALUCO_NRD_FEEDS=off`.
+- KI-Vorbewertung bisher nur mit qwen3:4b gemessen (88 %); Messung mit Claude steht aus (#24).
+- Dass die Block-Regel echten Verkehr stoppt, ist noch nicht mit einem echten Gerät hinter OPNsense geprüft; Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
+
 ## [0.2.0] – 2026-11-23
 
 Stufe 1 in der Software: Geräte über **OPNsense** trennen, KI-Vorbewertung auch **lokal mit Ollama**, dazu HTTPS, Sicherung/Update und ein Integrationstest des ganzen Stacks. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
@@ -52,5 +72,6 @@ Erste Version: Software für **Stufe 0** (Inventar + DNS-Protokoll ohne Netzumba
 - Dashboard ohne eingebautes HTTPS – Reverse-Proxy mit TLS empfohlen.
 - NetAlertX-Scan und Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
 
+[0.3.0]: https://github.com/rene404/aluco/releases/tag/v0.3.0
 [0.2.0]: https://github.com/rene404/aluco/releases/tag/v0.2.0
 [0.1.0]: https://github.com/rene404/aluco/releases/tag/v0.1.0

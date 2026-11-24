@@ -34,6 +34,10 @@ class Notifier(Protocol):
     def send(self, incident: Incident, assessment: Assessment | None = None) -> None: ...
 
 
+class TextSender(Protocol):
+    def send_text(self, title: str, body: str, priority: str = "2") -> None: ...
+
+
 # (URL, Body, Header) → None; austauschbar für Tests.
 Poster = Callable[[str, bytes, dict[str, str]], None]
 
@@ -77,9 +81,13 @@ class NtfyNotifier:
                     f"\n\nKI: {assessment.verdict_de} – {assessment.summary}"
                     f"\nEmpfehlung: {assessment.action_de}"
                 )
+        self.send_text(title, body, _PRIORITY[incident.severity])
+
+    def send_text(self, title: str, body: str, priority: str = "2") -> None:
+        """Freie Meldung, z. B. der Wochenbericht (Priorität 2 = leise)."""
         headers = {
             "Title": title,
-            "Priority": _PRIORITY[incident.severity],
+            "Priority": priority,
             "Tags": "owl",
             "Content-Type": "text/plain; charset=utf-8",
         }

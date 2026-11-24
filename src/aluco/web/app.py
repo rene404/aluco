@@ -284,6 +284,9 @@ def create_app(
             s.set_cursor("web:last_visit", now.isoformat())
             prev_visit = datetime.fromisoformat(prev_raw) if prev_raw else None
             since_events = s.events(limit=500, since=prev_visit) if prev_visit else []
+            from aluco.report import build_report
+
+            week_report = build_report(s, end=now)
 
         chart = (
             views.hourly_chart(week, now, tz) if rng == "24h" else views.daily_chart(week, now, tz)
@@ -323,6 +326,7 @@ def create_app(
             event_filter=flt,
             top=[(devices.get(mac), n, round(n / peak_top * 100, 1)) for mac, n in top],
             top_blocked=top_blocked,
+            week_report=week_report,
         )
 
     async def incidents(request: Request) -> Response:
@@ -419,6 +423,29 @@ def create_app(
                 open=True,
             )
         return RedirectResponse("/incidents", status_code=303)
+
+    async def rules_page(request: Request) -> Response:
+        from aluco.ai import RULE_TEXT
+        from aluco.quality import IGNORE_WARN_RATE, MIN_DECISIONS, rule_quality
+
+        days = 90 if request.query_params.get("days") == "90" else 30
+        since = utcnow() - timedelta(days=days)
+        with store() as s:
+            history = s.history(since=since)
+            started = s.history_start()
+        stats = rule_quality(history, since, rules=tuple(RULE_TEXT))
+        return render(
+            request,
+            "rules.html",
+            stats=stats,
+            days=days,
+            since_first=started,
+            flagged=[q for q in stats if q.flagged],
+            warn_pct=round(IGNORE_WARN_RATE * 100),
+            min_decisions=MIN_DECISIONS,
+            RULE_NAME_DE=views.RULE_NAME_DE,
+            duration=views.duration,
+        )
 
     async def devices_page(request: Request) -> Response:
         q = request.query_params.get("q", "").strip()[:100]
@@ -633,6 +660,7 @@ def create_app(
         Route("/incidents", incidents),
         Route("/incidents/{incident_id:int}/status", incident_status, methods=["POST"]),
         Route("/incidents/{incident_id:int}/assess", incident_assess, methods=["POST"]),
+        Route("/rules", rules_page),
         Route("/devices", devices_page),
         Route("/devices/{mac}", device_detail),
         Route("/devices/{mac}", device_update, methods=["POST"]),
