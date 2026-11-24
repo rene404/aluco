@@ -12,20 +12,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from aluco.ai import RULE_NAME
 from aluco.model import Device, Event, EventKind, Incident, Severity
 
 WEEKDAYS_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 
-RULE_NAME_DE = {
-    "new_device": "Neues Gerät",
-    "new_domain": "Neue Domain (IoT)",
-    "bad_domain": "Schad-Domain",
-    "newly_registered_domain": "Neu registrierte Domain",
-    "agent_port": "Laptop: neuer offener Port",
-    "agent_autostart": "Laptop: neuer Autostart",
-    "agent_login": "Laptop: Fern-Anmeldung",
-    "agent_posture": "Laptop: Sicherheitsgrundlage aus",
-}
+RULE_NAME_DE = RULE_NAME
 
 
 def duration(td: timedelta | None) -> str:

@@ -220,6 +220,58 @@
       "details": {"name": "Systemintegritätsschutz"},
       "geraet": {"trust": "known", "vendor": "Apple, Inc.", "online": true},
       "erwartet": {"verdict": ["beobachten", "verdaechtig"], "action": ["pruefen"]}
+    },
+    {
+      "id": "kombi-neues-geraet-dann-schad",
+      "titel": "Neues Gerät mit zufälliger MAC – 5 Minuten später fragt es eine Schad-Domain an (vgl. geraet-zufaellige-mac)",
+      "regel": "new_device", "schwere": "low",
+      "details": {"randomized_mac": "true"},
+      "geraet": {"trust": "unknown", "vendor": null, "online": true},
+      "vorgeschichte": [{"regel": "bad_domain", "minuten": 5, "status": "new", "ki": "verdaechtig"}],
+      "erwartet": {"verdict": ["verdaechtig"], "action": ["pruefen", "sperren"], "risk": ["mittel", "hoch"]}
+    },
+    {
+      "id": "kombi-schad-nach-neuem-geraet",
+      "titel": "Schad-Domain von einem Gerät, das erst vor 5 Minuten neu ins Netz kam",
+      "regel": "bad_domain", "schwere": "high",
+      "details": {"domain": "beacon.c2-relay.example", "list": "HaGeZi TIF", "blocked": "false"},
+      "geraet": {"trust": "unknown", "vendor": null, "online": true},
+      "vorgeschichte": [{"regel": "new_device", "minuten": -5, "status": "new"}],
+      "erwartet": {"verdict": ["verdaechtig"], "action": ["pruefen", "sperren"], "risk": ["hoch"]}
+    },
+    {
+      "id": "kombi-port-nach-autostart",
+      "titel": "Unbekanntes Programm nimmt Verbindungen an – 3 Minuten nach einem neuen Autostart-Eintrag",
+      "regel": "agent_port", "schwere": "medium",
+      "details": {"port": "8443", "protocol": "tcp", "program": "helperd", "path": "~/Library/Application Support/helperd/helperd"},
+      "geraet": {"trust": "known", "vendor": "Apple, Inc.", "online": true},
+      "vorgeschichte": [{"regel": "agent_autostart", "minuten": -3, "status": "new", "ki": "beobachten"}],
+      "erwartet": {"verdict": ["beobachten", "verdaechtig"], "action": ["pruefen", "sperren"]}
+    },
+    {
+      "id": "kombi-harmlose-vorgeschichte",
+      "titel": "Neues Apple-Gerät; frühere Vorfälle des Geräts waren harmlos und erledigt (vgl. geraet-apple)",
+      "regel": "new_device", "schwere": "low",
+      "details": {"randomized_mac": "false", "vendor": "Apple, Inc."},
+      "geraet": {"trust": "unknown", "vendor": "Apple, Inc.", "online": true},
+      "vorgeschichte": [
+        {"regel": "new_domain", "minuten": -2880, "status": "resolved", "ki": "harmlos"},
+        {"regel": "new_domain", "minuten": -1440, "status": "resolved", "ki": "harmlos"}
+      ],
+      "erwartet": {"verdict": ["harmlos", "beobachten"], "action": ["pruefen", "erledigen", "ignorieren"]}
+    },
+    {
+      "id": "kombi-oft-ignoriert",
+      "titel": "Python-Entwicklungsserver; gleiche Vorfälle hat die Person schon dreimal ignoriert (vgl. port-python-dev)",
+      "regel": "agent_port", "schwere": "medium",
+      "details": {"port": "8001", "protocol": "tcp", "program": "python3.13", "path": "/opt/homebrew/Cellar/python@3.13/3.13.9/bin/python3.13"},
+      "geraet": {"trust": "known", "vendor": "Apple, Inc.", "online": true},
+      "vorgeschichte": [
+        {"regel": "agent_port", "minuten": -4320, "status": "ignored", "ki": "beobachten"},
+        {"regel": "agent_port", "minuten": -2880, "status": "ignored", "ki": "beobachten"},
+        {"regel": "agent_port", "minuten": -1440, "status": "ignored", "ki": "beobachten"}
+      ],
+      "erwartet": {"verdict": ["harmlos", "beobachten"], "action": ["erledigen", "ignorieren", "pruefen"]}
     }
   ]
 }

@@ -2,8 +2,10 @@
 
 Datensparsam: An die KI gehen nur Regel, Schweregrad, Anzahl, Vertrauensstufe, Hersteller,
 ob die MAC-Adresse zufällig ist, und – bei Domain-Regeln – die Hauptdomain plus bis zu 15
-meistgenutzte Hauptdomains des Geräts (7 Tage). **Nie** Hostname, Gerätename, IP, MAC,
-Notizen, vollständige Anfragen oder lokale Namen (*.arpa, *.local, *.lan …).
+meistgenutzte Hauptdomains des Geräts (7 Tage), dazu bis zu 5 andere Vorfälle desselben
+Geräts (±7 Tage, ohne erledigte/ignorierte) nur mit Regel, Abstand, Status und KI-Einstufung.
+**Nie** Hostname, Gerätename, IP, MAC, Notizen, Titel, vollständige Anfragen oder lokale
+Namen (*.arpa, *.local, *.lan …).
 Firmengeräte werden nie bewertet.
 
 Das Anthropic-SDK ist optional (Extra ``ai``) und wird erst beim Gebrauch importiert.
@@ -13,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any, ClassVar, Literal, Protocol
@@ -50,6 +53,53 @@ RULE_TEXT = {
         "Domain angefragt, die es noch nie angefragt hat."
     ),
 }
+
+RULE_NAME = {
+    "new_device": "Neues Gerät",
+    "new_domain": "Neue Domain (IoT)",
+    "bad_domain": "Schad-Domain",
+    "newly_registered_domain": "Neu registrierte Domain",
+    "agent_port": "Laptop: neuer offener Port",
+    "agent_autostart": "Laptop: neuer Autostart",
+    "agent_login": "Laptop: Fern-Anmeldung",
+    "agent_posture": "Laptop: Sicherheitsgrundlage aus",
+}
+STATUS_TEXT = {
+    "new": "neu",
+    "investigating": "in Prüfung",
+    "ignored": "ignoriert",
+    "disconnected": "getrennt",
+    "resolved": "erledigt",
+}
+HISTORY_LIMIT = 5  # höchstens so viele andere Vorfälle desselben Geräts
+HISTORY_WINDOW = timedelta(days=7)  # … im Abstand von höchstens 7 Tagen
+# Erledigte und ignorierte Vorfälle hat die Person schon geklärt. Mitgeschickt verleiten sie
+# kleine Modelle dazu, jede Vorgeschichte als Verdacht zu lesen (gemessen, docs/ai.md).
+HISTORY_SKIP_STATUS = frozenset({"resolved", "ignored"})
+
+
+@dataclass(frozen=True, slots=True)
+class PriorIncident:
+    """Ein anderer Vorfall desselben Geräts – nur Regel, Abstand, Status, KI-Einstufung."""
+
+    rule: str
+    offset: timedelta  # Beginn des anderen Vorfalls minus Beginn dieses Vorfalls
+    status: str
+    verdict: str | None = None
+
+
+def offset_text(td: timedelta) -> str:
+    """-5 Min. → '5 Min. vorher', +2 Std. → '2 Std. danach' (gerundet, für Laien und KI)."""
+    when = "vorher" if td < timedelta(0) else "danach"
+    minutes = abs(td.total_seconds()) / 60
+    if minutes < 1:
+        return "gleichzeitig"
+    if minutes < 90:
+        return f"{round(minutes)} Min. {when}"
+    if minutes < 48 * 60:
+        return f"{round(minutes / 60)} Std. {when}"
+    return f"{round(minutes / 60 / 24)} Tage {when}"
+
 
 SYSTEM_PROMPT = """\
 Du bist der Sicherheitsassistent von Aluco, einem Monitoring-Werkzeug für ein privates Heimnetz.
@@ -136,7 +186,10 @@ class Assessor(Protocol):
 
 
 def build_context(
-    incident: Incident, device: Device | None, known_domains: list[str]
+    incident: Incident,
+    device: Device | None,
+    known_domains: list[str],
+    history: Sequence[PriorIncident] = (),
 ) -> dict[str, Any]:
     """Nur die Felder, die für die Bewertung nötig sind (siehe Moduldokumentation)."""
     details = incident.details
@@ -179,7 +232,45 @@ def build_context(
         ctx["bisher_bekannte_domains"] = [d for d in known_domains if d != details.get("domain")][
             :15
         ]
+    history = [h for h in history if h.status not in HISTORY_SKIP_STATUS]
+    if history:
+        ctx["andere_vorfaelle_des_geraets"] = [
+            {
+                "vorfall": RULE_NAME.get(h.rule, h.rule),
+                "zeit": offset_text(h.offset),
+                "status": STATUS_TEXT.get(h.status, h.status),
+                **({"ki_einstufung": h.verdict} if h.verdict else {}),
+            }
+            for h in history
+        ]
     return ctx
+
+
+def device_history(store: Any, incident: Incident) -> list[PriorIncident]:
+    """Bis zu ``HISTORY_LIMIT`` andere Vorfälle desselben Geräts (ohne erledigte und
+    ignorierte), die höchstens ``HISTORY_WINDOW`` vor oder nach diesem begonnen haben – die
+    nächstgelegenen, zeitlich sortiert. Ohne Gerät: keine."""
+    if incident.device_mac is None:
+        return []
+    others = [
+        i
+        for i in store.incidents()
+        if i.device_mac == incident.device_mac
+        and i.id != incident.id
+        and i.status.value not in HISTORY_SKIP_STATUS
+        and abs(i.created_at - incident.created_at) <= HISTORY_WINDOW
+    ]
+    nearest = sorted(others, key=lambda i: abs(i.created_at - incident.created_at))
+    assessments = store.assessments()
+    return [
+        PriorIncident(
+            rule=i.rule,
+            offset=i.created_at - incident.created_at,
+            status=i.status.value,
+            verdict=a.verdict if (a := assessments.get(i.id)) else None,
+        )
+        for i in sorted(nearest[:HISTORY_LIMIT], key=lambda i: i.created_at)
+    ]
 
 
 def may_assess(device: Device | None) -> bool:
@@ -389,7 +480,7 @@ def assess_incident(
         stats = store.device_domain_stats(device.mac, since=week_ago)
         known = [d for d, _, n, _ in sorted(stats, key=lambda x: -x[2]) if not is_local_name(d)]
     try:
-        j = assessor.judge(build_context(incident, device, known))
+        j = assessor.judge(build_context(incident, device, known, device_history(store, incident)))
     except AssessmentError:
         raise
     except Exception as e:  # nichts darf den Lauf oder die Seite abbrechen

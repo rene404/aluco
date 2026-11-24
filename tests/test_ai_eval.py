@@ -54,6 +54,7 @@ def test_cases_cover_every_rule_and_known_weak_spots() -> None:
     ids = {c.id for c in cases}
     assert "geraet-zufaellige-mac" in ids  # Fehler aus #19
     assert sum("einschleusung" in i for i in ids) >= 3
+    assert sum(bool(c.history) for c in cases) >= 4  # Zusammenhänge pro Gerät (#26)
 
 
 def test_contexts_contain_no_identifiers() -> None:
@@ -73,6 +74,13 @@ def test_contexts_contain_no_identifiers() -> None:
         (lambda f: f[0].update(erwartet={"verdict": ["harmlos"]}), "verdict und action"),
         (lambda f: f[0]["erwartet"].update(action=["abschalten"]), "ungültige Erwartung"),
         (lambda f: f[0]["geraet"].update(trust="company"), "Firmengeräte"),
+        (lambda f: f[0].update(vorgeschichte=[{"regel": "x", "status": "new"}]), "Vorgeschichte"),
+        (
+            lambda f: f[0].update(
+                vorgeschichte=[{"regel": "bad_domain", "status": "new", "ki": "?"}]
+            ),
+            "KI-Einstufung",
+        ),
     ],
 )
 def test_broken_case_files_are_rejected(tmp_path: Path, change: Any, message: str) -> None:

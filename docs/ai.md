@@ -13,6 +13,7 @@ Neue Vorfälle werden von Claude – oder einem lokalen Modell über Ollama – 
 | Vertrauensstufe (bekannt, IoT, Gast, unbekannt) | Titel des Vorfalls (enthält oft den Gerätenamen) |
 | Hersteller laut Scan, ob die MAC-Adresse zufällig ist | Daten von **Firmengeräten** – diese werden nie bewertet |
 | Bei Domain-Regeln: die Hauptdomain und bis zu 15 meistgenutzte Hauptdomains des Geräts (7 Tage) | vollständige Anfragen, lokale Namen (`*.arpa`, `.local`, `.lan`, `fritz.box` …), DNS-Protokolle, Verlauf |
+| Bis zu 5 **andere offene Vorfälle desselben Geräts** (±7 Tage): nur Regel, Abstand („5 Min. danach“), Status und deren KI-Einstufung | bei diesen anderen Vorfällen: Titel, Domains, Details; **erledigte und ignorierte** Vorfälle |
 
 Die Daten werden als Daten gekennzeichnet; Anweisungen darin (z. B. in einem präparierten Domainnamen) soll die KI nicht befolgen. Ein Gerät im Netz könnte trotzdem versuchen, die Einschätzung zu beeinflussen – deshalb bleibt sie ein **Vorschlag**, Aluco handelt nie automatisch danach.
 
@@ -87,6 +88,7 @@ aluco ai-eval --case autostart-getarnt --json       # einzelne Fälle, Ausgabe a
 |---|---|---|---|---|---|
 | 2026-11-24 | ollama/qwen3:4b, Prompt v1 (Mac, Apple Silicon) | 36/48 (75 %) | ja | 6 | 3,7 min |
 | 2026-11-24 | ollama/qwen3:4b, Prompt v2 | 42/48 (88 %) | ja | 4 | 2,6 min |
+| 2026-11-24 | ollama/qwen3:4b, Prompt v2 + Vorgeschichte (32 Fälle) | 56/64 (88 %) | ja | 4 | 3,5 min |
 | – | Claude | noch nicht gemessen | | | |
 
 ¹ beide Durchgänge (`--repeat 2`) gleich.
@@ -114,7 +116,27 @@ Offen bei qwen3:4b:
 - Eine neue Domain des TV-Herstellers gilt als „verdächtig“ (in v1 richtig).
 - „bekannt für …“ kommt trotz Verbot noch vor.
 
-> **Vorsicht beim Nachschärfen:** Kleine Modelle reagieren stark auf den Wortlaut. Ein einziger zusätzlicher Satz am Ende des Prompts senkte qwen3:4b von 88 % auf 75 %, zwei weitere Hinweise ebenfalls auf 75 % – mit widersprüchlichen Antworten („harmlos“, Risiko „hoch“). Änderungen deshalb immer nachmessen und nicht auf einzelne Fälle zuschneiden; mit 27 Fällen ist der Satz klein. `--repeat` zeigt nur, ob die Antworten bei gleichem Prompt gleich bleiben (Temperatur 0), nicht, wie robust der Prompt ist.
+### Zusammenhänge pro Gerät (#26)
+
+Die KI sieht neben dem Vorfall die nächstgelegenen anderen offenen Vorfälle desselben Geräts (siehe Tabelle oben). Fünf Fälle (`kombi-…`) prüfen das, jeweils mit einem Gegenstück ohne Vorgeschichte:
+
+| Fall | allein | mit Vorgeschichte |
+|---|---|---|
+| Neues Gerät mit zufälliger MAC, 5 Min. später Schad-Domain | beobachten / niedrig | **verdächtig** / mittel |
+| Schad-Domain von einem Gerät, das vor 5 Min. neu kam | verdächtig / hoch / sperren | verdächtig / hoch / sperren (schon das Maximum) |
+| Unbekanntes Programm nimmt Verbindungen an, 3 Min. nach neuem Autostart | – | beobachten (erlaubt: beobachten/verdächtig) |
+
+Drei Varianten gemessen (qwen3:4b, je 32 Fälle × 2):
+
+| Variante | Treffer | Befund |
+|---|---|---|
+| A: Vorgeschichte im Kontext, Prompt unverändert | 54/64 (84 %) | Kombination erkannt – aber ein Apple-Gerät mit **harmloser, erledigter** Vorgeschichte wird „verdächtig/hoch“ |
+| B: wie A, plus ein Hinweis im Prompt zur Vorgeschichte | 50/64 (78 %) | kippt auch Fälle **ohne** Vorgeschichte (Python-Server, Google-Updater, Kamera-Domain → „verdächtig“) – verworfen |
+| **C: wie A, aber erledigte und ignorierte Vorfälle weglassen** | **56/64 (88 %)** | alle 10 Kombi-Bewertungen richtig; Fälle ohne Vorgeschichte identisch zu A – **umgesetzt** |
+
+Erledigtes und Ignoriertes hat die Person schon geklärt; es als „Vorgeschichte“ zu zeigen, liest ein kleines Modell als Verdacht. Die Fälle `kombi-harmlose-vorgeschichte` und `kombi-oft-ignoriert` sichern ab, dass das so bleibt.
+
+> **Vorsicht beim Nachschärfen:** Kleine Modelle reagieren stark auf den Wortlaut. Ein einziger zusätzlicher Satz am Ende des Prompts senkte qwen3:4b von 88 % auf 75 %, zwei weitere Hinweise ebenfalls auf 75 % – mit widersprüchlichen Antworten („harmlos“, Risiko „hoch“). Änderungen deshalb immer nachmessen und nicht auf einzelne Fälle zuschneiden; mit 32 Fällen ist der Satz klein. `--repeat` zeigt nur, ob die Antworten bei gleichem Prompt gleich bleiben (Temperatur 0), nicht, wie robust der Prompt ist.
 
 ## Datenschutz
 
