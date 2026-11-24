@@ -45,7 +45,7 @@ def test_judge_sends_schema_privacy_and_parses() -> None:
         "openrouter/anthropic/claude-opus-5.5",
     )
     [body] = fake.bodies
-    assert body["temperature"] == 0
+    assert "temperature" not in body  # Claude 5 lehnt sie ab → sonst kein Anbieter
     assert body["provider"] == {"require_parameters": True, "data_collection": "deny"}
     schema = body["response_format"]["json_schema"]
     assert schema["strict"] is True and schema["schema"]["additionalProperties"] is False
@@ -108,3 +108,9 @@ def _fake_judgement() -> Any:
     from aluco.ai import Judgement
 
     return Judgement("verdaechtig", "hoch", "sperren", "s", ["r"], model="x")
+
+
+def test_other_models_get_temperature_zero() -> None:
+    fake = Fake(_ok())
+    OpenRouterAssessor("k", "qwen/qwen3-32b", post=fake).judge({"regel": "new_device"})
+    assert fake.bodies[0]["temperature"] == 0

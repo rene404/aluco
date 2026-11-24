@@ -566,9 +566,8 @@ class OpenRouterAssessor:
 
     def judge(self, context: dict[str, Any]) -> Judgement:
         payload = json.dumps(context, ensure_ascii=False, indent=2, sort_keys=True)
-        body = {
+        body: dict[str, Any] = {
             "model": self._model,
-            "temperature": 0,
             "max_tokens": 1500,
             "messages": [
                 {"role": "system", "content": system_prompt()},
@@ -585,6 +584,10 @@ class OpenRouterAssessor:
             # Nur Anbieter, die das Schema beachten und Anfragen nicht speichern/trainieren.
             "provider": {"require_parameters": True, "data_collection": "deny"},
         }
+        # Claude 5 nimmt keine "temperature" an; mit require_parameters bliebe sonst kein
+        # Anbieter übrig (HTTP 404 "No endpoints found"). Andere Modelle: 0 für gleiche Antworten.
+        if not self._model.startswith("anthropic/"):
+            body["temperature"] = 0
         result = self._post(body)
         try:
             content = result["choices"][0]["message"]["content"]

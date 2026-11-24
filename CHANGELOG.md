@@ -6,6 +6,10 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 
 ### Neu
 - **KI über OpenRouter:** `ALUCO_AI_PROVIDER=openrouter` mit `OPENROUTER_API_KEY` und z. B. `ALUCO_AI_MODEL=anthropic/claude-opus-5.5`. Gleicher Prompt, strenges Antwortschema, Schutzregel; OpenRouter leitet nur an Anbieter weiter, die Anfragen nicht speichern oder zum Training nutzen (`data_collection: deny`). Auch für `aluco ai-eval --provider openrouter` ([docs/ai.md](docs/ai.md#über-openrouter)).
+- **Claude gemessen (#24):** Claude Opus 5.5 über OpenRouter trifft im Beispielsatz 64/64 – auf Deutsch und auf Englisch, ohne dass die Schutzregel eingreifen musste ([docs/ai.md](docs/ai.md)).
+
+### Behoben
+- OpenRouter: Bei Claude-Modellen wird keine `temperature` mehr gesendet – Claude 5 lehnt sie ab, OpenRouter fand dadurch keinen Anbieter (HTTP 404).
 
 ## [0.4.0] – 2026-11-24
 
