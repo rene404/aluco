@@ -509,6 +509,94 @@ class OllamaAssessor:
         return _validated(raw, model=f"ollama/{result.get('model', self._model)}")
 
 
+class OpenRouterAssessor:
+    """Bewertung über OpenRouter (OpenAI-kompatible API), z. B. mit Claude.
+
+    Gleicher Prompt und gleiche strenge Prüfung wie bei Ollama. Die Vorfallsdaten gehen an
+    OpenRouter und an den Anbieter des Modells; ``data_collection: deny`` schließt Anbieter
+    aus, die Anfragen speichern oder zum Training nutzen. Standardbibliothek, kein SDK.
+    """
+
+    URL = "https://openrouter.ai/api/v1/chat/completions"
+
+    def __init__(self, api_key: str, model: str, timeout: float = 120.0, post: Any = None) -> None:
+        if not api_key:
+            raise AssessmentError("OpenRouter: API-Schlüssel fehlt")
+        if "/" not in model:
+            raise AssessmentError(
+                "OpenRouter: Modell mit Anbieter angeben, z. B. anthropic/claude-opus-5.5"
+            )
+        self._key = api_key
+        self._model = model
+        self._timeout = timeout
+        self._post = post or self._http_post
+
+    def __repr__(self) -> str:  # nie den Schlüssel zeigen
+        return f"OpenRouterAssessor(model={self._model!r})"
+
+    def _http_post(self, body: dict[str, Any]) -> Any:
+        import urllib.error
+        import urllib.request
+
+        req = urllib.request.Request(  # noqa: S310 – feste https-URL
+            self.URL,
+            data=json.dumps(body).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self._key}",
+                "X-Title": "Aluco",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:  # noqa: S310
+                return json.load(resp)
+        except urllib.error.HTTPError as e:
+            reason = {
+                401: "API-Schlüssel ungültig",
+                402: "Guthaben aufgebraucht",
+                429: "zu viele Anfragen – später erneut",
+            }.get(e.code)
+            if reason:
+                raise AssessmentError(f"OpenRouter: {reason}") from e
+            detail = e.read(300).decode("utf-8", "replace")
+            raise AssessmentError(f"OpenRouter: HTTP {e.code} {detail}") from e
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            raise AssessmentError(f"OpenRouter nicht erreichbar: {e}") from e
+
+    def judge(self, context: dict[str, Any]) -> Judgement:
+        payload = json.dumps(context, ensure_ascii=False, indent=2, sort_keys=True)
+        body = {
+            "model": self._model,
+            "temperature": 0,
+            "max_tokens": 1500,
+            "messages": [
+                {"role": "system", "content": system_prompt()},
+                {"role": "user", "content": user_message(payload, json_only=True)},
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "einschaetzung",
+                    "strict": True,
+                    "schema": {**OllamaAssessor.SCHEMA, "additionalProperties": False},
+                },
+            },
+            # Nur Anbieter, die das Schema beachten und Anfragen nicht speichern/trainieren.
+            "provider": {"require_parameters": True, "data_collection": "deny"},
+        }
+        result = self._post(body)
+        try:
+            content = result["choices"][0]["message"]["content"]
+            raw = json.loads(content)
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
+            error = result.get("error", {}).get("message") if isinstance(result, dict) else None
+            raise AssessmentError(
+                f"OpenRouter: {error}" if error else "OpenRouter: Antwort ist kein gültiges JSON"
+            ) from e
+        return _validated(raw, model=f"openrouter/{result.get('model', self._model)}")
+
+
 def _validated(raw: Any, model: str) -> Judgement:
     """Antwort eines Modells streng prüfen – nichts Unerwartetes ins Dashboard lassen."""
     if not isinstance(raw, dict):
@@ -543,6 +631,10 @@ def build_assessor(settings: Any) -> Assessor | None:
         return None
     if settings.provider == "ollama":
         return OllamaAssessor(settings.ollama_url, settings.model)
+    if settings.provider == "openrouter":
+        import os
+
+        return OpenRouterAssessor(os.environ.get("OPENROUTER_API_KEY", "").strip(), settings.model)
     return ClaudeAssessor(model=settings.model)
 
 

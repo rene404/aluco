@@ -44,6 +44,22 @@ Dann `docker compose up -d --build aluco aluco-web`.
 - Ein Vorfall braucht nur wenige hundert Tokens; im Heimnetz mit wenigen Vorfällen pro Tag liegen die Kosten im Cent-Bereich pro Monat. Ein günstigeres Modell lässt sich über `ALUCO_AI_MODEL` wählen.
 - Bewertungen werden mit dem Vorfall gelöscht (Aufbewahrungsfrist) und beim Markieren eines Geräts als Firmengerät sofort.
 
+## Über OpenRouter
+
+Wer Claude (oder ein anderes Modell) über [OpenRouter](https://openrouter.ai) bezieht statt direkt bei Anthropic:
+
+```sh
+ALUCO_AI_ENABLED=true
+ALUCO_AI_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-…                 # wie ein Passwort behandeln
+ALUCO_AI_MODEL=anthropic/claude-opus-5.5   # Standard; günstiger: anthropic/claude-sonnet-5.5 oder anthropic/claude-haiku-5.5
+```
+
+- Gleicher Prompt, gleiches Antwortschema (`json_schema`, `strict`) und dieselbe strenge Prüfung der Antwort wie bei Ollama; dazu die Schutzregel gegen eingeschleuste Anweisungen. Standardbibliothek, kein SDK.
+- **Datenschutz:** Die (sparsamen) Vorfallsdaten gehen an OpenRouter und an den Anbieter des Modells. Aluco setzt `provider.data_collection = "deny"` – OpenRouter leitet dann nur an Anbieter weiter, die Anfragen nicht speichern oder zum Training nutzen – und `require_parameters`, damit nur Anbieter antworten, die das Schema beachten.
+- Kosten (Stand 2026-11): Claude Opus 5.5 ca. 4 $ / 20 $ je Mio. Tokens Ein-/Ausgabe, eine Bewertung also gut 1 Cent; ein Durchlauf des Beispielsatzes (32 Fälle × 2) etwa 1 $.
+- Messen: `aluco ai-eval --provider openrouter --model anthropic/claude-opus-5.5 --repeat 2` (optional `--language en`).
+
 ## Lokales Modell (Ollama) – Daten bleiben im Heimnetz
 
 Statt Claude kann ein Modell auf eigener Hardware bewerten, z. B. auf einem Mac oder PC im Heimnetz mit [Ollama](https://ollama.com). Gesendet werden dieselben, sparsamen Felder – sie verlassen das Heimnetz aber nicht.
@@ -90,7 +106,7 @@ aluco ai-eval --case autostart-getarnt --json       # einzelne Fälle, Ausgabe a
 | 2026-11-24 | ollama/qwen3:4b, Prompt v2 | 42/48 (88 %) | ja | 4 | 2,6 min |
 | 2026-11-24 | ollama/qwen3:4b, Prompt v2 + Vorgeschichte (32 Fälle) | 56/64 (88 %) | ja | 4 | 3,5 min |
 | 2026-11-24 | ollama/qwen3:4b, **englisch** + Schutzregel (32 Fälle) | 58/64 (91 %) | ja | 0 | 4,2 min |
-| – | Claude | noch nicht gemessen | | | |
+| – | Claude (direkt oder über OpenRouter) | noch nicht gemessen | | | |
 
 ¹ beide Durchgänge (`--repeat 2`) gleich.
 

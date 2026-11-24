@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Neu
+- **KI über OpenRouter:** `ALUCO_AI_PROVIDER=openrouter` mit `OPENROUTER_API_KEY` und z. B. `ALUCO_AI_MODEL=anthropic/claude-opus-5.5`. Gleicher Prompt, strenges Antwortschema, Schutzregel; OpenRouter leitet nur an Anbieter weiter, die Anfragen nicht speichern oder zum Training nutzen (`data_collection: deny`). Auch für `aluco ai-eval --provider openrouter` ([docs/ai.md](docs/ai.md#über-openrouter)).
+
 ## [0.4.0] – 2026-11-24
 
 **Aluco auf Englisch** und eine KI-Vorbewertung, die Zusammenhänge pro Gerät sieht und sich nicht durch eingeschleusten Text kleinreden lässt. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
