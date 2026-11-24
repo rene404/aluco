@@ -2,14 +2,16 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
 
-## [Unreleased]
+## [0.4.1] – 2026-11-24
+
+Claude für die KI-Vorbewertung jetzt auch **über OpenRouter** – und erstmals gemessen: 100 % im Beispielsatz, auf Deutsch und auf Englisch.
 
 ### Neu
-- **KI über OpenRouter:** `ALUCO_AI_PROVIDER=openrouter` mit `OPENROUTER_API_KEY` und z. B. `ALUCO_AI_MODEL=anthropic/claude-opus-5.5`. Gleicher Prompt, strenges Antwortschema, Schutzregel; OpenRouter leitet nur an Anbieter weiter, die Anfragen nicht speichern oder zum Training nutzen (`data_collection: deny`). Auch für `aluco ai-eval --provider openrouter` ([docs/ai.md](docs/ai.md#über-openrouter)).
-- **Claude gemessen (#24):** Claude Opus 5.5 über OpenRouter trifft im Beispielsatz 64/64 – auf Deutsch und auf Englisch, ohne dass die Schutzregel eingreifen musste ([docs/ai.md](docs/ai.md)).
+- **KI über OpenRouter:** `ALUCO_AI_PROVIDER=openrouter` mit `OPENROUTER_API_KEY` und z. B. `ALUCO_AI_MODEL=anthropic/claude-opus-5.5` (günstiger: `anthropic/claude-sonnet-5.5`, `anthropic/claude-haiku-5.5`). Gleicher Prompt, strenges Antwortschema, Schutzregel; OpenRouter leitet nur an Anbieter weiter, die Anfragen nicht speichern oder zum Training nutzen (`data_collection: deny`). Claude-Modelle bekommen keine `temperature` (Claude 5 lehnt sie ab). Auch für `aluco ai-eval --provider openrouter` ([docs/ai.md](docs/ai.md#über-openrouter)).
+- **Claude gemessen (#24):** Claude Opus 5.5 über OpenRouter trifft im Beispielsatz 64/64 – auf Deutsch und auf Englisch, ohne dass die Schutzregel eingreifen musste. Empfehlung: Ollama, wenn die Daten das Heimnetz nicht verlassen sollen; Claude für die beste Einschätzung ([docs/ai.md](docs/ai.md)).
 
-### Behoben
-- OpenRouter: Bei Claude-Modellen wird keine `temperature` mehr gesendet – Claude 5 lehnt sie ab, OpenRouter fand dadurch keinen Anbieter (HTTP 404).
+### Hinweis
+- Wer `ALUCO_AI_PROVIDER=openrouter` setzt, braucht mindestens diese Version – ältere brechen mit einem Konfigurationsfehler ab.
 
 ## [0.4.0] – 2026-11-24
 
@@ -101,6 +103,7 @@ Erste Version: Software für **Stufe 0** (Inventar + DNS-Protokoll ohne Netzumba
 - Dashboard ohne eingebautes HTTPS – Reverse-Proxy mit TLS empfohlen.
 - NetAlertX-Scan und Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
 
+[0.4.1]: https://github.com/rene404/aluco/releases/tag/v0.4.1
 [0.4.0]: https://github.com/rene404/aluco/releases/tag/v0.4.0
 [0.3.0]: https://github.com/rene404/aluco/releases/tag/v0.3.0
 [0.2.0]: https://github.com/rene404/aluco/releases/tag/v0.2.0
