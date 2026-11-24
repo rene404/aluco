@@ -2,6 +2,15 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Neu
+- **Regel „neu registrierte Domain“ (#25):** Anfragen an Domains, die jünger als 14 Tage sind (HaGeZi NRD, ~5 Mio. Domains), Schweregrad mittel. Binärsuche direkt in der Datei statt im Speicher (unter 30 MB), Erlaubnisliste `ALUCO_NRD_ALLOW`, abschaltbar mit `ALUCO_NRD_FEEDS=off`. ~90 MB Download pro Tag ([docs/stage-0.md](docs/stage-0.md#neu-registrierte-domains)).
+- **Beispielsatz für die KI-Vorbewertung (#30):** `aluco ai-eval` misst die Bewertungsqualität eines Modells ([docs/ai.md](docs/ai.md)).
+
+### Geändert
+- **KI-Prompt v2 (#31):** erklärt, was „sperren“ bewirkt, verbietet Wissen von außen und härtet gegen eingeschleuste Anweisungen; qwen3:4b von 75 % auf 88 % Treffer.
+
 ## [0.2.0] – 2026-11-23
 
 Stufe 1 in der Software: Geräte über **OPNsense** trennen, KI-Vorbewertung auch **lokal mit Ollama**, dazu HTTPS, Sicherung/Update und ein Integrationstest des ganzen Stacks. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
