@@ -81,6 +81,33 @@ def test_quiet_week(store: Store) -> None:
     assert "Details im Dashboard." in r.text()
 
 
+def _source(store: Store, name: str, down: datetime, up: datetime | None) -> None:
+    store.add_event(Event(None, down, EventKind.SOURCE, f"{name} nicht erreichbar"))
+    if up is not None:
+        store.add_event(Event(None, up, EventKind.SOURCE, f"{name} wieder erreichbar"))
+
+
+def test_only_long_outages_count(store: Store) -> None:
+    day, minute = timedelta(days=1), timedelta(minutes=1)
+    _source(store, "kurz", T0 - 2 * day, T0 - 2 * day + 10 * minute)
+    _source(store, "kurz", T0 - day, T0 - day + 20 * minute)  # zweimal kurz → zählt nicht
+    _source(store, "grenze", T0 - day, T0 - day + 30 * minute)
+    _source(store, "laeuft", T0 - 20 * minute, None)  # noch aus, aber erst 20 Min.
+    _source(store, "lange", T0 - 3 * day, None)  # noch aus
+    _source(store, "davor", T0 - 8 * day, T0 - 7 * day + 40 * minute)  # 40 Min. in der Woche
+    _source(store, "davor-kurz", T0 - 8 * day, T0 - 7 * day + 5 * minute)
+    r = build_report(store, end=T0)
+    assert r.outages == ["davor", "grenze", "lange"]
+    assert "Länger als 30 Min. ausgefallen: davor, grenze, lange" in r.lines()
+    assert r.headline.endswith("3 Datenquellen gestört")
+
+
+def test_short_outages_keep_the_week_quiet(store: Store) -> None:
+    _source(store, "adguardhome", T0 - timedelta(days=1), T0 - timedelta(days=1, minutes=-5))
+    r = build_report(store, end=T0)
+    assert r.quiet and r.outages == []
+
+
 def _busy_store(store: Store) -> None:
     for mac, name in ((MAC_A, "Laptop von Alex"), (MAC_B, "Kamera")):
         store.save_device(
@@ -112,9 +139,9 @@ def _busy_store(store: Store) -> None:
     store.update_agent_report(MAC_A, T0 - day, "alex-mbp", "macOS", {})
     store.add_agent(MAC_B, "hash2", T0 - 30 * day)  # meldet sich nicht
     store.save_block(MAC_B, IP_A, T0 - day, None)
-    store.add_event(Event(None, T0 - day, EventKind.SOURCE, "adguard nicht erreichbar"))
-    store.add_event(Event(None, T0 - day, EventKind.SOURCE, "adguard wieder erreichbar"))
-    store.add_event(Event(None, T0 - 9 * day, EventKind.SOURCE, "netalertx nicht erreichbar"))
+    hour = timedelta(hours=1)
+    _source(store, "adguard", T0 - day, T0 - day + 2 * hour)  # 2 Std. → zählt
+    _source(store, "netalertx", T0 - 9 * day, T0 - 9 * day + hour)  # vor der Woche
 
 
 def test_busy_week_counts(store: Store) -> None:

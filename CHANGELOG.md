@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Geändert
+- Wochenbericht: Eine Datenquelle gilt erst als gestört, wenn sie mindestens 30 Minuten am Stück ausgefallen war. Kurze Aussetzer machen eine Woche nicht mehr unruhig.
+
 ## [0.3.0] – 2026-11-24
 
 Mehr Erkennung, weniger Abstumpfen: neue Regel für **neu registrierte Domains**, eine Übersicht zur **Regel-Qualität**, ein **Wochenbericht** und ein Beispielsatz, mit dem sich die KI-Vorbewertung messen lässt. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
