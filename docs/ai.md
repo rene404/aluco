@@ -58,7 +58,8 @@ ALUCO_AI_MODEL=anthropic/claude-opus-5.5   # Standard; günstiger: anthropic/cla
 - Gleicher Prompt, gleiches Antwortschema (`json_schema`, `strict`) und dieselbe strenge Prüfung der Antwort wie bei Ollama; dazu die Schutzregel gegen eingeschleuste Anweisungen. Standardbibliothek, kein SDK.
 - **Datenschutz:** Die (sparsamen) Vorfallsdaten gehen an OpenRouter und an den Anbieter des Modells. Aluco setzt `provider.data_collection = "deny"` – OpenRouter leitet dann nur an Anbieter weiter, die Anfragen nicht speichern oder zum Training nutzen – und `require_parameters`, damit nur Anbieter antworten, die das Schema beachten.
 - Kosten (Stand 2026-11): Claude Opus 5.5 ca. 4 $ / 20 $ je Mio. Tokens Ein-/Ausgabe, eine Bewertung also gut 1 Cent; ein Durchlauf des Beispielsatzes (32 Fälle × 2) etwa 1 $.
-- Messen: `aluco ai-eval --provider openrouter --model anthropic/claude-opus-5.5 --repeat 2` (optional `--language en`).
+- Messen: `aluco ai-eval --provider openrouter --model anthropic/claude-opus-5.5 --repeat 2` (optional `--language en`). Ergebnis siehe unten: 100 % in beiden Sprachen.
+- Claude-Modelle bekommen keine `temperature` mitgeschickt: Claude 5 lehnt sie ab, und weil Aluco `require_parameters` verlangt, fände OpenRouter sonst keinen Anbieter („No endpoints found“). Andere Modelle erhalten `temperature: 0`.
 
 ## Lokales Modell (Ollama) – Daten bleiben im Heimnetz
 
@@ -106,9 +107,15 @@ aluco ai-eval --case autostart-getarnt --json       # einzelne Fälle, Ausgabe a
 | 2026-11-24 | ollama/qwen3:4b, Prompt v2 | 42/48 (88 %) | ja | 4 | 2,6 min |
 | 2026-11-24 | ollama/qwen3:4b, Prompt v2 + Vorgeschichte (32 Fälle) | 56/64 (88 %) | ja | 4 | 3,5 min |
 | 2026-11-24 | ollama/qwen3:4b, **englisch** + Schutzregel (32 Fälle) | 58/64 (91 %) | ja | 0 | 4,2 min |
-| – | Claude (direkt oder über OpenRouter) | noch nicht gemessen | | | |
+| 2026-11-24 | **Claude Opus 5.5** über OpenRouter, deutsch (32 Fälle) | **64/64 (100 %)** | weitgehend² | 0 | 6,5 min |
+| 2026-11-24 | **Claude Opus 5.5** über OpenRouter, englisch (32 Fälle) | **64/64 (100 %)** | weitgehend² | 0 | 5,7 min |
 
 ¹ beide Durchgänge (`--repeat 2`) gleich.
+² Claude 5 nimmt keine `temperature` an; bei 3 (de) bzw. 2 (en) von 32 Fällen unterschieden sich die beiden Durchgänge leicht (z. B. Risiko „mittel“ statt „hoch“ oder „pruefen“ statt „sperren“) – immer innerhalb der erlaubten Werte.
+
+**Claude Opus 5.5** trifft in beiden Sprachen alle Fälle, ohne dass die Schutzregel eingreifen musste. Die bekannten Schwächen von qwen3:4b treten nicht auf: Der getarnte `com.apple…`-Autostart aus einem versteckten Ordner gilt als „verdaechtig“, die Kombination „neues Gerät, 5 Min. später Schad-Domain“ wird erkannt, eingeschleuste Anweisungen (auch im Herstellernamen) bleiben wirkungslos, keine erfundenen Behauptungen („bekannt für …“), und auf Englisch sind alle Zusammenfassungen englisch. Kosten der beiden Läufe zusammen etwa 2 $.
+
+**Empfehlung:** Wer die Vorfallsdaten nicht an einen Cloud-Dienst geben will, nimmt Ollama (88 % de / 91 % en mit Schutzregel) – die Einschätzung ist dort ein grober Vorschlag. Wer die bestmögliche Einschätzung will, nimmt Claude (direkt oder über OpenRouter).
 
 **Prompt v2** erklärt, was „sperren“ bewirkt, verbietet Behauptungen wie „bekannt für“, nennt beim Autostart den Speicherort statt des Namens als entscheidend und sagt, dass eingeschleuster Text die Bewertung in keine Richtung ändert.
 
