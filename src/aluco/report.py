@@ -24,6 +24,7 @@ _SEVERITY_DE = {
     Severity.INFO: "Info",
 }
 REPORT_CURSOR = "report:last_sent"
+OUTAGE_MIN = timedelta(minutes=30)  # kürzere Ausfälle einer Datenquelle zählen nicht
 
 
 def parse_weekday(raw: str) -> int:
@@ -73,7 +74,7 @@ class WeeklyReport:
     laptops: int = 0
     laptops_reporting: int = 0
     posture_open: int = 0
-    outages: list[str] = field(default_factory=list)  # Datenquellen, die ausgefallen waren
+    outages: list[str] = field(default_factory=list)  # Datenquellen, ≥ 30 Min. ausgefallen
 
     @property
     def incidents_total(self) -> int:
@@ -143,7 +144,7 @@ class WeeklyReport:
                 laptop += f", {self.posture_open} Sicherheitsgrundlage(n) aus"
             out.append(laptop)
         if self.outages:
-            out.append("Ausgefallen: " + ", ".join(self.outages))
+            out.append("Länger als 30 Min. ausgefallen: " + ", ".join(self.outages))
         return out
 
     def text(self) -> str:
@@ -179,10 +180,34 @@ def build_report(store: Store, end: datetime) -> WeeklyReport:
     for a in agents.values():
         last = a.get("last_report_at")
         r.laptops_reporting += isinstance(last, datetime) and last >= start
-    outages = {
-        e.title.removesuffix(" nicht erreichbar")
-        for e in store.events(limit=1000, kinds=frozenset({EventKind.SOURCE}), since=start)
-        if e.at < end and e.title.endswith("nicht erreichbar")
-    }
-    r.outages = sorted(outages)
+    r.outages = long_outages(store, start, end)
     return r
+
+
+def long_outages(store: Store, start: datetime, end: datetime) -> list[str]:
+    """Datenquellen, die in der Woche mindestens ``OUTAGE_MIN`` am Stück ausgefallen waren.
+
+    Kurze Aussetzer (z. B. wenn der Rechner kurz schläft oder ein Download einmal scheitert)
+    sind im Alltag normal und machen eine Woche nicht unruhig. Ein Ausfall, der vor der Woche
+    begann, zählt mit seinem Teil in der Woche; ein noch laufender bis ``end``.
+    """
+    events = store.events(
+        limit=5000, kinds=frozenset({EventKind.SOURCE}), since=start - timedelta(days=30)
+    )
+    down: dict[str, datetime] = {}
+    longest: dict[str, timedelta] = {}
+    for e in sorted(events, key=lambda e: e.at):
+        if e.at >= end:
+            break
+        if e.title.endswith(" nicht erreichbar"):
+            down.setdefault(e.title.removesuffix(" nicht erreichbar"), e.at)
+        elif e.title.endswith(" wieder erreichbar"):
+            name = e.title.removesuffix(" wieder erreichbar")
+            began = down.pop(name, None)
+            if began is not None and e.at > start:
+                span = e.at - max(began, start)
+                longest[name] = max(longest.get(name, timedelta(0)), span)
+    for name, began in down.items():  # noch nicht wieder erreichbar
+        span = end - max(began, start)
+        longest[name] = max(longest.get(name, timedelta(0)), span)
+    return sorted(name for name, span in longest.items() if span >= OUTAGE_MIN)
