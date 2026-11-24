@@ -2,17 +2,25 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
 
-## [Unreleased]
+## [0.4.0] – 2026-11-24
+
+**Aluco auf Englisch** und eine KI-Vorbewertung, die Zusammenhänge pro Gerät sieht und sich nicht durch eingeschleusten Text kleinreden lässt. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
 
 ### Neu
-- **Dashboard auf Englisch (#29, Teil 1):** `ALUCO_LANGUAGE=en` stellt Dashboard und Wochenbericht auf Englisch um; Deutsch bleibt Standard. Übersetzung über `aluco.i18n` (deutscher Text als Schlüssel, englischer Katalog in `aluco/locale_en.py`); Tests melden fehlende Übersetzungen und fest eingebaute Texte in Vorlagen. Zahlen und Daten im jeweiligen Format (1.234 / 1,234). Meldungen per ntfy, KI-Bewertung und Titel neuer Vorfälle folgen in Teil 2 und 3.
-- **Meldungen und neue Titel auf Englisch (#29, Teil 2):** ntfy-Meldungen, Titel neuer Vorfälle und Ereignisse, Fehlermeldungen beim Trennen sowie die Werte des MCP-Servers folgen `ALUCO_LANGUAGE`. Ereignisse tragen dafür sprachneutrale Merkmale (`tag`, `subject`); Wochenbericht und Chronik werten nicht mehr den Wortlaut aus. Datenbankschema v7 – bestehende Ereignisse werden beim Start automatisch eingeordnet.
-- **KI-Vorbewertung auf Englisch (#29, Teil 3):** englischer Prompt mit erklärten Antwortwerten, englische Regelbeschreibungen und Feldnamen; der deutsche Prompt bleibt unverändert. `aluco ai-eval --language en`. qwen3:4b: Englisch 91 %, Deutsch 88 % ([docs/ai.md](docs/ai.md)).
-- **Schutzregel gegen eingeschleuste Anweisungen:** Enthalten die Daten Text, der wie eine Anweisung an die KI aussieht, fällt die Einschätzung nie unter „beobachten / prüfen“ – unabhängig von Sprache und Modell.
-- **KI erkennt Zusammenhänge pro Gerät (#26):** Die Vorbewertung sieht bis zu 5 andere offene Vorfälle desselben Geräts (±7 Tage) – nur Regel, Abstand, Status, KI-Einstufung, keine Kennungen. Ein neues Gerät, das kurz darauf eine Schad-Domain anfragt, gilt jetzt als „verdächtig“ statt „beobachten“. Erledigte und ignorierte Vorfälle bleiben bewusst weg (gemessen, [docs/ai.md](docs/ai.md)). Beispielsatz: 32 Fälle, qwen3:4b 88 %.
+- **Englische Version (#29):** `ALUCO_LANGUAGE=en` stellt Dashboard, Wochenbericht, ntfy-Meldungen, Titel neuer Vorfälle und Ereignisse, MCP-Server und KI-Vorbewertung auf Englisch um; Deutsch bleibt Standard. Übersetzung über `aluco.i18n` (deutscher Text als Schlüssel, Katalog in `aluco/locale_en.py`); Tests melden fehlende Übersetzungen und fest eingebaute Texte in Vorlagen. Zahlen und Daten im jeweiligen Format. Schon gespeicherte Titel bleiben in ihrer ursprünglichen Sprache.
+- **KI-Vorbewertung auf Englisch:** eigener englischer Prompt mit erklärten Antwortwerten; der deutsche Prompt bleibt Zeichen für Zeichen unverändert. `aluco ai-eval --language en`. qwen3:4b: Englisch 91 %, Deutsch 88 % ([docs/ai.md](docs/ai.md)).
+- **Schutzregel gegen eingeschleuste Anweisungen:** Enthalten die Vorfallsdaten Text, der wie eine Anweisung an die KI aussieht (z. B. ein Domainname `ignore-previous-instructions…`), fällt die Einschätzung nie unter „beobachten / prüfen“ – unabhängig von Sprache und Modell. Anlass: Der englische Prompt ließ sich so auf „harmlos“ drehen.
+- **KI erkennt Zusammenhänge pro Gerät (#26):** Die Vorbewertung sieht bis zu 5 andere offene Vorfälle desselben Geräts (±7 Tage) – nur Regel, Abstand, Status, KI-Einstufung, keine Kennungen. Ein neues Gerät, das kurz darauf eine Schad-Domain anfragt, gilt jetzt als „verdächtig“ statt „beobachten“. Erledigte und ignorierte Vorfälle bleiben bewusst weg (gemessen). Beispielsatz: 32 Fälle.
 
 ### Geändert
 - Wochenbericht: Eine Datenquelle gilt erst als gestört, wenn sie mindestens 30 Minuten am Stück ausgefallen war. Kurze Aussetzer machen eine Woche nicht mehr unruhig.
+- Ereignisse tragen sprachneutrale Merkmale (`tag`, `subject`); Wochenbericht und Chronik werten nicht mehr den Wortlaut der Titel aus. Datenbankschema v7 – wird beim Start automatisch migriert, bestehende Ereignisse werden eingeordnet. Vor dem Update `scripts/backup.sh` ausführen.
+- „Inventar übernommen: 1 Gerät“ statt „1 Geräte“; Blockquote im Dashboard mit Dezimalkomma.
+
+### Bekannte Grenzen
+- Die Dokumentation in `docs/` ist weiterhin deutsch.
+- KI-Vorbewertung nur mit qwen3:4b gemessen; Messung mit Claude steht aus (#24). Auf Englisch erkennt qwen3:4b die Kombination „neues Gerät, kurz danach Schad-Domain“ nicht.
+- Dass die Block-Regel echten Verkehr stoppt, ist noch nicht mit einem echten Gerät hinter OPNsense geprüft; Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
 
 ## [0.3.0] – 2026-11-24
 
@@ -84,6 +92,7 @@ Erste Version: Software für **Stufe 0** (Inventar + DNS-Protokoll ohne Netzumba
 - Dashboard ohne eingebautes HTTPS – Reverse-Proxy mit TLS empfohlen.
 - NetAlertX-Scan und Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
 
+[0.4.0]: https://github.com/rene404/aluco/releases/tag/v0.4.0
 [0.3.0]: https://github.com/rene404/aluco/releases/tag/v0.3.0
 [0.2.0]: https://github.com/rene404/aluco/releases/tag/v0.2.0
 [0.1.0]: https://github.com/rene404/aluco/releases/tag/v0.1.0
