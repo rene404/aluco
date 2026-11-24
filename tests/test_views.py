@@ -95,13 +95,15 @@ def test_explain_rules() -> None:
 
 
 def test_since_summary_and_tone() -> None:
-    def ev(kind: EventKind, title: str = "t", sev: Severity | None = None) -> Event:
-        return Event(id=None, at=T0, kind=kind, title=title, severity=sev)
+    def ev(kind: EventKind, tag: str = "", sev: Severity | None = None) -> Event:
+        return Event(id=None, at=T0, kind=kind, title="t", severity=sev, tag=tag)
 
     text = views.since_summary(
         [ev(EventKind.INCIDENT), ev(EventKind.DEVICE_OFFLINE), ev(EventKind.DEVICE_OFFLINE)]
     )
     assert text == "1 neuer Vorfall · 2 × offline"
     assert views.event_tone(ev(EventKind.INCIDENT, sev=Severity.HIGH)) == "sev-high"
-    assert views.event_tone(ev(EventKind.SOURCE, "netalertx nicht erreichbar")) == "sev-medium"
+    assert views.event_tone(ev(EventKind.SOURCE, "source_down")) == "sev-medium"
+    assert views.event_tone(ev(EventKind.SOURCE, "source_up")) == "muted"
+    assert views.event_tone(ev(EventKind.INCIDENT_STATUS, "resolved")) == "ok"
     assert views.event_tone(ev(EventKind.DEVICE_ONLINE)) == "ok"

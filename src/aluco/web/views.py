@@ -12,20 +12,15 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from aluco.agent import POSTURE_CHECKS
+from aluco.ai import RULE_NAME
+from aluco.i18n import _, ngettext
+from aluco.i18n import fmt_int as fmt_int
 from aluco.model import Device, Event, EventKind, Incident, Severity
 
-WEEKDAYS_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+WEEKDAYS_DE = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]  # Schlüssel, Anzeige über _()
 
-RULE_NAME_DE = {
-    "new_device": "Neues Gerät",
-    "new_domain": "Neue Domain (IoT)",
-    "bad_domain": "Schad-Domain",
-    "newly_registered_domain": "Neu registrierte Domain",
-    "agent_port": "Laptop: neuer offener Port",
-    "agent_autostart": "Laptop: neuer Autostart",
-    "agent_login": "Laptop: Fern-Anmeldung",
-    "agent_posture": "Laptop: Sicherheitsgrundlage aus",
-}
+RULE_NAME_DE = RULE_NAME
 
 
 def duration(td: timedelta | None) -> str:
@@ -34,32 +29,27 @@ def duration(td: timedelta | None) -> str:
         return "–"
     minutes = td.total_seconds() / 60
     if minutes < 1:
-        return "< 1 Min."
+        return _("< 1 Min.")
     if minutes < 60:
-        return f"{round(minutes)} Min."
+        return _("{n} Min.", n=round(minutes))
     hours = minutes / 60
     if hours < 48:
-        return f"{round(hours)} Std."
-    return f"{round(hours / 24)} Tage"
-
-
-def fmt_int(n: int) -> str:
-    """1234567 → '1.234.567'."""
-    return f"{n:,}".replace(",", ".")
+        return _("{n} Std.", n=round(hours))
+    return _("{n} Tage", n=round(hours / 24))
 
 
 def relative(dt: datetime, now: datetime, tz: ZoneInfo) -> str:
     seconds = (now - dt).total_seconds()
     local, local_now = dt.astimezone(tz), now.astimezone(tz)
     if seconds < 60:
-        return "gerade eben"
+        return _("gerade eben")
     if seconds < 3600:
-        return f"vor {int(seconds // 60)} Min."
+        return _("vor {n} Min.", n=int(seconds // 60))
     if local.date() == local_now.date():
-        return f"vor {int(seconds // 3600)} Std."
+        return _("vor {n} Std.", n=int(seconds // 3600))
     if local.date() == (local_now - timedelta(days=1)).date():
-        return f"gestern {local:%H:%M}"
-    return f"{local:%d.%m.} {local:%H:%M}"
+        return _("gestern {time}", time=f"{local:%H:%M}")
+    return local.strftime(_("%d.%m. %H:%M"))
 
 
 def abbreviation(device: Device) -> str:
@@ -118,7 +108,12 @@ def _bars(buckets: list[tuple[str, int, int]], height: int = 100, width: int = 1
                 h_allowed=round(h_allowed, 2),
                 y_blocked=round(height - h_total, 2),
                 h_blocked=round(h_blocked, 2),
-                tip=f"{label}: {fmt_int(total)} Anfragen, {fmt_int(blocked)} blockiert",
+                tip=_(
+                    "{label}: {total} Anfragen, {blocked} blockiert",
+                    label=label,
+                    total=fmt_int(total),
+                    blocked=fmt_int(blocked),
+                ),
             )
         )
     return bars
@@ -152,7 +147,7 @@ def daily_chart(
     for i in range(days - 1, -1, -1):
         d = today - timedelta(days=i)
         t, b = per_day.get(d, [0, 0])
-        name = "heute" if i == 0 else WEEKDAYS_DE[d.weekday()]
+        name = _("heute") if i == 0 else _(WEEKDAYS_DE[d.weekday()])
         buckets.append((name, t, b))
     return _chart(buckets, axis_every=1)
 
@@ -164,7 +159,7 @@ def _chart(buckets: list[tuple[str, int, int]], axis_every: int) -> Chart:
     axis = [label for i, (label, _, _) in enumerate(buckets) if i % axis_every == 0]
     if axis_every > 1 and buckets:
         axis.append(buckets[-1][0])
-    peak_label = f"{peak[0]} ({fmt_int(peak[1])} Anfragen)" if peak[1] else ""
+    peak_label = _("{label} ({n} Anfragen)", label=peak[0], n=fmt_int(peak[1])) if peak[1] else ""
     return Chart(_bars(buckets), axis, total, blocked, peak_label)
 
 
@@ -179,15 +174,15 @@ def sparkline(per_hour: dict[datetime, int], now: datetime, hours: int = 24) -> 
 def active_hours(rows: list[tuple[datetime, int, int]], tz: ZoneInfo) -> str:
     """'aktiv 07–23 Uhr' aus Stunden mit nennenswerter Aktivität (≥ 10 % des Maximums)."""
     per_hour = [0] * 24
-    for h, t, _ in rows:
+    for h, t, _blocked in rows:
         per_hour[h.astimezone(tz).hour] += t
     peak = max(per_hour)
     if not peak:
         return ""
     active = [h for h, v in enumerate(per_hour) if v >= peak * 0.1]
     quiet_night = all(per_hour[h] < peak * 0.1 for h in (1, 2, 3, 4))
-    text = f"aktiv {active[0]:02d}–{active[-1] + 1:02d} Uhr"
-    return text + (" · nachts ruhig" if quiet_night else " · auch nachts aktiv")
+    text = _("aktiv {start}–{end} Uhr", start=f"{active[0]:02d}", end=f"{active[-1] + 1:02d}")
+    return text + " · " + (_("nachts ruhig") if quiet_night else _("auch nachts aktiv"))
 
 
 # --- Lagebild und Chronik ----------------------------------------------------------
@@ -201,12 +196,14 @@ class Situation:
 
 def situation(open_incidents: list[Incident]) -> Situation:
     if not open_incidents:
-        return Situation("ok", "Alles ruhig – keine offenen Vorfälle")
+        return Situation("ok", _("Alles ruhig – keine offenen Vorfälle"))
     worst = max(i.severity for i in open_incidents)
     n = len(open_incidents)
-    noun = "Vorfall braucht" if n == 1 else "Vorfälle brauchen"
     level = {Severity.CRITICAL: "alert", Severity.HIGH: "warn"}.get(worst, "info")
-    return Situation(level, f"{n} {noun} deine Aufmerksamkeit")
+    title = ngettext(
+        "{n} Vorfall braucht deine Aufmerksamkeit", "{n} Vorfälle brauchen deine Aufmerksamkeit", n
+    )
+    return Situation(level, title)
 
 
 EVENT_GROUPS: dict[str, frozenset[EventKind]] = {
@@ -227,11 +224,9 @@ def event_tone(e: Event) -> str:
     """CSS-Ton für den Punkt in der Chronik."""
     if e.kind is EventKind.INCIDENT and e.severity is not None:
         return f"sev-{e.severity.name.lower()}"
-    if e.kind is EventKind.DEVICE_ONLINE or (
-        e.kind is EventKind.INCIDENT_STATUS and "erledigt" in e.title
-    ):
+    if e.kind is EventKind.DEVICE_ONLINE or e.tag in ("resolved", "released"):
         return "ok"
-    if e.kind is EventKind.SOURCE and ("nicht erreichbar" in e.title or "knapp" in e.title):
+    if e.tag in ("source_down", "disk_low"):
         return "sev-medium"
     if e.kind is EventKind.INVENTORY:
         return "accent"
@@ -245,13 +240,13 @@ def since_summary(events: list[Event]) -> str:
         counts[e.kind] += 1
     parts = []
     if n := counts[EventKind.INCIDENT]:
-        parts.append(f"{n} {'neuer Vorfall' if n == 1 else 'neue Vorfälle'}")
+        parts.append(ngettext("{n} neuer Vorfall", "{n} neue Vorfälle", n))
     if n := counts[EventKind.DEVICE_OFFLINE]:
-        parts.append(f"{n} × offline")
+        parts.append(_("{n} × offline", n=n))
     if n := counts[EventKind.DEVICE_ONLINE]:
-        parts.append(f"{n} × online")
+        parts.append(_("{n} × online", n=n))
     if n := counts[EventKind.SOURCE]:
-        parts.append(f"{n} Meldung{'en' if n > 1 else ''} zu Datenquellen")
+        parts.append(ngettext("{n} Meldung zu Datenquellen", "{n} Meldungen zu Datenquellen", n))
     return " · ".join(parts)
 
 
@@ -262,60 +257,102 @@ def explain(incident: Incident) -> list[str]:
     """Warum ist das auffällig? Aus Regel und Details, in Klartext."""
     d = incident.details
     facts: list[str] = []
+    asked = d.get("query") if d.get("query") and d.get("query") != d.get("domain") else None
     if incident.rule == "new_device":
-        facts.append("MAC-Adresse war bisher nicht im Inventar")
+        facts.append(_("MAC-Adresse war bisher nicht im Inventar"))
         if d.get("randomized_mac") == "true":
-            facts.append("Private (zufällige) MAC-Adresse – typisch für Handys und Gastgeräte")
-        facts.append(f"Hersteller: {d['vendor']}" if d.get("vendor") else "Hersteller unbekannt")
-        if d.get("hostname"):
-            facts.append(f"Hostname: {d['hostname']}")
-        if d.get("ip"):
-            facts.append(f"IP-Adresse: {d['ip']}")
-    elif incident.rule == "new_domain":
-        facts.append(f"Domain {d.get('domain', '?')} von diesem Gerät noch nie angefragt")
-        facts.append("IoT-Gerät: verhält sich normalerweise vorhersehbar, Lernphase abgeschlossen")
-        if d.get("query") and d.get("query") != d.get("domain"):
-            facts.append(f"Angefragt: {d['query']}")
-    elif incident.rule == "bad_domain":
-        facts.append(f"{d.get('domain', '?')} steht auf der Bedrohungsliste „{d.get('list', '?')}“")
-        if d.get("query") and d.get("query") != d.get("domain"):
-            facts.append(f"Angefragt: {d['query']}")
+            facts.append(_("Private (zufällige) MAC-Adresse – typisch für Handys und Gastgeräte"))
         facts.append(
-            "AdGuard hat die Anfrage blockiert – der Versuch deutet trotzdem auf "
-            "Schadsoftware oder einen Phishing-Link hin"
+            _("Hersteller: {vendor}", vendor=d["vendor"])
+            if d.get("vendor")
+            else _("Hersteller unbekannt")
+        )
+        if d.get("hostname"):
+            facts.append(_("Hostname: {name}", name=d["hostname"]))
+        if d.get("ip"):
+            facts.append(_("IP-Adresse: {ip}", ip=d["ip"]))
+    elif incident.rule == "new_domain":
+        facts.append(
+            _("Domain {domain} von diesem Gerät noch nie angefragt", domain=d.get("domain", "?"))
+        )
+        facts.append(
+            _("IoT-Gerät: verhält sich normalerweise vorhersehbar, Lernphase abgeschlossen")
+        )
+        if asked:
+            facts.append(_("Angefragt: {query}", query=asked))
+    elif incident.rule == "bad_domain":
+        facts.append(
+            _(
+                "{domain} steht auf der Bedrohungsliste „{list}“",
+                domain=d.get("domain", "?"),
+                list=d.get("list", "?"),
+            )
+        )
+        if asked:
+            facts.append(_("Angefragt: {query}", query=asked))
+        facts.append(
+            _(
+                "AdGuard hat die Anfrage blockiert – der Versuch deutet trotzdem auf "
+                "Schadsoftware oder einen Phishing-Link hin"
+            )
             if d.get("blocked") == "true"
-            else "Die Anfrage wurde NICHT blockiert – Domain in AdGuard sperren"
+            else _("Die Anfrage wurde NICHT blockiert – Domain in AdGuard sperren")
         )
     elif incident.rule == "newly_registered_domain":
-        facts.append(f"{d.get('domain', '?')} wurde in den letzten 14 Tagen registriert")
-        if d.get("query") and d.get("query") != d.get("domain"):
-            facts.append(f"Angefragt: {d['query']}")
         facts.append(
-            "Neue Domains nutzen Betrüger gern für Phishing und Schadsoftware – viele sind aber "
-            "harmlos. Kennst du die Seite nicht, Domain in AdGuard sperren."
+            _("{domain} wurde in den letzten 14 Tagen registriert", domain=d.get("domain", "?"))
+        )
+        if asked:
+            facts.append(_("Angefragt: {query}", query=asked))
+        facts.append(
+            _(
+                "Neue Domains nutzen Betrüger gern für Phishing und Schadsoftware – viele sind "
+                "aber harmlos. Kennst du die Seite nicht, Domain in AdGuard sperren."
+            )
             if d.get("blocked") != "true"
-            else "AdGuard hat die Anfrage bereits blockiert"
+            else _("AdGuard hat die Anfrage bereits blockiert")
         )
     elif incident.rule == "agent_port":
         facts.append(
-            f"{d.get('program', '?')} nimmt Verbindungen auf Port {d.get('port')}/"
-            f"{d.get('protocol')} an – das war vorher nicht so"
+            _(
+                "{program} nimmt Verbindungen auf Port {port}/{protocol} an – das war vorher "
+                "nicht so",
+                program=d.get("program", "?"),
+                port=d.get("port"),
+                protocol=d.get("protocol"),
+            )
         )
-        facts.append(f"Programm: {d.get('path') or d.get('program')}")
-        facts.append("Prüfen, ob du das Programm kennst und der Port nötig ist")
+        facts.append(_("Programm: {path}", path=d.get("path") or d.get("program")))
+        facts.append(_("Prüfen, ob du das Programm kennst und der Port nötig ist"))
     elif incident.rule == "agent_autostart":
-        facts.append(f"Neuer Eintrag startet automatisch: {d.get('label') or d.get('path')}")
+        facts.append(
+            _(
+                "Neuer Eintrag startet automatisch: {entry}",
+                entry=d.get("label") or d.get("path"),
+            )
+        )
         if d.get("program"):
-            facts.append(f"Programm: {d['program']}")
-        facts.append("Autostart ist ein typischer Weg, wie sich Schadsoftware festsetzt")
+            facts.append(_("Programm: {path}", path=d["program"]))
+        facts.append(_("Autostart ist ein typischer Weg, wie sich Schadsoftware festsetzt"))
     elif incident.rule == "agent_login":
-        facts.append(f"Anmeldung von {d.get('host') or 'unbekannt'} als {d.get('user')}")
-        facts.append("Fern-Anmeldungen (z. B. SSH) sind auf privaten Laptops selten")
+        facts.append(
+            _(
+                "Anmeldung von {host} als {user}",
+                host=d.get("host") or _("unbekannt"),
+                user=d.get("user"),
+            )
+        )
+        facts.append(_("Fern-Anmeldungen (z. B. SSH) sind auf privaten Laptops selten"))
     elif incident.rule == "agent_posture":
-        facts.append(d.get("text", "Eine Sicherheitsgrundlage ist ausgeschaltet."))
-        facts.append("Wird automatisch erledigt, sobald der Agent sie wieder als an meldet")
+        check = POSTURE_CHECKS.get(d.get("check", ""))
+        facts.append(
+            _(check[2])
+            if check
+            else d.get("text") or _("Eine Sicherheitsgrundlage ist ausgeschaltet.")
+        )
+        facts.append(_("Wird automatisch erledigt, sobald der Agent sie wieder als an meldet"))
     else:
         facts += [f"{k}: {v}" for k, v in sorted(d.items())]
     if incident.occurrences > 1:
-        facts.append(f"{incident.occurrences}× aufgetreten")
+        facts.append(_("{n}× aufgetreten", n=incident.occurrences))
     return facts

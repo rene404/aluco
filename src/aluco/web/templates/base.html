@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,23 +17,23 @@
         <svg class="owl" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle class="owl-head" cx="14" cy="14" r="13"></circle><circle class="owl-eye" cx="9.5" cy="12" r="4"></circle><circle class="owl-eye" cx="18.5" cy="12" r="4"></circle><circle class="owl-pupil" cx="9.5" cy="12" r="1.8"></circle><circle class="owl-pupil" cx="18.5" cy="12" r="1.8"></circle><path class="owl-beak" d="M12.5 17 L14 20 L15.5 17 Z"></path></svg>
         Aluco
       </a>
-      <nav class="mainnav" aria-label="Hauptnavigation">
-        <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Übersicht</a>
-        <a href="/incidents" {% if path.startswith("/incidents") %}aria-current="page"{% endif %}>Vorfälle{% if nav_open %} <span class="count" aria-label="{{ nav_open }} offen">{{ nav_open }}</span>{% endif %}</a>
-        <a href="/devices" {% if path.startswith("/devices") %}aria-current="page"{% endif %}>Geräte</a>
-        <a href="/rules" {% if path.startswith("/rules") %}aria-current="page"{% endif %}>Regeln</a>
+      <nav class="mainnav" aria-label="{{ _('Hauptnavigation') }}">
+        <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>{{ _("Übersicht") }}</a>
+        <a href="/incidents" {% if path.startswith("/incidents") %}aria-current="page"{% endif %}>{{ _("Vorfälle") }}{% if nav_open %} <span class="count" aria-label="{{ _('{n} offen', n=nav_open) }}">{{ nav_open }}</span>{% endif %}</a>
+        <a href="/devices" {% if path.startswith("/devices") %}aria-current="page"{% endif %}>{{ _("Geräte") }}</a>
+        <a href="/rules" {% if path.startswith("/rules") %}aria-current="page"{% endif %}>{{ _("Regeln") }}</a>
       </nav>
       <form class="search" method="get" action="/devices" role="search">
         <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
-        <input type="search" name="q" placeholder="Gerät, IP oder MAC suchen" aria-label="Geräte suchen">
+        <input type="search" name="q" placeholder="{{ _('Gerät, IP oder MAC suchen') }}" aria-label="{{ _('Geräte suchen') }}">
       </form>
-      <form method="post" action="/logout" class="logout"><button type="submit" class="btn-link">Abmelden</button></form>
+      <form method="post" action="/logout" class="logout"><button type="submit" class="btn-link">{{ _("Abmelden") }}</button></form>
     </div>
   </header>
   {% endblock %}
   <main class="page">
     {% block content %}{% endblock %}
   </main>
-  <footer class="footer">Aluco {{ version }} · Hausradar für dein Netz</footer>
+  <footer class="footer">Aluco {{ version }} · {{ _("Hausradar für dein Netz") }}</footer>
 </body>
 </html>

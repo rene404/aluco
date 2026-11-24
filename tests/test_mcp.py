@@ -149,3 +149,23 @@ async def test_rule_quality(client: Client) -> None:
     by_rule = {r["regel"]: r for r in q["regeln"]}
     assert by_rule["new_device"]["name"] == "Neues Gerät"
     assert "mac" not in str(q).lower() and "00:00:5e" not in str(q)
+
+
+async def test_values_follow_language(db: Path) -> None:
+    from aluco import i18n
+
+    i18n.set_language("en")
+    try:
+        server = build_server(db, "Europe/Berlin")
+        assert "Englisch (English)" in (server.instructions or "")
+        async with Client(server, raise_exceptions=True) as c:
+            [d] = await call(c, "list_devices", trust="iot")
+            assert d["stufe"] == "IoT"
+            devices = await call(c, "list_devices", trust="company")
+            assert devices[0]["stufe"] == "Company"
+            overview = await call(c, "get_overview")
+            assert overview["lage"].startswith(("All quiet", "1 incident", "2 incidents")), (
+                overview["lage"]
+            )
+    finally:
+        i18n.set_language("de")

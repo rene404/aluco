@@ -18,6 +18,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any
 
+from aluco.i18n import _
 from aluco.incidents import IncidentService
 from aluco.model import (
     Device,
@@ -206,9 +207,9 @@ def process_report(
         result = ReportResult(device=device, learn_only=learn_only)
 
         groups = [
-            ("port", ports(report), Severity.MEDIUM, "Neuer offener Port"),
-            ("autostart", autostart(report), Severity.MEDIUM, "Neuer Autostart-Eintrag"),
-            ("login", logins(report), Severity.MEDIUM, "Neue Anmeldung"),
+            ("port", ports(report), Severity.MEDIUM, _("Neuer offener Port")),
+            ("autostart", autostart(report), Severity.MEDIUM, _("Neuer Autostart-Eintrag")),
+            ("login", logins(report), Severity.MEDIUM, _("Neue Anmeldung")),
         ]
         for kind, items, severity, label in groups:
             for key, data in items.items():
@@ -235,7 +236,7 @@ def process_report(
             finding = Finding(
                 rule="agent_posture",
                 severity=severity,
-                title=f"{device.label}: {name} ist aus",
+                title=_("{label}: {name} ist aus", label=device.label, name=_(name)),
                 device_mac=mac,
                 key=check,
                 details={"check": check, "name": name, "text": text},

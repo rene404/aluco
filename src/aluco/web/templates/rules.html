@@ -1,22 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Regeln{% endblock %}
+{% block title %}{{ _("Regeln") }}{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>Regel-Qualität</h1>
-    <p class="muted">Wie oft löst jede Regel aus, und was hast du daraus gemacht? Werden die Vorfälle einer Regel fast immer ignoriert, stumpft sie ab und gehört nachgeschärft.</p>
+    <h1>{{ _("Regel-Qualität") }}</h1>
+    <p class="muted">{{ _("Wie oft löst jede Regel aus, und was hast du daraus gemacht? Werden die Vorfälle einer Regel fast immer ignoriert, stumpft sie ab und gehört nachgeschärft.") }}</p>
   </div>
-  <nav class="chips" aria-label="Zeitraum">
+  <nav class="chips" aria-label="{{ _('Zeitraum') }}">
     {% for d in (30, 90) %}
-    <a class="chip" href="/rules?days={{ d }}" {% if days == d %}aria-current="true"{% endif %}>{{ d }} Tage</a>
+    <a class="chip" href="/rules?days={{ d }}" {% if days == d %}aria-current="true"{% endif %}>{{ _("{n} Tage", n=d) }}</a>
     {% endfor %}
   </nav>
 </div>
 
 {% if flagged %}
 <div class="card notice stack">
-  <strong>{{ flagged | length }} Regel{{ 'n' if flagged | length > 1 else '' }} mit über {{ warn_pct }} % ignorierten Vorfällen</strong>
-  <span>{% for q in flagged %}{{ RULE_NAME_DE.get(q.rule, q.rule) }}{{ ", " if not loop.last }}{% endfor %} – prüfen, ob die Regel zu empfindlich ist oder Geräte besser eingestuft werden sollten (z. B. als IoT oder Gast).</span>
+  <strong>{{ ngettext("{n} Regel mit über {pct} % ignorierten Vorfällen", "{n} Regeln mit über {pct} % ignorierten Vorfällen", flagged | length, pct=warn_pct) }}</strong>
+  <span>{% for q in flagged %}{{ _(RULE_NAME_DE.get(q.rule, q.rule)) }}{{ ", " if not loop.last }}{% endfor %} – {{ _("prüfen, ob die Regel zu empfindlich ist oder Geräte besser eingestuft werden sollten (z. B. als IoT oder Gast).") }}</span>
 </div>
 {% endif %}
 
@@ -25,28 +25,28 @@
     <table class="table">
       <thead>
         <tr>
-          <th>Regel</th>
-          <th class="num">ausgelöst</th>
-          <th class="num">Ignorier-Quote</th>
-          <th class="num">ignoriert</th>
-          <th class="num">erledigt</th>
-          <th class="num">getrennt</th>
-          <th class="num" title="Median vom Auftreten bis zur Entscheidung">Zeit bis Entscheidung</th>
+          <th>{{ _("Regel") }}</th>
+          <th class="num">{{ _("ausgelöst") }}</th>
+          <th class="num">{{ _("Ignorier-Quote") }}</th>
+          <th class="num">{{ _("ignoriert") }}</th>
+          <th class="num">{{ _("erledigt") }}</th>
+          <th class="num">{{ _("getrennt") }}</th>
+          <th class="num" title="{{ _('Median vom Auftreten bis zur Entscheidung') }}">{{ _("Zeit bis Entscheidung") }}</th>
         </tr>
       </thead>
       <tbody>
         {% for q in stats %}
         <tr>
           <td>
-            {{ RULE_NAME_DE.get(q.rule, q.rule) }}
-            {% if q.flagged %} <span class="pill sev-high">abgestumpft?</span>{% endif %}
-            {% if q.ai_suspect_ignored %}<br><span class="muted small">KI „verdächtig“, trotzdem ignoriert: {{ q.ai_suspect_ignored }}</span>{% endif %}
-            {% if q.ai_harmless_disconnected %}<br><span class="muted small">KI „harmlos“, trotzdem getrennt: {{ q.ai_harmless_disconnected }}</span>{% endif %}
+            {{ _(RULE_NAME_DE.get(q.rule, q.rule)) }}
+            {% if q.flagged %} <span class="pill sev-high">{{ _("abgestumpft?") }}</span>{% endif %}
+            {% if q.ai_suspect_ignored %}<br><span class="muted small">{{ _("KI „verdächtig“, trotzdem ignoriert: {n}", n=q.ai_suspect_ignored) }}</span>{% endif %}
+            {% if q.ai_harmless_disconnected %}<br><span class="muted small">{{ _("KI „harmlos“, trotzdem getrennt: {n}", n=q.ai_harmless_disconnected) }}</span>{% endif %}
           </td>
-          <td class="num">{{ fmt_int(q.triggered) }}{% if q.reopened %} <span class="muted small" title="erledigt und erneut aufgetreten">+{{ q.reopened }}</span>{% endif %}</td>
-          <td class="num {{ 'warn-text' if q.flagged }}">{% if q.ignore_rate is none %}–{% else %}{{ (q.ignore_rate * 100) | round | int }} %{% if q.decided < min_decisions %} <span class="muted small">(wenig Daten)</span>{% endif %}{% endif %}</td>
+          <td class="num">{{ fmt_int(q.triggered) }}{% if q.reopened %} <span class="muted small" title="{{ _('erledigt und erneut aufgetreten') }}">+{{ q.reopened }}</span>{% endif %}</td>
+          <td class="num {{ 'warn-text' if q.flagged }}">{% if q.ignore_rate is none %}–{% else %}{{ (q.ignore_rate * 100) | round | int }} %{% if q.decided < min_decisions %} <span class="muted small">({{ _("wenig Daten") }})</span>{% endif %}{% endif %}</td>
           <td class="num">{{ fmt_int(q.ignored) }}</td>
-          <td class="num">{{ fmt_int(q.resolved) }}{% if q.auto_resolved %} <span class="muted small" title="automatisch erledigt, zählt nicht zur Quote">+{{ q.auto_resolved }} auto</span>{% endif %}</td>
+          <td class="num">{{ fmt_int(q.resolved) }}{% if q.auto_resolved %} <span class="muted small" title="{{ _('automatisch erledigt, zählt nicht zur Quote') }}">+{{ q.auto_resolved }} {{ _("auto") }}</span>{% endif %}</td>
           <td class="num">{{ fmt_int(q.disconnected) }}</td>
           <td class="num">{{ duration(q.median_wait) }}</td>
         </tr>
@@ -55,9 +55,8 @@
     </table>
   </div>
   <p class="muted small">
-    „ausgelöst“: neue Vorfälle im Zeitraum, „+n“: erledigt und erneut aufgetreten. Ignoriert, erledigt und getrennt zählen nur Entscheidungen von Hand;
-    die Quote erscheint erst ab {{ min_decisions }} Entscheidungen hervorgehoben.
-    {% if since_first %}Aufgezeichnet seit {{ since_first | localdate }}.{% else %}Noch keine Vorfälle aufgezeichnet.{% endif %}
+    {{ _("„ausgelöst“: neue Vorfälle im Zeitraum, „+n“: erledigt und erneut aufgetreten. Ignoriert, erledigt und getrennt zählen nur Entscheidungen von Hand; die Quote erscheint erst ab {n} Entscheidungen hervorgehoben.", n=min_decisions) }}
+    {% if since_first %}{{ _("Aufgezeichnet seit {date}.", date=since_first | localdate) }}{% else %}{{ _("Noch keine Vorfälle aufgezeichnet.") }}{% endif %}
   </p>
 </section>
 {% endblock %}

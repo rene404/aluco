@@ -243,3 +243,8 @@ class Event:
     device_mac: str | None = None
     detail: str = ""
     severity: Severity | None = None
+    # Sprachneutrale Merkmale für die Auswertung (Titel sind übersetzt, also nicht zu parsen):
+    # tag z. B. "source_down", "source_up", "disk_low", "disk_ok", "resolved", "disconnected";
+    # subject z. B. der Name der Datenquelle.
+    tag: str = ""
+    subject: str = ""

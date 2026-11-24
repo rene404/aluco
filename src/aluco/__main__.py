@@ -61,6 +61,7 @@ def _parser() -> argparse.ArgumentParser:
     ev.add_argument("--case", action="append", default=[], help="nur diese Fall-ID(s)")
     ev.add_argument("--min-rate", type=float, default=0.0, help="Exit 1 unter dieser Quote (0–1)")
     ev.add_argument("--json", action="store_true", help="Ergebnis als JSON ausgeben")
+    ev.add_argument("--language", choices=["de", "en"], help="Prompt-Sprache (ALUCO_LANGUAGE)")
     bk = sub.add_parser("backup-db", help="Datenbank konsistent sichern")
     bk.add_argument("target", help="Zieldatei, z. B. /data/backup-snapshot.db")
 
@@ -108,8 +109,14 @@ def _ai_eval_command(args: argparse.Namespace) -> int:
 
     from aluco.ai import DEFAULT_MODEL, AssessmentError, ClaudeAssessor, OllamaAssessor
     from aluco.ai_eval import CaseResult, evaluate, load_cases, summarize
+    from aluco.i18n import LanguageError, parse_language, set_language
 
     env = os.environ
+    try:
+        set_language(args.language or parse_language(env.get("ALUCO_LANGUAGE")))
+    except LanguageError as e:
+        print(f"ALUCO_LANGUAGE: {e}", file=sys.stderr)
+        return 2
     provider = args.provider or env.get("ALUCO_AI_PROVIDER", "").strip().lower() or "claude"
     model = args.model or env.get("ALUCO_AI_MODEL", "").strip()
     if not 1 <= args.repeat <= 10 or not 0 <= args.min_rate <= 1:
@@ -279,6 +286,13 @@ def _mcp_command() -> int:
     if not path.exists():
         log.error("Keine Datenbank unter %s – läuft der Aluco-Dienst schon?", path)
         return 2
+    from aluco.i18n import LanguageError, parse_language, set_language
+
+    try:
+        set_language(parse_language(os.environ.get("ALUCO_LANGUAGE")))
+    except LanguageError as e:
+        log.error("ALUCO_LANGUAGE: %s", e)
+        return 2
     build_server(path, os.environ.get("TZ") or "UTC").run()
     return 0
 
@@ -378,6 +392,9 @@ def _run_command(command: str) -> int:
         log.error("Konfiguration: %s", e)
         return 2
 
+    from aluco.i18n import set_language
+
+    set_language(cfg.language)
     cfg.db_path.parent.mkdir(parents=True, exist_ok=True)
     store = Store(cfg.db_path)
     runner = build_runner(cfg, store)

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from aluco.i18n import _, fmt_dec, fmt_int, ngettext
 from aluco.model import OPEN_STATUSES, EventKind, HistoryKind, IncidentStatus, Severity
 from aluco.store import Store
 
@@ -24,6 +25,7 @@ _SEVERITY_DE = {
     Severity.INFO: "Info",
 }
 REPORT_CURSOR = "report:last_sent"
+OUTAGE_MIN = timedelta(minutes=30)  # kürzere Ausfälle einer Datenquelle zählen nicht
 
 
 def parse_weekday(raw: str) -> int:
@@ -73,7 +75,7 @@ class WeeklyReport:
     laptops: int = 0
     laptops_reporting: int = 0
     posture_open: int = 0
-    outages: list[str] = field(default_factory=list)  # Datenquellen, die ausgefallen waren
+    outages: list[str] = field(default_factory=list)  # Datenquellen, ≥ 30 Min. ausgefallen
 
     @property
     def incidents_total(self) -> int:
@@ -91,16 +93,15 @@ class WeeklyReport:
     @property
     def headline(self) -> str:
         if self.quiet:
-            return "Ruhige Woche – alles normal"
+            return _("Ruhige Woche – alles normal")
         parts = []
         if self.notable:
-            parts.append(f"{self.notable} Auffälligkeit{'en' if self.notable != 1 else ''}")
+            parts.append(ngettext("{n} Auffälligkeit", "{n} Auffälligkeiten", self.notable))
         if self.open_now:
-            parts.append(f"{self.open_now} offen")
+            parts.append(_("{n} offen", n=self.open_now))
         if self.outages:
-            parts.append(
-                f"{len(self.outages)} Datenquelle{'n' if len(self.outages) != 1 else ''} gestört"
-            )
+            n = len(self.outages)
+            parts.append(ngettext("{n} Datenquelle gestört", "{n} Datenquellen gestört", n))
         return ", ".join(parts)
 
     @property
@@ -109,19 +110,25 @@ class WeeklyReport:
 
     def lines(self) -> list[str]:
         """Der Bericht als kurze Zeilen (ntfy, Dashboard)."""
-        n = self.new_devices
-        out = [f"{n} neue{'s' if n == 1 else ''} Gerät{'e' if n != 1 else ''}"]
+        out = [ngettext("{n} neues Gerät", "{n} neue Geräte", self.new_devices)]
         if self.incidents_total:
             by_sev = ", ".join(
-                f"{count} {_SEVERITY_DE[sev]}"
+                f"{count} {_(_SEVERITY_DE[sev])}"
                 for sev, count in sorted(self.incidents.items(), reverse=True)
                 if count
             )
-            out.append(f"{self.incidents_total} neue Vorfälle ({by_sev})")
+            out.append(
+                ngettext(
+                    "{n} neuer Vorfall ({detail})",
+                    "{n} neue Vorfälle ({detail})",
+                    self.incidents_total,
+                    detail=by_sev,
+                )
+            )
         else:
-            out.append("0 Auffälligkeiten")
+            out.append(_("0 Auffälligkeiten"))
         decided = [
-            f"{v} {k}"
+            f"{v} {_(k)}"
             for k, v in (
                 ("erledigt", self.resolved),
                 ("ignoriert", self.ignored),
@@ -130,24 +137,32 @@ class WeeklyReport:
             if v
         ]
         if decided:
-            out.append("Entschieden: " + ", ".join(decided))
-        out.append(f"Offen: {self.open_now}" if self.open_now else "Nichts offen")
+            out.append(_("Entschieden: {list}", list=", ".join(decided)))
+        out.append(_("Offen: {n}", n=self.open_now) if self.open_now else _("Nichts offen"))
         if self.blocked_devices:
-            out.append(f"Vom Internet getrennt: {self.blocked_devices} Gerät(e)")
-        total = f"{self.dns_total:,}".replace(",", ".")
-        pct = f"{self.blocked_pct:.1f}".replace(".", ",")
-        out.append(f"DNS: {total} Anfragen, {pct} % blockiert")
+            out.append(_("Vom Internet getrennt: {n} Gerät(e)", n=self.blocked_devices))
+        out.append(
+            _(
+                "DNS: {total} Anfragen, {pct} % blockiert",
+                total=fmt_int(self.dns_total),
+                pct=fmt_dec(self.blocked_pct),
+            )
+        )
         if self.laptops:
-            laptop = f"Laptops: {self.laptops_reporting} von {self.laptops} melden sich"
+            laptop = _(
+                "Laptops: {reporting} von {total} melden sich",
+                reporting=self.laptops_reporting,
+                total=self.laptops,
+            )
             if self.posture_open:
-                laptop += f", {self.posture_open} Sicherheitsgrundlage(n) aus"
+                laptop += ", " + _("{n} Sicherheitsgrundlage(n) aus", n=self.posture_open)
             out.append(laptop)
         if self.outages:
-            out.append("Ausgefallen: " + ", ".join(self.outages))
+            out.append(_("Länger als 30 Min. ausgefallen: {list}", list=", ".join(self.outages)))
         return out
 
     def text(self) -> str:
-        return "\n".join(self.lines()) + "\n\nDetails im Dashboard."
+        return "\n".join(self.lines()) + "\n\n" + _("Details im Dashboard.")
 
 
 def build_report(store: Store, end: datetime) -> WeeklyReport:
@@ -179,10 +194,34 @@ def build_report(store: Store, end: datetime) -> WeeklyReport:
     for a in agents.values():
         last = a.get("last_report_at")
         r.laptops_reporting += isinstance(last, datetime) and last >= start
-    outages = {
-        e.title.removesuffix(" nicht erreichbar")
-        for e in store.events(limit=1000, kinds=frozenset({EventKind.SOURCE}), since=start)
-        if e.at < end and e.title.endswith("nicht erreichbar")
-    }
-    r.outages = sorted(outages)
+    r.outages = long_outages(store, start, end)
     return r
+
+
+def long_outages(store: Store, start: datetime, end: datetime) -> list[str]:
+    """Datenquellen, die in der Woche mindestens ``OUTAGE_MIN`` am Stück ausgefallen waren.
+
+    Kurze Aussetzer (z. B. wenn der Rechner kurz schläft oder ein Download einmal scheitert)
+    sind im Alltag normal und machen eine Woche nicht unruhig. Ein Ausfall, der vor der Woche
+    begann, zählt mit seinem Teil in der Woche; ein noch laufender bis ``end``.
+    """
+    events = store.events(
+        limit=5000, kinds=frozenset({EventKind.SOURCE}), since=start - timedelta(days=30)
+    )
+    down: dict[str, datetime] = {}
+    longest: dict[str, timedelta] = {}
+    for e in sorted(events, key=lambda e: e.at):
+        if e.at >= end:
+            break
+        if e.tag == "source_down":
+            down.setdefault(e.subject, e.at)
+        elif e.tag == "source_up":
+            began = down.pop(e.subject, None)
+            name = e.subject
+            if began is not None and e.at > start:
+                span = e.at - max(began, start)
+                longest[name] = max(longest.get(name, timedelta(0)), span)
+    for name, began in down.items():  # noch nicht wieder erreichbar
+        span = end - max(began, start)
+        longest[name] = max(longest.get(name, timedelta(0)), span)
+    return sorted(name for name, span in longest.items() if span >= OUTAGE_MIN)

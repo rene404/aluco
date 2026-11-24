@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Vorfälle{% endblock %}
+{% block title %}{{ _("Vorfälle") }}{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>Vorfälle</h1>
-    <p class="muted">Nach Schwere sortiert. Ein Klick auf einen Vorfall zeigt, warum er auffällig ist.</p>
+    <h1>{{ _("Vorfälle") }}</h1>
+    <p class="muted">{{ _("Nach Schwere sortiert. Ein Klick auf einen Vorfall zeigt, warum er auffällig ist.") }}</p>
   </div>
-  <nav class="chips" aria-label="Status filtern">
-    {% for key, label in [("open", "Offen"), ("ignored", "Ignoriert"), ("resolved", "Erledigt"), ("all", "Alle")] %}
+  <nav class="chips" aria-label="{{ _('Status filtern') }}">
+    {% for key, label in [("open", _("Offen")), ("ignored", _("Ignoriert")), ("resolved", _("Erledigt")), ("all", _("Alle"))] %}
     <a class="chip" href="/incidents?status={{ key }}" {% if filter == key %}aria-current="true"{% endif %}>{{ label }} <span class="chip-count">{{ counts[key] }}</span></a>
     {% endfor %}
   </nav>
@@ -19,8 +19,8 @@
 </ul>
 {% else %}
 <div class="card empty">
-  <strong>Nichts in dieser Ansicht</strong>
-  <span class="muted">Alles ruhig. Aluco meldet sich, sobald etwas auffällt.</span>
+  <strong>{{ _("Nichts in dieser Ansicht") }}</strong>
+  <span class="muted">{{ _("Alles ruhig. Aluco meldet sich, sobald etwas auffällt.") }}</span>
 </div>
 {% endif %}
 {% endblock %}

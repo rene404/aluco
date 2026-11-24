@@ -22,7 +22,7 @@ from aluco.model import (
     TrustLevel,
 )
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS devices (
@@ -170,8 +170,36 @@ INSERT INTO incident_history (at, incident_id, rule, kind, status)
     SELECT created_at, id, rule, 'opened', 'new' FROM incidents;
 """
 
+# v7: sprachneutrale Merkmale für Ereignisse (#29) – Titel sind übersetzt und werden nicht mehr
+# ausgewertet. Bestehende (deutsche) Einträge werden einmalig eingeordnet.
+_SCHEMA_V7 = """
+ALTER TABLE events ADD COLUMN tag TEXT NOT NULL DEFAULT '';
+ALTER TABLE events ADD COLUMN subject TEXT NOT NULL DEFAULT '';
+UPDATE events SET tag = 'source_down', subject = substr(title, 1, length(title) - 17)
+    WHERE kind = 'source' AND title LIKE '% nicht erreichbar';
+UPDATE events SET tag = 'source_up', subject = substr(title, 1, length(title) - 18)
+    WHERE kind = 'source' AND title LIKE '% wieder erreichbar';
+UPDATE events SET tag = 'disk_low' WHERE kind = 'source' AND title = 'Speicherplatz knapp';
+UPDATE events SET tag = 'disk_ok'
+    WHERE kind = 'source' AND title = 'Speicherplatz wieder ausreichend';
+UPDATE events SET tag = 'resolved'
+    WHERE kind = 'incident_status' AND title LIKE 'Vorfall erledigt:%';
+UPDATE events SET tag = 'ignored'
+    WHERE kind = 'incident_status' AND title LIKE 'Vorfall ignoriert:%';
+UPDATE events SET tag = 'investigating'
+    WHERE kind = 'incident_status' AND title LIKE 'Vorfall in Prüfung:%';
+UPDATE events SET tag = 'new'
+    WHERE kind = 'incident_status' AND title LIKE 'Vorfall wieder geöffnet:%';
+UPDATE events SET tag = 'disconnected'
+    WHERE kind = 'incident_status'
+      AND (title LIKE 'Vorfall getrennt:%' OR title LIKE '% über die Firewall getrennt');
+UPDATE events SET tag = 'released'
+    WHERE kind = 'incident_status' AND title LIKE '% wieder freigegeben';
+"""
+
 _MIGRATIONS = {
     1: _SCHEMA, 2: _SCHEMA_V2, 3: _SCHEMA_V3, 4: _SCHEMA_V4, 5: _SCHEMA_V5, 6: _SCHEMA_V6,
+    7: _SCHEMA_V7,
 }  # fmt: skip
 
 
@@ -402,11 +430,11 @@ class Store:
 
     def add_event(self, e: Event) -> None:
         self._db.execute(
-            "INSERT INTO events (at, kind, title, device_mac, detail, severity) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO events (at, kind, title, device_mac, detail, severity, tag, subject) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 _ts(e.at), e.kind.value, e.title, e.device_mac, e.detail,
-                None if e.severity is None else int(e.severity),
+                None if e.severity is None else int(e.severity), e.tag, e.subject,
             ),
         )  # fmt: skip
 
@@ -743,6 +771,8 @@ def _event(r: sqlite3.Row) -> Event:
         device_mac=r["device_mac"],
         detail=r["detail"],
         severity=None if r["severity"] is None else Severity(r["severity"]),
+        tag=r["tag"],
+        subject=r["subject"],
     )
 
 

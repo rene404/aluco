@@ -9,6 +9,7 @@ from collections.abc import Callable
 from typing import Protocol
 
 from aluco.ai import Assessment
+from aluco.i18n import _
 from aluco.model import Incident, Severity
 
 log = logging.getLogger(__name__)
@@ -70,16 +71,19 @@ class NtfyNotifier:
         return "NtfyNotifier(…)"
 
     def send(self, incident: Incident, assessment: Assessment | None = None) -> None:
-        severity = _SEVERITY_DE[incident.severity]
+        severity = _(_SEVERITY_DE[incident.severity])
         if self._minimal:
-            title, body = "Aluco: neuer Vorfall", f"Schweregrad {severity}. Details im Dashboard."
+            title = _("Aluco: neuer Vorfall")
+            body = _("Schweregrad {severity}. Details im Dashboard.", severity=severity)
         else:
             title = f"Aluco ({severity})"
             body = incident.title
             if assessment is not None:
-                body += (
-                    f"\n\nKI: {assessment.verdict_de} – {assessment.summary}"
-                    f"\nEmpfehlung: {assessment.action_de}"
+                body += "\n\n" + _(
+                    "KI: {verdict} – {summary}\nEmpfehlung: {action}",
+                    verdict=_(assessment.verdict_de),
+                    summary=assessment.summary,
+                    action=_(assessment.action_de),
                 )
         self.send_text(title, body, _PRIORITY[incident.severity])
 
