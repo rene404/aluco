@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Protocol
 
+from aluco.i18n import _
 from aluco.model import (
     Device,
     DeviceSighting,
@@ -85,7 +86,7 @@ class NewDeviceRule:
         yield Finding(
             rule=self.name,
             severity=Severity.HIGH,
-            title=f"Neues Gerät im Netz: {label}",
+            title=_("Neues Gerät im Netz: {label}", label=label),
             device_mac=sighting.mac,
             details=details,
         )
@@ -113,7 +114,9 @@ class NewDomainRule:
         yield Finding(
             rule=self.name,
             severity=Severity.LOW,
-            title=f"{ctx.device.label} fragt neue Domain an: {ctx.domain}",
+            title=_(
+                "{label} fragt neue Domain an: {domain}", label=ctx.device.label, domain=ctx.domain
+            ),
             device_mac=ctx.device.mac,
             key=ctx.domain,
             details={"domain": ctx.domain, "query": ctx.query.domain},
@@ -142,7 +145,11 @@ class KnownBadDomainRule:
         yield Finding(
             rule=self.name,
             severity=Severity.HIGH,
-            title=f"{ctx.device.label} fragt bekannte Schad-Domain an: {hit.entry}",
+            title=_(
+                "{label} fragt bekannte Schad-Domain an: {domain}",
+                label=ctx.device.label,
+                domain=hit.entry,
+            ),
             device_mac=ctx.device.mac,
             key=hit.entry,
             details={
@@ -177,7 +184,11 @@ class NewlyRegisteredDomainRule:
         yield Finding(
             rule=self.name,
             severity=Severity.MEDIUM,
-            title=f"{ctx.device.label} fragt neu registrierte Domain an: {hit.entry}",
+            title=_(
+                "{label} fragt neu registrierte Domain an: {domain}",
+                label=ctx.device.label,
+                domain=hit.entry,
+            ),
             device_mac=ctx.device.mac,
             key=hit.entry,
             details={

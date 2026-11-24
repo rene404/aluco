@@ -279,6 +279,13 @@ def _mcp_command() -> int:
     if not path.exists():
         log.error("Keine Datenbank unter %s – läuft der Aluco-Dienst schon?", path)
         return 2
+    from aluco.i18n import LanguageError, parse_language, set_language
+
+    try:
+        set_language(parse_language(os.environ.get("ALUCO_LANGUAGE")))
+    except LanguageError as e:
+        log.error("ALUCO_LANGUAGE: %s", e)
+        return 2
     build_server(path, os.environ.get("TZ") or "UTC").run()
     return 0
 

@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Protocol
 
 from aluco.ai import Assessment
+from aluco.i18n import _
 from aluco.model import (
     Device,
     Event,
@@ -115,7 +116,9 @@ class IncidentService:
         if incident is None:
             raise KeyError(incident_id)
         if new_status not in ALLOWED_TRANSITIONS[incident.status]:
-            raise TransitionError(f"{incident.status} → {new_status} ist nicht erlaubt")
+            raise TransitionError(
+                _("{old} → {new} ist nicht erlaubt", old=incident.status, new=new_status)
+            )
         if new_status is IncidentStatus.DISCONNECTED:
             self._check_disconnect_allowed(incident)
 
@@ -126,9 +129,14 @@ class IncidentService:
                 id=None,
                 at=now,
                 kind=EventKind.INCIDENT_STATUS,
-                title=f"Vorfall {STATUS_TEXT[new_status]}: {incident.title}",
+                title=_(
+                    "Vorfall {status}: {title}",
+                    status=_(STATUS_TEXT[new_status]),
+                    title=incident.title,
+                ),
                 device_mac=incident.device_mac,
-                detail=f"Notiz: {note}" if note else "",
+                detail=_("Notiz: {note}", note=note) if note else "",
+                tag=new_status.value,
             )
         )
         saved = self._store.save_incident(updated)
@@ -166,11 +174,14 @@ class IncidentService:
 
     def _check_disconnect_allowed(self, incident: Incident) -> None:
         if incident.device_mac is None:
-            raise TransitionError("Vorfall ohne Gerät kann nicht getrennt werden")
+            raise TransitionError(_("Vorfall ohne Gerät kann nicht getrennt werden"))
         device = self._store.device(incident.device_mac)
         if device is None:
-            raise TransitionError("Gerät nicht im Inventar – Trennen nicht möglich")
+            raise TransitionError(_("Gerät nicht im Inventar – Trennen nicht möglich"))
         if not device.can_disconnect:
             raise TransitionError(
-                f"{device.label} ist geschützt (Schutzliste oder Firmengerät) und wird nie getrennt"
+                _(
+                    "{label} ist geschützt (Schutzliste oder Firmengerät) und wird nie getrennt",
+                    label=device.label,
+                )
             )
