@@ -11,7 +11,7 @@ Aluco does not replace proven tools, it builds on them: OPNsense, AdGuard Home, 
 
 **Status:** v0.3.0 – software for stages 0 and 1 complete (dashboard, AI pre-assessment with Claude or local Ollama, MCP, laptop agent, disconnect via OPNsense, newly registered domains, rule quality, weekly report); deployment on the Raspberry Pi is pending. Changes: [CHANGELOG.md](CHANGELOG.md).
 
-> The user interface and the documentation in `docs/` are in German for now.
+> The dashboard and the weekly report are available in English: set `ALUCO_LANGUAGE=en`. ntfy alerts, the AI assessment and the documentation in `docs/` are still German for now.
 
 ## Documents
 

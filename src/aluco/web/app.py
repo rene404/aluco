@@ -36,7 +36,7 @@ from starlette.responses import (
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from aluco import __version__
+from aluco import __version__, i18n
 from aluco.adapters.base import AdapterError
 from aluco.agent import POSTURE_CHECKS, AgentError, hash_token, process_report
 from aluco.ai import AssessmentError, Assessor, assess_incident
@@ -126,6 +126,7 @@ class WebConfig:
     allowed_hosts: tuple[str, ...] = ()
     # Hinter Caddy: X-Forwarded-For/-Proto von 127.0.0.1 übernehmen (echte Client-IP).
     trust_proxy: bool = False
+    language: str = "de"  # ALUCO_LANGUAGE: de | en
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> WebConfig:
@@ -152,6 +153,7 @@ class WebConfig:
             ai=ai_settings_from_env(e),
             firewall=firewall_settings_from_env(e),
             trust_proxy=e.get("ALUCO_WEB_TRUST_PROXY", "").lower() in {"1", "true", "yes"},
+            language=_language(e.get("ALUCO_LANGUAGE")),
             allowed_hosts=tuple(
                 h.strip().lower()
                 for h in e.get("ALUCO_WEB_ALLOWED_HOSTS", "").replace(",", " ").split()
@@ -160,10 +162,18 @@ class WebConfig:
         )
 
 
+def _language(raw: str | None) -> str:
+    try:
+        return i18n.parse_language(raw)
+    except i18n.LanguageError as exc:
+        raise ConfigError(f"ALUCO_LANGUAGE: {exc}") from exc
+
+
 def create_app(
     cfg: WebConfig, assessor: Assessor | None = None, blocker: Blocker | None = None
 ) -> Starlette:
     """``assessor``/``blocker``: für Tests; sonst aus der Konfiguration erzeugt."""
+    i18n.set_language(cfg.language)
     if blocker is None and cfg.firewall.enabled:
         from aluco.runner import build_firewall
 
@@ -191,15 +201,19 @@ def create_app(
         TrustLevel=TrustLevel,
         transitions=lambda s: [t for t in ACTION_DE if t in ALLOWED_TRANSITIONS[s]],
         rel=lambda dt: views.relative(dt, utcnow(), tz),
-        fmt_int=views.fmt_int,
+        fmt_int=i18n.fmt_int,
+        fmt_dec=i18n.fmt_dec,
+        _=i18n._,
+        ngettext=i18n.ngettext,
+        lang=i18n.get_language(),
         abbr=views.abbreviation,
         tone=views.event_tone,
         explain=views.explain,
         ai_enabled=assessor is not None,
         firewall_enabled=blocker is not None,
     )
-    templates.filters["local"] = lambda dt: dt.astimezone(tz).strftime("%d.%m.%Y %H:%M")
-    templates.filters["localdate"] = lambda dt: dt.astimezone(tz).strftime("%d.%m.%Y")
+    templates.filters["local"] = lambda dt: dt.astimezone(tz).strftime(i18n._("%d.%m.%Y %H:%M"))
+    templates.filters["localdate"] = lambda dt: dt.astimezone(tz).strftime(i18n._("%d.%m.%Y"))
 
     def render(request: Request, name: str, status_code: int = 200, **ctx: Any) -> HTMLResponse:
         if "nav_open" not in ctx and request.url.path != "/login":
@@ -228,12 +242,12 @@ def create_app(
         client = request.client.host if request.client else "?"
         if throttle.blocked(client):
             return render(
-                request, "login.html", 429, error="Zu viele Versuche. Bitte später erneut."
+                request, "login.html", 429, error=i18n._("Zu viele Versuche. Bitte später erneut.")
             )
         form = await request.form()
         if not check_password(str(form.get("password", "")), cfg.password):
             throttle.fail(client)
-            return render(request, "login.html", 401, error="Passwort falsch.")
+            return render(request, "login.html", 401, error=i18n._("Passwort falsch."))
         throttle.reset(client)
         response = RedirectResponse("/", status_code=303)
         response.set_cookie(
@@ -360,14 +374,14 @@ def create_app(
         try:
             new_status = IncidentStatus(str(form.get("status", "")))
         except ValueError:
-            return PlainTextResponse("Unbekannter Status", status_code=400)
+            return PlainTextResponse(i18n._("Unbekannter Status"), status_code=400)
         note = str(form.get("note", ""))[:500]
         if new_status is IncidentStatus.DISCONNECTED:
             # Nur mit Firewall und ausdrücklicher Bestätigung – nie ein Schein-Status.
             if blocker is None:
-                return PlainTextResponse("Trennen braucht die Firewall (Stufe 1)", status_code=400)
+                return PlainTextResponse(i18n._("Braucht die Firewall (Stufe 1)"), status_code=400)
             if form.get("confirm") != "ja":
-                return PlainTextResponse("Trennen muss bestätigt werden", status_code=400)
+                return PlainTextResponse(i18n._("Trennen muss bestätigt werden"), status_code=400)
         with store() as s:
             try:
                 if new_status is IncidentStatus.DISCONNECTED:
@@ -376,11 +390,13 @@ def create_app(
                     with s.transaction():
                         updated = IncidentService(s).transition(incident_id, new_status, note=note)
             except KeyError:
-                return PlainTextResponse("Vorfall nicht gefunden", status_code=404)
+                return PlainTextResponse(i18n._("Vorfall nicht gefunden"), status_code=404)
             except TransitionError as e:
                 return PlainTextResponse(str(e), status_code=409)
             except (AdapterError, QuarantineError) as e:
-                return PlainTextResponse(f"Trennen fehlgeschlagen: {e}", status_code=502)
+                return PlainTextResponse(
+                    i18n._("Trennen fehlgeschlagen: {error}", error=e), status_code=502
+                )
             devices = {d.mac: d for d in s.devices()}
             assessments = s.assessments()
         if is_htmx(request):
@@ -397,16 +413,16 @@ def create_app(
     async def incident_assess(request: Request) -> Response:
         """KI-Einschätzung von Hand anfordern (oder erneuern)."""
         if assessor is None:
-            return PlainTextResponse("KI-Vorbewertung ist nicht aktiviert", status_code=400)
+            return PlainTextResponse(i18n._("KI-Vorbewertung ist nicht aktiviert"), status_code=400)
         incident_id = request.path_params["incident_id"]
         error = ""
         with store() as s:
             try:
                 result = assess_incident(s, assessor, incident_id)  # schreibt nur am Ende
                 if result is None:
-                    error = "Firmengeräte werden nicht von der KI bewertet."
+                    error = i18n._("Firmengeräte werden nicht von der KI bewertet.")
             except KeyError:
-                return PlainTextResponse("Vorfall nicht gefunden", status_code=404)
+                return PlainTextResponse(i18n._("Vorfall nicht gefunden"), status_code=404)
             except AssessmentError as e:
                 error = str(e)
             incident = s.incident_by_id(incident_id)
@@ -500,14 +516,14 @@ def create_app(
         try:
             mac = normalize_mac(request.path_params["mac"])
         except ValueError:
-            return PlainTextResponse("Ungültige MAC-Adresse", status_code=400)
+            return PlainTextResponse(i18n._("Ungültige MAC-Adresse"), status_code=400)
         only_new = request.query_params.get("new") == "1"
         now = utcnow()
         week_ago = now - timedelta(days=7)
         with store() as s:
             device = s.device(mac)
             if device is None:
-                return PlainTextResponse("Gerät nicht gefunden", status_code=404)
+                return PlainTextResponse(i18n._("Gerät nicht gefunden"), status_code=404)
             rows = [] if device.is_company else s.dns_hourly(since=week_ago, mac=mac)
             domains = [] if device.is_company else s.device_domain_stats(mac, since=week_ago)
             items = [i for i in s.incidents() if i.device_mac == mac]
@@ -547,16 +563,18 @@ def create_app(
     async def device_release(request: Request) -> Response:
         """Getrenntes Gerät wieder freigeben."""
         if blocker is None:
-            return PlainTextResponse("Keine Firewall eingerichtet", status_code=400)
+            return PlainTextResponse(i18n._("Keine Firewall eingerichtet"), status_code=400)
         try:
             mac = normalize_mac(request.path_params["mac"])
         except ValueError:
-            return PlainTextResponse("Ungültige MAC-Adresse", status_code=400)
+            return PlainTextResponse(i18n._("Ungültige MAC-Adresse"), status_code=400)
         with store() as s:
             try:
                 release(s, blocker, mac)
             except (AdapterError, QuarantineError) as e:
-                return PlainTextResponse(f"Freigeben fehlgeschlagen: {e}", status_code=502)
+                return PlainTextResponse(
+                    i18n._("Freigeben fehlgeschlagen: {error}", error=e), status_code=502
+                )
         return RedirectResponse(f"/devices/{mac}?released=1", status_code=303)
 
     async def device_update(request: Request) -> Response:
@@ -633,7 +651,7 @@ def create_app(
                 return Response(status_code=401, headers={"HX-Redirect": "/login"})
             return RedirectResponse("/login", status_code=303)
         if request.method == "POST" and not _same_origin(request):
-            return PlainTextResponse("Herkunft der Anfrage ungültig", status_code=403)
+            return PlainTextResponse(i18n._("Herkunft der Anfrage ungültig"), status_code=403)
         response = await call_next(request)
         response.headers.update(
             {

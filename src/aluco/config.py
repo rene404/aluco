@@ -108,6 +108,15 @@ def _weekday(raw: str | None) -> int:
         raise ConfigError(f"ALUCO_REPORT_WEEKDAY: {exc}") from exc
 
 
+def _language(raw: str | None) -> str:
+    from aluco.i18n import LanguageError, parse_language
+
+    try:
+        return parse_language(raw)
+    except LanguageError as exc:
+        raise ConfigError(f"ALUCO_LANGUAGE: {exc}") from exc
+
+
 def _timezone(raw: str | None) -> str:
     from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -145,6 +154,7 @@ class Config:
     report_weekday: int = 6  # Montag = 0 … Sonntag = 6
     report_hour: int = 18
     timezone: str = "UTC"
+    language: str = "de"  # ALUCO_LANGUAGE: de | en (Wochenbericht, später auch Meldungen)
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Config:
@@ -195,6 +205,7 @@ class Config:
             report_weekday=_weekday(opt("ALUCO_REPORT_WEEKDAY")),
             report_hour=integer("ALUCO_REPORT_HOUR", 18, 0),
             timezone=_timezone(opt("TZ")),
+            language=_language(opt("ALUCO_LANGUAGE")),
         )
         if cfg.report_hour > 23:
             raise ConfigError("ALUCO_REPORT_HOUR muss zwischen 0 und 23 liegen")
