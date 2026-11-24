@@ -6,6 +6,7 @@ python -m aluco device list                  Inventar anzeigen
 python -m aluco device set-trust MAC STUFE   known | iot | guest | unknown | company
 python -m aluco device protect MAC [--off]   Schutzliste (nie trennbar)
 python -m aluco device name MAC [NAME]       Namen setzen (ohne NAME: entfernen)
+python -m aluco ai-eval [--provider ollama]  KI-Vorbewertung am Beispielsatz messen
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import signal
 import sys
 import threading
 from types import FrameType
+from typing import Any
 
 from aluco import __version__
 from aluco.config import Config, ConfigError, db_path_from_env
@@ -51,6 +53,14 @@ def _parser() -> argparse.ArgumentParser:
         ap = ag.add_parser(name, help=text)
         ap.add_argument("device", help="MAC-Adresse oder Name")
     ag.add_parser("list", help="Agenten anzeigen")
+    ev = sub.add_parser("ai-eval", help="KI-Vorbewertung am Beispielsatz messen")
+    ev.add_argument("--provider", choices=["claude", "ollama"], help="Standard: ALUCO_AI_PROVIDER")
+    ev.add_argument("--model", help="Standard: ALUCO_AI_MODEL")
+    ev.add_argument("--ollama-url", help="Standard: ALUCO_AI_OLLAMA_URL")
+    ev.add_argument("--repeat", type=int, default=1, help="jeden Fall n-mal (Stabilität)")
+    ev.add_argument("--case", action="append", default=[], help="nur diese Fall-ID(s)")
+    ev.add_argument("--min-rate", type=float, default=0.0, help="Exit 1 unter dieser Quote (0–1)")
+    ev.add_argument("--json", action="store_true", help="Ergebnis als JSON ausgeben")
     bk = sub.add_parser("backup-db", help="Datenbank konsistent sichern")
     bk.add_argument("target", help="Zieldatei, z. B. /data/backup-snapshot.db")
 
@@ -86,7 +96,95 @@ def main(argv: list[str] | None = None) -> int:
         return _agent_command(args)
     if args.command == "backup-db":
         return _backup_command(args.target)
+    if args.command == "ai-eval":
+        return _ai_eval_command(args)
     return _run_command(args.command)
+
+
+def _ai_eval_command(args: argparse.Namespace) -> int:
+    import json
+    import os
+    from dataclasses import asdict
+
+    from aluco.ai import DEFAULT_MODEL, AssessmentError, ClaudeAssessor, OllamaAssessor
+    from aluco.ai_eval import CaseResult, evaluate, load_cases, summarize
+
+    env = os.environ
+    provider = args.provider or env.get("ALUCO_AI_PROVIDER", "").strip().lower() or "claude"
+    model = args.model or env.get("ALUCO_AI_MODEL", "").strip()
+    if not 1 <= args.repeat <= 10 or not 0 <= args.min_rate <= 1:
+        print("--repeat 1–10, --min-rate 0–1", file=sys.stderr)
+        return 2
+    try:
+        if provider == "ollama":
+            url = args.ollama_url or env.get("ALUCO_AI_OLLAMA_URL", "").strip()
+            if not url or not model or model.startswith("claude"):
+                print("Ollama: --ollama-url und --model (z. B. qwen3:4b) angeben", file=sys.stderr)
+                return 2
+            assessor: Any = OllamaAssessor(url, model)
+        else:
+            if not env.get("ANTHROPIC_API_KEY", "").strip():
+                print("Claude: ANTHROPIC_API_KEY fehlt", file=sys.stderr)
+                return 2
+            model = model or DEFAULT_MODEL
+            assessor = ClaudeAssessor(model=model)
+    except AssessmentError as e:
+        print(f"Fehler: {e}", file=sys.stderr)
+        return 2
+
+    cases = load_cases()
+    if args.case:
+        unknown = set(args.case) - {c.id for c in cases}
+        if unknown:
+            print(f"Unbekannte Fall-ID(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+            return 2
+        cases = [c for c in cases if c.id in args.case]
+
+    def show(r: CaseResult) -> None:
+        if args.json:
+            return
+        j = r.judgement
+        got = f"{j.verdict}/{j.risk}/{j.action}" if j else "–"
+        mark = "OK  " if r.passed else ("FEHL" if r.error is None else "ERR ")
+        print(f"{mark} {r.case.id:<34} {got:<30} {r.seconds:5.1f} s")
+        for m in r.misses:
+            print(f"       {m}")
+        if r.error:
+            print(f"       {r.error}")
+        for text in r.suspect:
+            print(f"     ? Behauptung prüfen: {text}")
+
+    if not args.json:
+        print(f"Beispielsatz: {len(cases)} Fälle × {args.repeat} – {provider}/{model}\n")
+    results = evaluate(assessor, cases, repeat=args.repeat, on_result=show)
+    s = summarize(results)
+    if args.json:
+        out = {
+            "provider": provider,
+            "model": model,
+            **s,
+            "results": [
+                {
+                    "id": r.case.id,
+                    "passed": r.passed,
+                    "error": r.error,
+                    "misses": r.misses,
+                    "suspect": r.suspect,
+                    "seconds": round(r.seconds, 2),
+                    "judgement": asdict(r.judgement) if r.judgement else None,
+                }
+                for r in results
+            ],
+        }
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+    else:
+        print(
+            f"\nTreffer {s['passed']}/{s['total']} ({s['rate']:.0%}) · Fehler {s['errors']}"
+            f" · zu prüfen {s['suspect']} · {s['seconds']:.0f} s"
+        )
+        for rule, v in s["by_rule"].items():
+            print(f"  {rule:<16} {v['passed']}/{v['total']}")
+    return 0 if s["rate"] >= args.min_rate else 1
 
 
 def _backup_command(target: str) -> int:
