@@ -14,11 +14,20 @@ import re
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
+from datetime import timedelta
 from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from aluco.ai import RULE_TEXT, AssessmentError, Assessor, Judgement, build_context
+from aluco.ai import (
+    RULE_TEXT,
+    STATUS_TEXT,
+    AssessmentError,
+    Assessor,
+    Judgement,
+    PriorIncident,
+    build_context,
+)
 from aluco.model import Device, Incident, IncidentStatus, Severity, TrustLevel, utcnow
 
 ALLOWED = {
@@ -54,9 +63,10 @@ class Case:
     device: Device | None
     known_domains: list[str]
     expected: dict[str, tuple[str, ...]]
+    history: tuple[PriorIncident, ...] = ()
 
     def context(self) -> dict[str, Any]:
-        return build_context(self.incident, self.device, self.known_domains)
+        return build_context(self.incident, self.device, self.known_domains, self.history)
 
 
 @dataclass
@@ -122,6 +132,22 @@ def load_cases(path: Path | None = None) -> list[Case]:
             details={k: str(v) for k, v in item.get("details", {}).items()},
             occurrences=int(item.get("anzahl", 1)),
         )
+        history = []
+        for h in item.get("vorgeschichte", []):
+            if h.get("regel") not in RULE_TEXT or h.get("status") not in STATUS_TEXT:
+                raise CaseError(f"{cid}: Vorgeschichte braucht bekannte regel und status: {h}")
+            if h.get("ki") not in (None, *ALLOWED["verdict"]):
+                raise CaseError(f"{cid}: ungültige KI-Einstufung in der Vorgeschichte: {h}")
+            if device is None:
+                raise CaseError(f"{cid}: Vorgeschichte nur mit Gerät")
+            history.append(
+                PriorIncident(
+                    rule=h["regel"],
+                    offset=timedelta(minutes=float(h.get("minuten", 0))),
+                    status=h["status"],
+                    verdict=h.get("ki"),
+                )
+            )
         cases.append(
             Case(
                 id=cid,
@@ -130,6 +156,7 @@ def load_cases(path: Path | None = None) -> list[Case]:
                 device=device,
                 known_domains=list(item.get("bekannte_domains", [])),
                 expected=expected,
+                history=tuple(history),
             )
         )
     if not cases:

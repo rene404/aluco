@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Neu
+- **KI erkennt Zusammenhänge pro Gerät (#26):** Die Vorbewertung sieht bis zu 5 andere offene Vorfälle desselben Geräts (±7 Tage) – nur Regel, Abstand, Status, KI-Einstufung, keine Kennungen. Ein neues Gerät, das kurz darauf eine Schad-Domain anfragt, gilt jetzt als „verdächtig“ statt „beobachten“. Erledigte und ignorierte Vorfälle bleiben bewusst weg (gemessen, [docs/ai.md](docs/ai.md)). Beispielsatz: 32 Fälle, qwen3:4b 88 %.
+
 ## [0.3.0] – 2026-11-24
 
 Mehr Erkennung, weniger Abstumpfen: neue Regel für **neu registrierte Domains**, eine Übersicht zur **Regel-Qualität**, ein **Wochenbericht** und ein Beispielsatz, mit dem sich die KI-Vorbewertung messen lässt. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
