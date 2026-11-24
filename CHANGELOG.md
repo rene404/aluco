@@ -6,6 +6,7 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen 
 
 ### Neu
 - **Dashboard auf Englisch (#29, Teil 1):** `ALUCO_LANGUAGE=en` stellt Dashboard und Wochenbericht auf Englisch um; Deutsch bleibt Standard. Übersetzung über `aluco.i18n` (deutscher Text als Schlüssel, englischer Katalog in `aluco/locale_en.py`); Tests melden fehlende Übersetzungen und fest eingebaute Texte in Vorlagen. Zahlen und Daten im jeweiligen Format (1.234 / 1,234). Meldungen per ntfy, KI-Bewertung und Titel neuer Vorfälle folgen in Teil 2 und 3.
+- **Meldungen und neue Titel auf Englisch (#29, Teil 2):** ntfy-Meldungen, Titel neuer Vorfälle und Ereignisse, Fehlermeldungen beim Trennen sowie die Werte des MCP-Servers folgen `ALUCO_LANGUAGE`. Ereignisse tragen dafür sprachneutrale Merkmale (`tag`, `subject`); Wochenbericht und Chronik werten nicht mehr den Wortlaut aus. Datenbankschema v7 – bestehende Ereignisse werden beim Start automatisch eingeordnet.
 - **KI erkennt Zusammenhänge pro Gerät (#26):** Die Vorbewertung sieht bis zu 5 andere offene Vorfälle desselben Geräts (±7 Tage) – nur Regel, Abstand, Status, KI-Einstufung, keine Kennungen. Ein neues Gerät, das kurz darauf eine Schad-Domain anfragt, gilt jetzt als „verdächtig“ statt „beobachten“. Erledigte und ignorierte Vorfälle bleiben bewusst weg (gemessen, [docs/ai.md](docs/ai.md)). Beispielsatz: 32 Fälle, qwen3:4b 88 %.
 
 ### Geändert

@@ -82,9 +82,9 @@ def test_quiet_week(store: Store) -> None:
 
 
 def _source(store: Store, name: str, down: datetime, up: datetime | None) -> None:
-    store.add_event(Event(None, down, EventKind.SOURCE, f"{name} nicht erreichbar"))
+    store.add_event(Event(None, down, EventKind.SOURCE, "x", tag="source_down", subject=name))
     if up is not None:
-        store.add_event(Event(None, up, EventKind.SOURCE, f"{name} wieder erreichbar"))
+        store.add_event(Event(None, up, EventKind.SOURCE, "x", tag="source_up", subject=name))
 
 
 def test_only_long_outages_count(store: Store) -> None:

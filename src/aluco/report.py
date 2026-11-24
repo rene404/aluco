@@ -213,11 +213,11 @@ def long_outages(store: Store, start: datetime, end: datetime) -> list[str]:
     for e in sorted(events, key=lambda e: e.at):
         if e.at >= end:
             break
-        if e.title.endswith(" nicht erreichbar"):
-            down.setdefault(e.title.removesuffix(" nicht erreichbar"), e.at)
-        elif e.title.endswith(" wieder erreichbar"):
-            name = e.title.removesuffix(" wieder erreichbar")
-            began = down.pop(name, None)
+        if e.tag == "source_down":
+            down.setdefault(e.subject, e.at)
+        elif e.tag == "source_up":
+            began = down.pop(e.subject, None)
+            name = e.subject
             if began is not None and e.at > start:
                 span = e.at - max(began, start)
                 longest[name] = max(longest.get(name, timedelta(0)), span)

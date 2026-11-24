@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from aluco.agent import POSTURE_CHECKS
 from aluco.ai import RULE_NAME
 from aluco.i18n import _, ngettext
 from aluco.i18n import fmt_int as fmt_int
@@ -223,11 +224,9 @@ def event_tone(e: Event) -> str:
     """CSS-Ton für den Punkt in der Chronik."""
     if e.kind is EventKind.INCIDENT and e.severity is not None:
         return f"sev-{e.severity.name.lower()}"
-    if e.kind is EventKind.DEVICE_ONLINE or (
-        e.kind is EventKind.INCIDENT_STATUS and "erledigt" in e.title
-    ):
+    if e.kind is EventKind.DEVICE_ONLINE or e.tag in ("resolved", "released"):
         return "ok"
-    if e.kind is EventKind.SOURCE and ("nicht erreichbar" in e.title or "knapp" in e.title):
+    if e.tag in ("source_down", "disk_low"):
         return "sev-medium"
     if e.kind is EventKind.INVENTORY:
         return "accent"
@@ -345,7 +344,12 @@ def explain(incident: Incident) -> list[str]:
         )
         facts.append(_("Fern-Anmeldungen (z. B. SSH) sind auf privaten Laptops selten"))
     elif incident.rule == "agent_posture":
-        facts.append(d.get("text") or _("Eine Sicherheitsgrundlage ist ausgeschaltet."))
+        check = POSTURE_CHECKS.get(d.get("check", ""))
+        facts.append(
+            _(check[2])
+            if check
+            else d.get("text") or _("Eine Sicherheitsgrundlage ist ausgeschaltet.")
+        )
         facts.append(_("Wird automatisch erledigt, sobald der Agent sie wieder als an meldet"))
     else:
         facts += [f"{k}: {v}" for k, v in sorted(d.items())]

@@ -9,6 +9,7 @@ Mit dem MCP-Server kannst du Claude (Desktop, Code) oder einen anderen MCP-Host 
 - **Nur lesend:** Die Datenbank wird schreibgeschützt geöffnet; Vorfälle bearbeiten geht weiter nur im Dashboard.
 - **Kein offener Port:** Transport ist stdio. Der Host startet den Server per SSH auf dem Pi – Zugang also nur mit deinem SSH-Schlüssel.
 - **Firmengeräte:** nur Stammdaten und Online-Status; Aluco speichert zu ihnen keine Domains oder DNS-Statistik.
+- **Sprache:** `ALUCO_LANGUAGE=en` stellt Antwortsprache und Werte (Schweregrad, Status, Stufe, Erklärungen) auf Englisch um. Die Feldnamen der Werkzeuge bleiben deutsch – sie sind die Schnittstelle.
 - **Datenschutz:** Was ein Werkzeug zurückgibt, sieht das Modell. Bei einem Cloud-Modell (Claude) gehen diese Antworten an dessen Anbieter. Anders als bei der KI-Vorbewertung enthalten sie Gerätenamen, IPs und Domains – du fragst ja gezielt danach.
 
 ## Werkzeuge

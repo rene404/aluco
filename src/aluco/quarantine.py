@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Protocol
 
+from aluco.i18n import _
 from aluco.incidents import ALLOWED_TRANSITIONS, IncidentService, TransitionError
 from aluco.model import Event, EventKind, IncidentStatus, utcnow
 
@@ -35,7 +36,7 @@ def disconnect(
         raise TransitionError(f"{incident.status} → getrennt ist nicht erlaubt")
     device = store.device(incident.device_mac) if incident.device_mac else None
     if device is None:
-        raise TransitionError("Gerät nicht im Inventar – Trennen nicht möglich")
+        raise TransitionError(_("Gerät nicht im Inventar – Trennen nicht möglich"))
     if not device.can_disconnect:
         raise TransitionError(f"{device.label} ist geschützt (Schutzliste oder Firmengerät)")
     if not device.ip:
@@ -51,9 +52,10 @@ def disconnect(
                 id=None,
                 at=now,
                 kind=EventKind.INCIDENT_STATUS,
-                title=f"{device.label} über die Firewall getrennt",
+                title=_("{label} über die Firewall getrennt", label=device.label),
                 device_mac=device.mac,
-                detail=f"IP {device.ip} im Quarantäne-Alias",
+                detail=_("IP {ip} im Quarantäne-Alias", ip=device.ip),
+                tag="disconnected",
             )
         )
     return updated
@@ -64,7 +66,7 @@ def release(store: Any, blocker: Blocker, mac: str, now: datetime | None = None)
     now = now or utcnow()
     block = store.block(mac)
     if block is None:
-        raise QuarantineError("Gerät ist nicht getrennt")
+        raise QuarantineError(_("Gerät ist nicht getrennt"))
     blocker.unblock(str(block["ip"]))
     device = store.device(mac)
     with store.transaction():
@@ -74,8 +76,9 @@ def release(store: Any, blocker: Blocker, mac: str, now: datetime | None = None)
                 id=None,
                 at=now,
                 kind=EventKind.INCIDENT_STATUS,
-                title=f"{device.label if device else mac} wieder freigegeben",
+                title=_("{label} wieder freigegeben", label=device.label if device else mac),
                 device_mac=mac,
+                tag="released",
             )
         )
 

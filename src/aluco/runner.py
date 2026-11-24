@@ -14,6 +14,7 @@ from aluco.adapters.base import AdapterError, DeviceSource, DnsSource
 from aluco.ai import Assessment, AssessmentError, Assessor, assess_incident
 from aluco.config import Config, FirewallSettings
 from aluco.engine import Engine, RunResult
+from aluco.i18n import _
 from aluco.model import DeviceSighting, DnsQuery, Event, EventKind, Incident, Severity, utcnow
 from aluco.notify import Notifier, TextSender, notify_all
 from aluco.nrd import NewlyRegistered
@@ -226,17 +227,34 @@ class Runner:
         after = {e.split(":", 1)[0] for e in errors}
         for name in sorted(after - before):
             detail = next(e for e in errors if e.startswith(name + ":"))
-            title = "Speicherplatz knapp" if name == "speicher" else f"{name} nicht erreichbar"
+            disk = name == "speicher"
             self._store.add_event(
-                Event(id=None, at=now, kind=EventKind.SOURCE, title=title, detail=detail)
+                Event(
+                    id=None,
+                    at=now,
+                    kind=EventKind.SOURCE,
+                    title=_("Speicherplatz knapp")
+                    if disk
+                    else _("{name} nicht erreichbar", name=name),
+                    detail=detail,
+                    tag="disk_low" if disk else "source_down",
+                    subject="" if disk else name,
+                )
             )
         for name in sorted(before - after):
-            title = (
-                "Speicherplatz wieder ausreichend"
-                if name == "speicher"
-                else f"{name} wieder erreichbar"
+            disk = name == "speicher"
+            self._store.add_event(
+                Event(
+                    id=None,
+                    at=now,
+                    kind=EventKind.SOURCE,
+                    title=_("Speicherplatz wieder ausreichend")
+                    if disk
+                    else _("{name} wieder erreichbar", name=name),
+                    tag="disk_ok" if disk else "source_up",
+                    subject="" if disk else name,
+                )
             )
-            self._store.add_event(Event(id=None, at=now, kind=EventKind.SOURCE, title=title))
 
 
 def build_runner(cfg: Config, store: Store) -> Runner:

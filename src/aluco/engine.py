@@ -6,6 +6,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 
+from aluco.i18n import _, ngettext
 from aluco.incidents import IncidentService
 from aluco.model import (
     Device,
@@ -80,8 +81,12 @@ class Engine:
                         id=None,
                         at=now,
                         kind=EventKind.INVENTORY,
-                        title=f"Inventar übernommen: {result.new_devices} Geräte",
-                        detail="Erster Lauf – vorhandene Geräte ohne Alarm übernommen",
+                        title=ngettext(
+                            "Inventar übernommen: {n} Gerät",
+                            "Inventar übernommen: {n} Geräte",
+                            result.new_devices,
+                        ),
+                        detail=_("Erster Lauf – vorhandene Geräte ohne Alarm übernommen"),
                     )
                 )
         return result
@@ -118,7 +123,9 @@ class Engine:
                             id=None,
                             at=now,
                             kind=EventKind.DEVICE_ONLINE if s.online else EventKind.DEVICE_OFFLINE,
-                            title=f"{device.label} ist {'online' if s.online else 'offline'}",
+                            title=_("{label} ist online", label=device.label)
+                            if s.online
+                            else _("{label} ist offline", label=device.label),
                             device_mac=device.mac,
                         )
                     )
@@ -170,7 +177,7 @@ class Engine:
                     kind=EventKind.INCIDENT,
                     title=incident.title,
                     device_mac=incident.device_mac,
-                    detail="Vorfall wieder geöffnet" if before else "Neuer Vorfall",
+                    detail=_("Vorfall wieder geöffnet") if before else _("Neuer Vorfall"),
                     severity=incident.severity,
                 )
             )

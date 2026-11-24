@@ -103,6 +103,8 @@ def test_migration_backfills_existing_incidents(tmp_path: Path) -> None:
     s = Store(path)
     IncidentService(s).ingest(_finding(), at=T0)
     s._db.execute("DROP TABLE incident_history")
+    s._db.execute("ALTER TABLE events DROP COLUMN tag")
+    s._db.execute("ALTER TABLE events DROP COLUMN subject")
     s._db.execute("PRAGMA user_version = 5")
     s.close()
     s = Store(path)

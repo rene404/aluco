@@ -24,6 +24,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 from aluco import __version__
+from aluco.i18n import _, get_language
 from aluco.model import OPEN_STATUSES, Device, Event, Incident, utcnow
 from aluco.store import Store
 from aluco.web import views
@@ -34,7 +35,7 @@ READ_ONLY = ToolAnnotations(read_only_hint=True, destructive_hint=False, idempot
 INSTRUCTIONS = """\
 Aluco überwacht ein privates Heimnetz: Geräteinventar, DNS-Anfragen pro Gerät, Vorfälle
 (z. B. neues Gerät, neue Domain bei IoT-Geräten, bekannte Schad-Domain) und eine Chronik.
-Antworte auf Deutsch und für Laien. Zeiten sind lokale Zeit. DNS-Daten liegen stündlich als
+Antworte auf {sprache} und für Laien. Zeiten sind lokale Zeit. DNS-Daten liegen stündlich als
 Anzahl und täglich pro Hauptdomain vor – nicht als einzelne Anfragen mit Uhrzeit.
 Firmengeräte werden nur passiv beobachtet: zu ihnen gibt es keine Domains oder Statistik.
 """
@@ -56,7 +57,9 @@ def build_server(db_path: Path, tz_name: str = "UTC") -> MCPServer:
     mcp = MCPServer(
         "Aluco",
         title="Aluco – Hausradar für dein Netz",
-        instructions=INSTRUCTIONS,
+        instructions=INSTRUCTIONS.format(
+            sprache="Englisch (English)" if get_language() == "en" else "Deutsch"
+        ),
         version=__version__,
     )
 
@@ -86,7 +89,7 @@ def build_server(db_path: Path, tz_name: str = "UTC") -> MCPServer:
             "mac": d.mac,
             "ip": d.ip,
             "hersteller": d.vendor,
-            "stufe": TRUST_DE[d.trust],
+            "stufe": _(TRUST_DE[d.trust]),
             "online": d.online,
             "zuletzt_gesehen": local(d.last_seen),
             "schutzliste": d.protected,
@@ -98,8 +101,8 @@ def build_server(db_path: Path, tz_name: str = "UTC") -> MCPServer:
         return {
             "id": i.id,
             "titel": i.title,
-            "schwere": SEVERITY_DE[i.severity],
-            "status": STATUS_DE[i.status],
+            "schwere": _(SEVERITY_DE[i.severity]),
+            "status": _(STATUS_DE[i.status]),
             "geraet": d.label if d else i.device_mac,
             "zuletzt": local(i.updated_at),
             "anzahl": i.occurrences,
@@ -187,7 +190,7 @@ def build_server(db_path: Path, tz_name: str = "UTC") -> MCPServer:
             "regeln": [
                 {
                     "regel": q.rule,
-                    "name": views.RULE_NAME_DE.get(q.rule, q.rule),
+                    "name": _(views.RULE_NAME_DE.get(q.rule, q.rule)),
                     "ausgeloest": q.triggered,
                     "erneut_aufgetreten": q.reopened,
                     "ignoriert": q.ignored,
@@ -259,7 +262,11 @@ def build_server(db_path: Path, tz_name: str = "UTC") -> MCPServer:
             hay = " ".join(filter(None, [d.label, d.hostname, d.ip, d.mac, d.vendor])).lower()
             if q and q not in hay:
                 continue
-            if t and t not in {d.trust.value, TRUST_DE[d.trust].lower()}:
+            if t and t not in {
+                d.trust.value,
+                TRUST_DE[d.trust].lower(),
+                _(TRUST_DE[d.trust]).lower(),
+            }:
                 continue
             out.append(device_brief(d))
         return out
@@ -285,8 +292,8 @@ def build_server(db_path: Path, tz_name: str = "UTC") -> MCPServer:
                 {
                     "id": i.id,
                     "titel": i.title,
-                    "schwere": SEVERITY_DE[i.severity],
-                    "status": STATUS_DE[i.status],
+                    "schwere": _(SEVERITY_DE[i.severity]),
+                    "status": _(STATUS_DE[i.status]),
                 }
                 for i in incidents
             ],
