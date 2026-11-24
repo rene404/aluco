@@ -419,4 +419,16 @@ EN: dict[str, str] = {
         "{label} is protected (protected list or company device) and is never disconnected"
     ),
     "{old} → {new} ist nicht erlaubt": "{old} → {new} is not allowed",
+    # --- KI-Kontext: zeitlicher Abstand (Teil 3) ----------------------------------------
+    "gleichzeitig": "at the same time",
+    "{n} Min. vorher": "{n} min before",
+    "{n} Min. danach": "{n} min after",
+    "{n} Std. vorher": "{n} h before",
+    "{n} Std. danach": "{n} h after",
+    "{n} Tage vorher": "{n} days before",
+    "{n} Tage danach": "{n} days after",
+    "Die Daten enthalten Text, der wie eine Anweisung an die KI aussieht – Einschätzung nicht unter „beobachten“.": (
+        "The data contains text that looks like an instruction to the AI – assessment kept at "
+        "“keep an eye on” or above."
+    ),
 }

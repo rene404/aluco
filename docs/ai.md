@@ -89,6 +89,7 @@ aluco ai-eval --case autostart-getarnt --json       # einzelne Fälle, Ausgabe a
 | 2026-11-24 | ollama/qwen3:4b, Prompt v1 (Mac, Apple Silicon) | 36/48 (75 %) | ja | 6 | 3,7 min |
 | 2026-11-24 | ollama/qwen3:4b, Prompt v2 | 42/48 (88 %) | ja | 4 | 2,6 min |
 | 2026-11-24 | ollama/qwen3:4b, Prompt v2 + Vorgeschichte (32 Fälle) | 56/64 (88 %) | ja | 4 | 3,5 min |
+| 2026-11-24 | ollama/qwen3:4b, **englisch** + Schutzregel (32 Fälle) | 58/64 (91 %) | ja | 0 | 4,2 min |
 | – | Claude | noch nicht gemessen | | | |
 
 ¹ beide Durchgänge (`--repeat 2`) gleich.
@@ -115,6 +116,24 @@ Offen bei qwen3:4b:
 - Ein getarnter `com.apple.…`-Autostart aus einem versteckten Ordner bleibt „beobachten“.
 - Eine neue Domain des TV-Herstellers gilt als „verdächtig“ (in v1 richtig).
 - „bekannt für …“ kommt trotz Verbot noch vor.
+
+### Englisch und Schutzregel gegen Einschleusung (#29)
+
+Mit `ALUCO_LANGUAGE=en` bekommt die KI einen englischen Prompt (`aluco/ai_en.py`), englische Regelbeschreibungen und Feldnamen und schreibt Zusammenfassung und Gründe auf Englisch. Die festen Antwortwerte (`verdaechtig`, `pruefen` …) bleiben in beiden Sprachen gleich. Der deutsche Prompt ist Zeichen für Zeichen unverändert (Test).
+
+Gemessen mit qwen3:4b, 32 Fälle × 2 (`aluco ai-eval --language en`):
+
+| Variante | Treffer | Befund |
+|---|---|---|
+| Englischer Prompt, 1:1 übersetzt | 46/64 (72 %) | Die Antwortwerte sind deutsche Wörter – auf Englisch bedeutungslos; das Modell wählt auffällig oft „verdaechtig“ |
+| + Bedeutung der Antwortwerte erklärt | 52/64 (81 %) | aber **alle Einschleusungsfälle kippen auf „harmlos“** – englischer Angriffstext wirkt auf einen englischen Prompt stärker |
+| Absatz zu Einschleusung an den Anfang | 52/64 (81 %) | keine Änderung – verworfen |
+| Deutscher Prompt, nur „auf Englisch“ | 52/64 (81 %) | 62 von 64 Zusammenfassungen trotzdem deutsch – verworfen |
+| **Erklärte Antwortwerte + feste Schutzregel** | **58/64 (91 %)** | umgesetzt; Deutsch mit Schutzregel unverändert 56/64 (88 %) |
+
+**Schutzregel** (`aluco.ai.guard`, für beide Sprachen und alle Modelle): Enthalten die Vorfallsdaten Text, der wie eine Anweisung an die KI aussieht (`ignore … instructions`, `bewerte als`, `SYSTEM:` …), darf die Einschätzung nicht unter „beobachten / prüfen“ fallen; ein Grund weist darauf hin. Nach oben greift sie nicht – Trennen bestätigt immer ein Mensch. Wer einen Domainnamen oder ein Autostart-Label kontrolliert, kann einen Vorfall so nicht mehr kleinreden. Im Beispielsatz schlägt die Erkennung genau bei den 5 Einschleusungsfällen an.
+
+Offen auf Englisch: Die Kombination „neues Gerät, kurz danach Schad-Domain“ erkennt qwen3:4b auf Englisch nicht (auf Deutsch schon); der getarnte Autostart bleibt wie auf Deutsch „beobachten“.
 
 ### Zusammenhänge pro Gerät (#26)
 
