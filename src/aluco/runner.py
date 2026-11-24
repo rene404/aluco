@@ -23,6 +23,8 @@ from aluco.threatintel import ThreatIntel
 log = logging.getLogger(__name__)
 
 
+# Verlauf für die Regel-Qualität: ohne Kennungen, darum länger als die Vorfälle selbst.
+HISTORY_RETENTION = timedelta(days=400)
 MIN_FREE_BYTES = 1024**3  # 1 GiB
 MIN_FREE_RATIO = 0.05
 
@@ -141,6 +143,7 @@ class Runner:
         self._store.purge_events(older_than=cutoff)
         self._store.purge_stats(older_than=cutoff)
         self._store.purge_host_items(older_than=cutoff)
+        self._store.purge_history(older_than=now - HISTORY_RETENTION)
 
         assessments = self._assess(result.alerts, now, summary)
         if self._notifier and result.alerts:

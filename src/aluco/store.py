@@ -14,13 +14,15 @@ from aluco.model import (
     Device,
     Event,
     EventKind,
+    HistoryEntry,
+    HistoryKind,
     Incident,
     IncidentStatus,
     Severity,
     TrustLevel,
 )
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS devices (
@@ -150,7 +152,27 @@ CREATE TABLE IF NOT EXISTS blocks (
 );
 """
 
-_MIGRATIONS = {1: _SCHEMA, 2: _SCHEMA_V2, 3: _SCHEMA_V3, 4: _SCHEMA_V4, 5: _SCHEMA_V5}
+# v6: Verlauf je Vorfall für die Regel-Qualität (#28). Ohne Gerät, Domain oder Titel –
+# nur Regel, Zeitpunkt und Status –, darum länger aufbewahrt als die Vorfälle selbst.
+_SCHEMA_V6 = """
+CREATE TABLE IF NOT EXISTS incident_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    at          TEXT NOT NULL,
+    incident_id INTEGER NOT NULL,
+    rule        TEXT NOT NULL,
+    kind        TEXT NOT NULL,
+    status      TEXT NOT NULL,
+    manual      INTEGER NOT NULL DEFAULT 0,
+    ai_verdict  TEXT
+);
+CREATE INDEX IF NOT EXISTS incident_history_at ON incident_history(at);
+INSERT INTO incident_history (at, incident_id, rule, kind, status)
+    SELECT created_at, id, rule, 'opened', 'new' FROM incidents;
+"""
+
+_MIGRATIONS = {
+    1: _SCHEMA, 2: _SCHEMA_V2, 3: _SCHEMA_V3, 4: _SCHEMA_V4, 5: _SCHEMA_V5, 6: _SCHEMA_V6,
+}  # fmt: skip
 
 
 def hour_key(at: datetime) -> str:
@@ -497,6 +519,49 @@ class Store:
         )
         return cur.rowcount
 
+    # --- Verlauf für die Regel-Qualität ---------------------------------------------
+
+    def add_history(self, h: HistoryEntry) -> None:
+        self._db.execute(
+            """
+            INSERT INTO incident_history (at, incident_id, rule, kind, status, manual, ai_verdict)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                _ts(h.at), h.incident_id, h.rule, h.kind.value, h.status.value,
+                int(h.manual), h.ai_verdict,
+            ),
+        )  # fmt: skip
+
+    def history(self, since: datetime | None = None) -> list[HistoryEntry]:
+        """Verlauf ab ``since`` (alles ohne) – plus für jeden Vorfall darin den letzten
+        Eintrag davor, damit sich die Zeit bis zur Entscheidung berechnen lässt."""
+        if since is None:
+            rows = self._db.execute("SELECT * FROM incident_history ORDER BY at, id").fetchall()
+        else:
+            rows = self._db.execute(
+                """
+                SELECT * FROM incident_history
+                WHERE at >= ?1
+                   OR id IN (SELECT MAX(id) FROM incident_history WHERE at < ?1
+                             AND incident_id IN (SELECT incident_id FROM incident_history
+                                                 WHERE at >= ?1)
+                             GROUP BY incident_id)
+                ORDER BY at, id
+                """,
+                (_ts(since),),
+            ).fetchall()
+        return [_history(r) for r in rows]
+
+    def history_start(self) -> datetime | None:
+        row = self._db.execute("SELECT MIN(at) FROM incident_history").fetchone()
+        return _dt(row[0]) if row and row[0] else None
+
+    def purge_history(self, older_than: datetime) -> int:
+        return self._db.execute(
+            "DELETE FROM incident_history WHERE at < ?", (_ts(older_than),)
+        ).rowcount
+
     # --- KI-Vorbewertung ----------------------------------------------------------
 
     def save_assessment(self, a: Assessment) -> None:
@@ -695,6 +760,18 @@ def _incident(r: sqlite3.Row) -> Incident:
         details=json.loads(r["details"]),
         occurrences=r["occurrences"],
         note=r["note"],
+    )
+
+
+def _history(r: sqlite3.Row) -> HistoryEntry:
+    return HistoryEntry(
+        at=_dt(r["at"]),
+        incident_id=r["incident_id"],
+        rule=r["rule"],
+        kind=HistoryKind(r["kind"]),
+        status=IncidentStatus(r["status"]),
+        manual=bool(r["manual"]),
+        ai_verdict=r["ai_verdict"],
     )
 
 

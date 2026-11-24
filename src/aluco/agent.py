@@ -278,5 +278,9 @@ def _auto_resolve(store: Any, service: IncidentService, finding: Finding, now: d
     incident = store.incident_by_fingerprint(finding.fingerprint)
     if incident is not None and incident.is_open and incident.id is not None:
         service.transition(
-            incident.id, IncidentStatus.RESOLVED, note="Laut Agent wieder eingeschaltet", at=now
+            incident.id,
+            IncidentStatus.RESOLVED,
+            note="Laut Agent wieder eingeschaltet",
+            at=now,
+            manual=False,
         )

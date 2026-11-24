@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Regeln{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Regel-Qualität</h1>
+    <p class="muted">Wie oft löst jede Regel aus, und was hast du daraus gemacht? Werden die Vorfälle einer Regel fast immer ignoriert, stumpft sie ab und gehört nachgeschärft.</p>
+  </div>
+  <nav class="chips" aria-label="Zeitraum">
+    {% for d in (30, 90) %}
+    <a class="chip" href="/rules?days={{ d }}" {% if days == d %}aria-current="true"{% endif %}>{{ d }} Tage</a>
+    {% endfor %}
+  </nav>
+</div>
+
+{% if flagged %}
+<div class="card notice stack">
+  <strong>{{ flagged | length }} Regel{{ 'n' if flagged | length > 1 else '' }} mit über {{ warn_pct }} % ignorierten Vorfällen</strong>
+  <span>{% for q in flagged %}{{ RULE_NAME_DE.get(q.rule, q.rule) }}{{ ", " if not loop.last }}{% endfor %} – prüfen, ob die Regel zu empfindlich ist oder Geräte besser eingestuft werden sollten (z. B. als IoT oder Gast).</span>
+</div>
+{% endif %}
+
+<section class="card">
+  <div class="scroll">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Regel</th>
+          <th class="num">ausgelöst</th>
+          <th class="num">Ignorier-Quote</th>
+          <th class="num">ignoriert</th>
+          <th class="num">erledigt</th>
+          <th class="num">getrennt</th>
+          <th class="num" title="Median vom Auftreten bis zur Entscheidung">Zeit bis Entscheidung</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in stats %}
+        <tr>
+          <td>
+            {{ RULE_NAME_DE.get(q.rule, q.rule) }}
+            {% if q.flagged %} <span class="pill sev-high">abgestumpft?</span>{% endif %}
+            {% if q.ai_suspect_ignored %}<br><span class="muted small">KI „verdächtig“, trotzdem ignoriert: {{ q.ai_suspect_ignored }}</span>{% endif %}
+            {% if q.ai_harmless_disconnected %}<br><span class="muted small">KI „harmlos“, trotzdem getrennt: {{ q.ai_harmless_disconnected }}</span>{% endif %}
+          </td>
+          <td class="num">{{ fmt_int(q.triggered) }}{% if q.reopened %} <span class="muted small" title="erledigt und erneut aufgetreten">+{{ q.reopened }}</span>{% endif %}</td>
+          <td class="num {{ 'warn-text' if q.flagged }}">{% if q.ignore_rate is none %}–{% else %}{{ (q.ignore_rate * 100) | round | int }} %{% if q.decided < min_decisions %} <span class="muted small">(wenig Daten)</span>{% endif %}{% endif %}</td>
+          <td class="num">{{ fmt_int(q.ignored) }}</td>
+          <td class="num">{{ fmt_int(q.resolved) }}{% if q.auto_resolved %} <span class="muted small" title="automatisch erledigt, zählt nicht zur Quote">+{{ q.auto_resolved }} auto</span>{% endif %}</td>
+          <td class="num">{{ fmt_int(q.disconnected) }}</td>
+          <td class="num">{{ duration(q.median_wait) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small">
+    „ausgelöst“: neue Vorfälle im Zeitraum, „+n“: erledigt und erneut aufgetreten. Ignoriert, erledigt und getrennt zählen nur Entscheidungen von Hand;
+    die Quote erscheint erst ab {{ min_decisions }} Entscheidungen hervorgehoben.
+    {% if since_first %}Aufgezeichnet seit {{ since_first | localdate }}.{% else %}Noch keine Vorfälle aufgezeichnet.{% endif %}
+  </p>
+</section>
+{% endblock %}

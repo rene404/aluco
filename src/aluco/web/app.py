@@ -420,6 +420,29 @@ def create_app(
             )
         return RedirectResponse("/incidents", status_code=303)
 
+    async def rules_page(request: Request) -> Response:
+        from aluco.ai import RULE_TEXT
+        from aluco.quality import IGNORE_WARN_RATE, MIN_DECISIONS, rule_quality
+
+        days = 90 if request.query_params.get("days") == "90" else 30
+        since = utcnow() - timedelta(days=days)
+        with store() as s:
+            history = s.history(since=since)
+            started = s.history_start()
+        stats = rule_quality(history, since, rules=tuple(RULE_TEXT))
+        return render(
+            request,
+            "rules.html",
+            stats=stats,
+            days=days,
+            since_first=started,
+            flagged=[q for q in stats if q.flagged],
+            warn_pct=round(IGNORE_WARN_RATE * 100),
+            min_decisions=MIN_DECISIONS,
+            RULE_NAME_DE=views.RULE_NAME_DE,
+            duration=views.duration,
+        )
+
     async def devices_page(request: Request) -> Response:
         q = request.query_params.get("q", "").strip()[:100]
         trust_filter = request.query_params.get("trust", "all")
@@ -633,6 +656,7 @@ def create_app(
         Route("/incidents", incidents),
         Route("/incidents/{incident_id:int}/status", incident_status, methods=["POST"]),
         Route("/incidents/{incident_id:int}/assess", incident_assess, methods=["POST"]),
+        Route("/rules", rules_page),
         Route("/devices", devices_page),
         Route("/devices/{mac}", device_detail),
         Route("/devices/{mac}", device_update, methods=["POST"]),
