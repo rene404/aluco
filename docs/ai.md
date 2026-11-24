@@ -102,6 +102,9 @@ aluco ai-eval --case autostart-getarnt --json       # einzelne Fälle, Ausgabe a
 | agent_login | 2/2 | 2/2 |
 | agent_autostart | 2/6 | 4/6 |
 | agent_posture | 2/6 | **6/6** |
+| newly_registered_domain² | – | 4/6 |
+
+² Regel und drei Fälle neu mit #25 (Satz jetzt 27 Fälle); die Zahlen oben gelten für die ursprünglichen 24. Ein einmaliger Aufruf einer harmlos klingenden neuen Domain von einem bekannten Laptop wird als „verdächtig“ statt „beobachten“ eingestuft (Empfehlung aber richtig „prüfen“).
 
 Stabil verbessert (in allen getesteten Varianten): Laptop-Einstellungen → „prüfen“ statt „sperren“; eine Anweisung im Domainnamen stuft eine Schad-Domain nicht mehr herab.
 
@@ -111,7 +114,7 @@ Offen bei qwen3:4b:
 - Eine neue Domain des TV-Herstellers gilt als „verdächtig“ (in v1 richtig).
 - „bekannt für …“ kommt trotz Verbot noch vor.
 
-> **Vorsicht beim Nachschärfen:** Kleine Modelle reagieren stark auf den Wortlaut. Ein einziger zusätzlicher Satz am Ende des Prompts senkte qwen3:4b von 88 % auf 75 %, zwei weitere Hinweise ebenfalls auf 75 % – mit widersprüchlichen Antworten („harmlos“, Risiko „hoch“). Änderungen deshalb immer nachmessen und nicht auf einzelne Fälle zuschneiden; mit 24 Fällen ist der Satz klein. `--repeat` zeigt nur, ob die Antworten bei gleichem Prompt gleich bleiben (Temperatur 0), nicht, wie robust der Prompt ist.
+> **Vorsicht beim Nachschärfen:** Kleine Modelle reagieren stark auf den Wortlaut. Ein einziger zusätzlicher Satz am Ende des Prompts senkte qwen3:4b von 88 % auf 75 %, zwei weitere Hinweise ebenfalls auf 75 % – mit widersprüchlichen Antworten („harmlos“, Risiko „hoch“). Änderungen deshalb immer nachmessen und nicht auf einzelne Fälle zuschneiden; mit 27 Fällen ist der Satz klein. `--repeat` zeigt nur, ob die Antworten bei gleichem Prompt gleich bleiben (Temperatur 0), nicht, wie robust der Prompt ist.
 
 ## Datenschutz
 

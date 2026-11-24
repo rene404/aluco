@@ -81,6 +81,17 @@ Aluco gleicht jede DNS-Anfrage mit öffentlichen Bedrohungslisten ab (Malware, P
 - Tipp: dieselbe Liste zusätzlich in AdGuard unter *Filter → DNS-Sperrlisten* eintragen, dann wird auch blockiert.
 - Speicherbedarf ca. 20–40 MB.
 
+### Neu registrierte Domains
+
+Aluco meldet Anfragen an Domains, die erst in den letzten 14 Tagen registriert wurden. Solche Domains nutzen Betrüger gern für Phishing, Schadsoftware und Command-and-Control, weil sie billig und schnell wieder weg sind. Viele neue Domains sind aber harmlos (neue Webseiten, Kampagnen, Dienste) – darum nur Schweregrad **mittel**. Firmengeräte sind ausgenommen.
+
+- Ein Vorfall je Gerät und registrierter Domain (`login.neu.example` und `neu.example` zählen zusammen), Wiederholungen zählen hoch.
+- Steht die Domain zugleich auf einer Bedrohungsliste, meldet Aluco nur die Schad-Domain (hoch).
+- Standardliste: [HaGeZi NRD](https://github.com/hagezi/nrd), letzte 14 Tage (`nrd7` + `nrd14-8`, ~5 Mio. Domains). Wird einmal am Tag geladen (**~90 MB Download pro Tag**, ~2,6 GB im Monat) und im Datenordner zwischengespeichert (~90 MB); fällt der Download aus, gilt die letzte Liste weiter.
+- Arbeitsspeicher: kaum (unter 30 MB). Aluco sucht per Binärsuche direkt in der sortierten Datei, statt 5 Mio. Domains in den Speicher zu laden (wären ~500 MB).
+- `ALUCO_NRD_ALLOW`: eigene oder bekannte neue Domains, die nie als neu registriert gelten (inkl. Subdomains), z. B. `meinverein-2026.at, neuer-shop.example`.
+- `ALUCO_NRD_FEEDS=off` schaltet die Regel ab, z. B. bei knappem Datenvolumen. Eigene Listen: `name=https-URL` (reine Domains).
+
 ## DNS im Router umstellen
 
 Erst wenn AdGuard am Server antwortet.

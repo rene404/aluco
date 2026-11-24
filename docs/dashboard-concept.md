@@ -20,7 +20,7 @@ Stand: 2026-11-18
 - Ungewöhnlich viel Upload, besonders nachts.
 - Port-Scans im Heimnetz; Suricata-Alarme mit hoher Schwere.
 - Laptop: neuer Prozess lauscht auf einem Port; neuer LaunchAgent/LaunchDaemon.
-- Später: DNS-Anfragen an neu registrierte Domains (< 14 Tage).
+- DNS-Anfragen an neu registrierte Domains (< 14 Tage), Schweregrad mittel – siehe [stage-0.md](stage-0.md#neu-registrierte-domains).
 
 Von Anfang an: Schweregrade und ein Knopf „bekannt / ignorieren“, sonst stumpft man ab.
 

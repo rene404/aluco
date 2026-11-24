@@ -286,6 +286,16 @@ def explain(incident: Incident) -> list[str]:
             if d.get("blocked") == "true"
             else "Die Anfrage wurde NICHT blockiert – Domain in AdGuard sperren"
         )
+    elif incident.rule == "newly_registered_domain":
+        facts.append(f"{d.get('domain', '?')} wurde in den letzten 14 Tagen registriert")
+        if d.get("query") and d.get("query") != d.get("domain"):
+            facts.append(f"Angefragt: {d['query']}")
+        facts.append(
+            "Neue Domains nutzen Betrüger gern für Phishing und Schadsoftware – viele sind aber "
+            "harmlos. Kennst du die Seite nicht, Domain in AdGuard sperren."
+            if d.get("blocked") != "true"
+            else "AdGuard hat die Anfrage bereits blockiert"
+        )
     elif incident.rule == "agent_port":
         facts.append(
             f"{d.get('program', '?')} nimmt Verbindungen auf Port {d.get('port')}/"

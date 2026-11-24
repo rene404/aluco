@@ -36,6 +36,11 @@ RULE_TEXT = {
         "Ein Gerät hat eine Domain angefragt, die auf einer öffentlichen Bedrohungsliste "
         "(Malware, Phishing, Command-and-Control) steht."
     ),
+    "newly_registered_domain": (
+        "Ein Gerät hat eine Domain angefragt, die erst in den letzten 14 Tagen registriert wurde. "
+        "Neue Domains werden oft für Phishing und Schadsoftware genutzt, viele sind aber harmlos "
+        "(neue Webseiten, Kampagnen, Dienste)."
+    ),
     "agent_port": "Auf einem privaten Laptop nimmt ein Programm neu Verbindungen an.",
     "agent_autostart": "Auf einem privaten Laptop startet ein neues Programm automatisch.",
     "agent_login": "Auf einem privaten Laptop gab es eine neue Fern-Anmeldung.",
@@ -165,6 +170,9 @@ def build_context(
     elif incident.rule == "bad_domain":
         ctx["domain_auf_liste"] = details.get("domain")
         ctx["liste"] = details.get("list")
+        ctx["von_adguard_blockiert"] = details.get("blocked") == "true"
+    elif incident.rule == "newly_registered_domain":
+        ctx["neu_registrierte_domain"] = details.get("domain")
         ctx["von_adguard_blockiert"] = details.get("blocked") == "true"
     elif incident.rule == "new_domain":
         ctx["neue_domain"] = details.get("domain")
