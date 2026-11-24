@@ -23,6 +23,7 @@ Mit dem MCP-Server kannst du Claude (Desktop, Code) oder einen anderen MCP-Host 
 | `device_activity` | Zeitraum (z. B. letzte Nacht): Anfragen pro Stunde, Domains der Tage, Ereignisse |
 | `timeline` | Chronik der letzten Stunden |
 | `dns_top` | Aktivste Geräte, meistblockierte Domains |
+| `rule_quality` | Regel-Qualität: ausgelöst, ignoriert, erledigt, getrennt, Ignorier-Quote je Regel (30–400 Tage) |
 
 Genauigkeit: DNS-Daten liegen pro Stunde als Anzahl und pro Tag je Hauptdomain vor – nicht als einzelne Anfragen mit Uhrzeit.
 

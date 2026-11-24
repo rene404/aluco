@@ -2,6 +2,11 @@
 
 Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
 
+## [Unreleased]
+
+### Neu
+- **Regel-Qualität (#28):** neue Seite „Regeln“ im Dashboard und MCP-Werkzeug `rule_quality` – je Regel ausgelöst, ignoriert, erledigt, getrennt, Ignorier-Quote und Zeit bis zur Entscheidung; Regeln mit über 70 % ignorierten Vorfällen werden hervorgehoben. Datenbank-Schema v6 (Verlauf ohne Gerätekennungen, 400 Tage).
+
 ## [0.2.0] – 2026-11-23
 
 Stufe 1 in der Software: Geräte über **OPNsense** trennen, KI-Vorbewertung auch **lokal mit Ollama**, dazu HTTPS, Sicherung/Update und ein Integrationstest des ganzen Stacks. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.

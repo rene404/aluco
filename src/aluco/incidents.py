@@ -14,7 +14,18 @@ from dataclasses import replace
 from datetime import datetime
 from typing import Protocol
 
-from aluco.model import Device, Event, EventKind, Finding, Incident, IncidentStatus, utcnow
+from aluco.ai import Assessment
+from aluco.model import (
+    Device,
+    Event,
+    EventKind,
+    Finding,
+    HistoryEntry,
+    HistoryKind,
+    Incident,
+    IncidentStatus,
+    utcnow,
+)
 
 S = IncidentStatus
 ALLOWED_TRANSITIONS: dict[IncidentStatus, frozenset[IncidentStatus]] = {
@@ -45,6 +56,8 @@ class IncidentStore(Protocol):
     def save_incident(self, incident: Incident) -> Incident: ...
     def device(self, mac: str) -> Device | None: ...
     def add_event(self, event: Event) -> None: ...
+    def add_history(self, entry: HistoryEntry) -> None: ...
+    def assessment(self, incident_id: int) -> Assessment | None: ...
 
 
 class IncidentService:
@@ -69,7 +82,9 @@ class IncidentService:
                 device_mac=finding.device_mac,
                 details=dict(finding.details),
             )
-            return self._store.save_incident(incident)
+            saved = self._store.save_incident(incident)
+            self._log(saved, HistoryKind.OPENED, now)
+            return saved
 
         status = existing.status
         if status is IncidentStatus.RESOLVED:
@@ -82,7 +97,10 @@ class IncidentService:
             updated_at=now,
             details={**existing.details, **finding.details},
         )
-        return self._store.save_incident(updated)
+        saved = self._store.save_incident(updated)
+        if existing.status is IncidentStatus.RESOLVED:
+            self._log(saved, HistoryKind.REOPENED, now)
+        return saved
 
     def transition(
         self,
@@ -90,7 +108,9 @@ class IncidentService:
         new_status: IncidentStatus,
         note: str = "",
         at: datetime | None = None,
+        manual: bool = True,
     ) -> Incident:
+        """Status ändern. ``manual=False`` für automatische Wechsel (z. B. durch den Agent)."""
         incident = self._store.incident_by_id(incident_id)
         if incident is None:
             raise KeyError(incident_id)
@@ -111,7 +131,38 @@ class IncidentService:
                 detail=f"Notiz: {note}" if note else "",
             )
         )
-        return self._store.save_incident(updated)
+        saved = self._store.save_incident(updated)
+        assessment = self._store.assessment(incident_id)
+        self._log(
+            saved,
+            HistoryKind.STATUS,
+            now,
+            manual=manual,
+            ai_verdict=assessment.verdict if assessment else None,
+        )
+        return saved
+
+    def _log(
+        self,
+        incident: Incident,
+        kind: HistoryKind,
+        at: datetime,
+        manual: bool = False,
+        ai_verdict: str | None = None,
+    ) -> None:
+        if incident.id is None:
+            return
+        self._store.add_history(
+            HistoryEntry(
+                at=at,
+                incident_id=incident.id,
+                rule=incident.rule,
+                kind=kind,
+                status=incident.status,
+                manual=manual,
+                ai_verdict=ai_verdict,
+            )
+        )
 
     def _check_disconnect_allowed(self, incident: Incident) -> None:
         if incident.device_mac is None:

@@ -10,7 +10,7 @@ Stand: 2026-11-18
 4. **DNS & Traffic:** Top-Domains, blockierte Anfragen, neu gesehene Domains.
 5. **Vorfälle:** Protokoll mit Status (neu / untersucht / ignoriert / getrennt) und Notiz. **Das Herzstück.**
 6. **Laptop:** Prozesse mit Netzwerkverbindungen, offene Ports, neue Autostart-Einträge (LaunchAgents/-Daemons), Anmeldungen. Nur private Laptops.
-7. **Regeln & Aktionen:** Definition „ungewöhnlich“, gesperrte Geräte, Quarantäne aufheben, Schutzliste.
+7. **Regeln & Aktionen:** Definition „ungewöhnlich“, gesperrte Geräte, Quarantäne aufheben, Schutzliste. Umgesetzt: Regel-Qualität (siehe unten).
 
 ## Erkennungsregeln (Start, wenig Fehlalarme)
 
@@ -23,6 +23,18 @@ Stand: 2026-11-18
 - Später: DNS-Anfragen an neu registrierte Domains (< 14 Tage).
 
 Von Anfang an: Schweregrade und ein Knopf „bekannt / ignorieren“, sonst stumpft man ab.
+
+### Regel-Qualität (Seite „Regeln“)
+
+Ob man abstumpft, zeigt die Seite **Regeln** (`/rules`): je Regel für 30 oder 90 Tage
+
+- **ausgelöst:** neue Vorfälle, dazu „+n“ für erledigte Befunde, die erneut aufgetreten sind;
+- **ignoriert / erledigt / getrennt:** nur Entscheidungen von Hand. Automatisch erledigte Vorfälle (Sicherheitsgrundlage laut Agent wieder an) stehen als „+n auto“ daneben und zählen nicht;
+- **Ignorier-Quote:** ignoriert ÷ (ignoriert + erledigt + getrennt). Über 70 % bei mindestens 3 Entscheidungen ist die Regel als „abgestumpft?“ markiert und oben gesammelt;
+- **Zeit bis Entscheidung:** Median vom Auftreten (oder Wiederöffnen) bis zur Entscheidung;
+- **KI daneben:** wie oft die KI „verdächtig“ sagte und trotzdem ignoriert wurde, oder „harmlos“ und trotzdem getrennt.
+
+Grundlage ist ein eigener Verlauf (`incident_history`) mit nur Regel, Zeitpunkt, Status und KI-Einstufung – ohne Gerät, Domain oder Titel. Darum bleibt er 400 Tage, auch wenn erledigte Vorfälle nach der Aufbewahrungsfrist (30 Tage) gelöscht werden. Beim Update auf Schema v6 werden vorhandene Vorfälle als „ausgelöst“ übernommen; frühere Entscheidungen lassen sich nicht rekonstruieren. Dieselben Zahlen liefert der MCP-Server mit `rule_quality`.
 
 ## Optionen zum Trennen
 

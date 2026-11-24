@@ -168,6 +168,45 @@ def build_server(db_path: Path, tz_name: str = "UTC") -> MCPServer:
         }
 
     @mcp.tool(annotations=READ_ONLY)
+    def rule_quality(days: int = 30) -> dict[str, Any]:
+        """Regel-Qualität: je Erkennungsregel, wie oft sie ausgelöst hat und wie oft ihre
+        Vorfälle ignoriert, erledigt oder zum Trennen geführt haben (nur Entscheidungen von
+        Hand). Regeln mit über 70 % ignorierten Vorfällen gelten als abgestumpft."""
+        from aluco.ai import RULE_TEXT
+        from aluco.quality import rule_quality as compute
+
+        days = max(1, min(days, 400))
+        since = utcnow() - timedelta(days=days)
+        with store() as s:
+            history = s.history(since=since)
+            started = s.history_start()
+        stats = compute(history, since, rules=tuple(RULE_TEXT))
+        return {
+            "zeitraum_tage": days,
+            "aufgezeichnet_seit": local(started) if started else None,
+            "regeln": [
+                {
+                    "regel": q.rule,
+                    "name": views.RULE_NAME_DE.get(q.rule, q.rule),
+                    "ausgeloest": q.triggered,
+                    "erneut_aufgetreten": q.reopened,
+                    "ignoriert": q.ignored,
+                    "erledigt": q.resolved,
+                    "automatisch_erledigt": q.auto_resolved,
+                    "getrennt": q.disconnected,
+                    "ignorier_quote": round(q.ignore_rate, 2)
+                    if q.ignore_rate is not None
+                    else None,
+                    "abgestumpft": q.flagged,
+                    "zeit_bis_entscheidung": views.duration(q.median_wait),
+                    "ki_verdaechtig_aber_ignoriert": q.ai_suspect_ignored,
+                    "ki_harmlos_aber_getrennt": q.ai_harmless_disconnected,
+                }
+                for q in stats
+            ],
+        }
+
+    @mcp.tool(annotations=READ_ONLY)
     def list_incidents(status: str = "offen", limit: int = 20) -> list[dict[str, Any]]:
         """Vorfälle auflisten, schwerste zuerst. status: offen, ignoriert, erledigt oder alle."""
         key = FILTER_ALIASES.get(status.strip().lower())

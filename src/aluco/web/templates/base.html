@@ -21,6 +21,7 @@
         <a href="/" {% if path == "/" %}aria-current="page"{% endif %}>Übersicht</a>
         <a href="/incidents" {% if path.startswith("/incidents") %}aria-current="page"{% endif %}>Vorfälle{% if nav_open %} <span class="count" aria-label="{{ nav_open }} offen">{{ nav_open }}</span>{% endif %}</a>
         <a href="/devices" {% if path.startswith("/devices") %}aria-current="page"{% endif %}>Geräte</a>
+        <a href="/rules" {% if path.startswith("/rules") %}aria-current="page"{% endif %}>Regeln</a>
       </nav>
       <form class="search" method="get" action="/devices" role="search">
         <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>

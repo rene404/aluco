@@ -81,6 +81,25 @@ class IncidentStatus(StrEnum):
 OPEN_STATUSES = frozenset({IncidentStatus.NEW, IncidentStatus.INVESTIGATING})
 
 
+class HistoryKind(StrEnum):
+    OPENED = "opened"  # neuer Vorfall
+    REOPENED = "reopened"  # erledigter Befund trat erneut auf
+    STATUS = "status"  # Status geändert (von Hand oder automatisch)
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryEntry:
+    """Ein Schritt im Leben eines Vorfalls – ohne Gerät, Domain oder Titel (#28)."""
+
+    at: datetime
+    incident_id: int
+    rule: str
+    kind: HistoryKind
+    status: IncidentStatus
+    manual: bool = False
+    ai_verdict: str | None = None  # KI-Einstufung zum Zeitpunkt der Entscheidung
+
+
 @dataclass(frozen=True, slots=True)
 class Device:
     mac: str

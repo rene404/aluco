@@ -152,6 +152,7 @@ h3 { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color:
 
 /* --- Seite --------------------------------------------------------------------- */
 .page { max-width: 1200px; margin: 0 auto; padding: 1.25rem 1rem 2rem; display: flex; flex-direction: column; gap: 1.1rem; }
+.page > * { min-width: 0; }  /* breite Tabellen scrollen in .scroll statt die Seite zu verbreitern */
 .footer { text-align: center; color: var(--muted); font-size: .82rem; padding: 1.5rem 1rem 2rem; }
 .page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: .75rem 1rem; }
 .page-head p { margin: .25rem 0 0; }

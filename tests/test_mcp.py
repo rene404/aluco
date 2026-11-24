@@ -79,7 +79,7 @@ async def test_all_tools_are_read_only(client: Client) -> None:
     names = {t.name for t in tools}
     assert names == {
         "get_overview", "list_incidents", "get_incident", "list_devices",
-        "get_device", "device_activity", "timeline", "dns_top",
+        "get_device", "device_activity", "timeline", "dns_top", "rule_quality",
     }  # fmt: skip
     assert all(t.annotations and t.annotations.read_only_hint for t in tools)
 
@@ -141,3 +141,11 @@ async def test_missing_database(tmp_path: Path) -> None:
     async with Client(build_server(tmp_path / "fehlt.db")) as c:
         result = await c.call_tool("get_overview", {})
         assert result.is_error and "Aluco-Dienst" in result.content[0].text
+
+
+async def test_rule_quality(client: Client) -> None:
+    q = await call(client, "rule_quality", days=10000)
+    assert q["zeitraum_tage"] == 400
+    by_rule = {r["regel"]: r for r in q["regeln"]}
+    assert by_rule["new_device"]["name"] == "Neues Gerät"
+    assert "mac" not in str(q).lower() and "00:00:5e" not in str(q)
