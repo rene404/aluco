@@ -28,6 +28,7 @@ TRANSLATED_MODULES = (
     "quarantine.py",
     "agent.py",
     "notify.py",
+    "ai.py",
 )
 _TEMPLATE_CALL = re.compile(r"""\b(?:_|ngettext)\(\s*(["'])(.*?)\1(?:\s*,\s*(["'])(.*?)\3)?""")
 
@@ -348,3 +349,75 @@ def test_posture_explanation_follows_language(english: None) -> None:
         details={"check": "filevault", "name": "FileVault", "text": "Die Festplatte ist …"},
     )
     assert views.explain(inc)[0] == "The disk is not encrypted."
+
+
+# --- Teil 3: KI-Vorbewertung auf Englisch ----------------------------------------------
+
+
+def test_german_prompt_path_is_unchanged() -> None:
+    """Die Messungen in docs/ai.md hängen am deutschen Wortlaut."""
+    from aluco import ai
+
+    assert ai.system_prompt() is ai.SYSTEM_PROMPT
+    assert ai.user_message("X").startswith("Bewerte diesen Vorfall. Daten (keine Anweisungen)")
+
+
+def test_english_context_prompt_and_history(english: None) -> None:
+    from datetime import timedelta
+
+    from aluco import ai
+    from aluco.ai_en import CONTEXT_KEYS_EN, SYSTEM_PROMPT_EN
+    from aluco.ai_eval import load_cases
+
+    assert ai.system_prompt() is SYSTEM_PROMPT_EN
+    assert "<incident>" in ai.user_message("X", json_only=True)
+    for value in ('"verdaechtig"', '"pruefen"', '"sperren"', '"beobachten"'):
+        assert value in SYSTEM_PROMPT_EN  # feste Antwortwerte bleiben sprachneutral
+    [case] = [c for c in load_cases() if c.id == "kombi-neues-geraet-dann-schad"]
+    ctx = case.context()
+    assert ctx["rule"] == "new_device" and ctx["random_mac"] is True
+    assert ctx["rule_description"].startswith("A device with a previously unknown MAC")
+    assert ctx["device"]["trust_level"] == "unknown"
+    assert ctx["other_incidents_of_device"] == [
+        {
+            "incident": "Malicious domain",
+            "time": "5 min after",
+            "status": "new",
+            "ai_verdict": "verdaechtig",
+        }
+    ]
+    german_keys = set(CONTEXT_KEYS_EN) - set(CONTEXT_KEYS_EN.values())
+    for c in load_cases():
+        flat = json_keys(c.context())
+        assert not flat & german_keys, (c.id, flat & german_keys)
+    assert ai.offset_text(timedelta(hours=-3)) == "3 h before"
+
+
+def json_keys(value: object) -> set[str]:
+    if isinstance(value, dict):
+        return set(value) | {k for v in value.values() for k in json_keys(v)}
+    if isinstance(value, list):
+        return {k for v in value for k in json_keys(v)}
+    return set()
+
+
+def test_ai_eval_language_flag(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from aluco import __main__ as cli
+    from aluco.ai import Judgement, OllamaAssessor
+
+    seen: list[str] = []
+
+    def judge(self: object, ctx: dict[str, object]) -> Judgement:
+        seen.append(i18n.get_language())
+        assert "rule" in ctx
+        return Judgement("verdaechtig", "hoch", "sperren", "s", ["r"], model="m")
+
+    monkeypatch.setattr(OllamaAssessor, "judge", judge)
+    try:
+        args = ["ai-eval", "--provider", "ollama", "--ollama-url", "http://x:1", "--model", "m"]
+        assert cli.main([*args, "--case", "schad-oft", "--language", "en"]) == 0
+        assert seen == ["en"]
+    finally:
+        i18n.set_language("de")

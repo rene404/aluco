@@ -27,6 +27,7 @@ from aluco.ai import (
     Judgement,
     PriorIncident,
     build_context,
+    guard,
 )
 from aluco.model import Device, Incident, IncidentStatus, Severity, TrustLevel, utcnow
 
@@ -46,7 +47,13 @@ _SUSPECT = re.compile(
     r"|\bberüchtigt"
     r"|\bbekannt\s+und\s+(autorisiert|legitim|vertrauenswürdig|harmlos|seriös)"
     r"|\blaut\s+(berichten|quellen|experten)\b"
-    r"|\b(sicherheitsforscher|berichte|studien)\s+(zeigen|belegen|melden)\b",
+    r"|\b(sicherheitsforscher|berichte|studien)\s+(zeigen|belegen|melden)\b"
+    # Englisch (#29): "known for/as", "notorious", "reportedly", "according to reports"
+    r"|\b(known|notorious)\s+(for|as)\b"
+    r"|\bnotorious"
+    r"|\bknown\s+and\s+(authorized|legitimate|harmless)"
+    r"|\breportedly\b"
+    r"|\baccording\s+to\s+(reports|sources|experts)\b",
     re.IGNORECASE,
 )
 
@@ -190,7 +197,8 @@ def evaluate(
             start = time.monotonic()
             result = CaseResult(case=case)
             try:
-                result.judgement = assessor.judge(case.context())
+                context = case.context()
+                result.judgement = guard(context, assessor.judge(context))
             except AssessmentError as e:
                 result.error = str(e)
             result.seconds = time.monotonic() - start

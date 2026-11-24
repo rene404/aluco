@@ -133,6 +133,10 @@ def test_model_errors_count_as_failed() -> None:
         ("Ein bekanntes Gerät hat eine neue Domain angefragt.", False),
         ("Gerät ist bekannt und von Apple hergestellt", False),  # Vertrauensstufe
         ("Das Label ist bekannt und autorisiert.", True),
+        ("The domain is known for phishing.", True),
+        ("Reportedly used by attackers.", True),
+        ("The domain is on a threat list.", False),
+        ("A known device queried a new domain.", False),
     ],
 )
 def test_suspect_claims(text: str, flag: bool) -> None:
