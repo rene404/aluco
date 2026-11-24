@@ -54,7 +54,9 @@ def _parser() -> argparse.ArgumentParser:
         ap.add_argument("device", help="MAC-Adresse oder Name")
     ag.add_parser("list", help="Agenten anzeigen")
     ev = sub.add_parser("ai-eval", help="KI-Vorbewertung am Beispielsatz messen")
-    ev.add_argument("--provider", choices=["claude", "ollama"], help="Standard: ALUCO_AI_PROVIDER")
+    ev.add_argument(
+        "--provider", choices=["claude", "ollama", "openrouter"], help="Standard: ALUCO_AI_PROVIDER"
+    )
     ev.add_argument("--model", help="Standard: ALUCO_AI_MODEL")
     ev.add_argument("--ollama-url", help="Standard: ALUCO_AI_OLLAMA_URL")
     ev.add_argument("--repeat", type=int, default=1, help="jeden Fall n-mal (Stabilität)")
@@ -107,7 +109,13 @@ def _ai_eval_command(args: argparse.Namespace) -> int:
     import os
     from dataclasses import asdict
 
-    from aluco.ai import DEFAULT_MODEL, AssessmentError, ClaudeAssessor, OllamaAssessor
+    from aluco.ai import (
+        DEFAULT_MODEL,
+        AssessmentError,
+        ClaudeAssessor,
+        OllamaAssessor,
+        OpenRouterAssessor,
+    )
     from aluco.ai_eval import CaseResult, evaluate, load_cases, summarize
     from aluco.i18n import LanguageError, parse_language, set_language
 
@@ -129,6 +137,13 @@ def _ai_eval_command(args: argparse.Namespace) -> int:
                 print("Ollama: --ollama-url und --model (z. B. qwen3:4b) angeben", file=sys.stderr)
                 return 2
             assessor: Any = OllamaAssessor(url, model)
+        elif provider == "openrouter":
+            key = env.get("OPENROUTER_API_KEY", "").strip()
+            if not key:
+                print("OpenRouter: OPENROUTER_API_KEY fehlt", file=sys.stderr)
+                return 2
+            model = model if "/" in model else "anthropic/claude-opus-5.5"
+            assessor = OpenRouterAssessor(key, model)
         else:
             if not env.get("ANTHROPIC_API_KEY", "").strip():
                 print("Claude: ANTHROPIC_API_KEY fehlt", file=sys.stderr)

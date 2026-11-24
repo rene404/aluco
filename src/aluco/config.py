@@ -21,19 +21,19 @@ class ConfigError(ValueError):
 @dataclass(frozen=True, slots=True)
 class AiSettings:
     enabled: bool = False
-    provider: str = "claude"  # claude | ollama
+    provider: str = "claude"  # claude | ollama | openrouter
     model: str = "claude-opus-5-5"
     max_per_run: int = 5
     ollama_url: str = ""
 
 
 def ai_settings_from_env(env: Mapping[str, str] | None = None) -> AiSettings:
-    """KI-Vorbewertung: Claude (API-Schlüssel nötig) oder lokales Modell über Ollama."""
+    """KI-Vorbewertung: Claude direkt, Claude & Co. über OpenRouter oder lokal über Ollama."""
     e = os.environ if env is None else env
     enabled = e.get("ALUCO_AI_ENABLED", "").strip().lower() in {"1", "true", "yes"}
     provider = e.get("ALUCO_AI_PROVIDER", "").strip().lower() or "claude"
-    if provider not in {"claude", "ollama"}:
-        raise ConfigError("ALUCO_AI_PROVIDER muss claude oder ollama sein")
+    if provider not in {"claude", "ollama", "openrouter"}:
+        raise ConfigError("ALUCO_AI_PROVIDER muss claude, ollama oder openrouter sein")
     model = e.get("ALUCO_AI_MODEL", "").strip()
     ollama_url = e.get("ALUCO_AI_OLLAMA_URL", "").strip()
     if enabled and provider == "claude" and not e.get("ANTHROPIC_API_KEY", "").strip():
@@ -43,6 +43,15 @@ def ai_settings_from_env(env: Mapping[str, str] | None = None) -> AiSettings:
             raise ConfigError("ALUCO_AI_OLLAMA_URL fehlt (z. B. http://192.0.2.5:11434)")
         if not model or model.startswith("claude"):
             raise ConfigError("ALUCO_AI_MODEL: lokales Modell angeben (z. B. qwen3:4b)")
+    if provider == "openrouter":
+        model = model or "anthropic/claude-opus-5.5"
+        if enabled and not e.get("OPENROUTER_API_KEY", "").strip():
+            raise ConfigError("ALUCO_AI_ENABLED=true, aber OPENROUTER_API_KEY fehlt")
+        if "/" not in model:
+            raise ConfigError(
+                "ALUCO_AI_MODEL: für OpenRouter mit Anbieter angeben, "
+                "z. B. anthropic/claude-opus-5.5"
+            )
     raw_max = e.get("ALUCO_AI_MAX_PER_RUN", "").strip() or "5"
     if not raw_max.isdigit():
         raise ConfigError("ALUCO_AI_MAX_PER_RUN muss eine Zahl sein")

@@ -127,7 +127,7 @@ def test_settings_and_builder() -> None:
                 "ALUCO_AI_OLLAMA_URL": "http://o:1",
             }
         )
-    with pytest.raises(ConfigError, match="claude oder ollama"):
+    with pytest.raises(ConfigError, match="claude, ollama oder openrouter"):
         ai_settings_from_env({"ALUCO_AI_PROVIDER": "gpt"})
     # Ollama braucht keinen Anthropic-Schlüssel
     assert "ANTHROPIC_API_KEY" not in str(s)
