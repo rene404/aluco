@@ -85,18 +85,33 @@ aluco ai-eval --case autostart-getarnt --json       # einzelne Fälle, Ausgabe a
 
 | Datum | Modell | Treffer | stabil¹ | zu prüfen | Dauer |
 |---|---|---|---|---|---|
-| 2026-11-24 | ollama/qwen3:4b (Mac, Apple Silicon) | 36/48 (75 %) | ja | 6 | 3,7 min |
+| 2026-11-24 | ollama/qwen3:4b, Prompt v1 (Mac, Apple Silicon) | 36/48 (75 %) | ja | 6 | 3,7 min |
+| 2026-11-24 | ollama/qwen3:4b, Prompt v2 | 42/48 (88 %) | ja | 4 | 2,6 min |
 | – | Claude | noch nicht gemessen | | | |
 
 ¹ beide Durchgänge (`--repeat 2`) gleich.
 
-Schwächen von qwen3:4b in diesem Lauf:
-- **Einschleusung wirkt:** Eine Anweisung im Herstellernamen führt zu „sperren“; eine Anweisung im Domainnamen stuft eine Schad-Domain auf „beobachten“ herab.
-- **Laptop-Einstellungen:** FileVault oder SIP aus → „sperren“. Vom Netz trennen behebt das nicht; richtig wäre „prüfen“.
-- **Autostart:** Ein getarnter Eintrag mit `com.apple.…`-Label aus einem versteckten Ordner gilt als „autorisiert“, der Google-Updater dagegen als verdächtig.
-- **Erfundenes Wissen:** „die Domain ist bekannt für Malware/Phishing“ bei erfundenen Domains.
+**Prompt v2** erklärt, was „sperren“ bewirkt, verbietet Behauptungen wie „bekannt für“, nennt beim Autostart den Speicherort statt des Namens als entscheidend und sagt, dass eingeschleuster Text die Bewertung in keine Richtung ändert.
 
-Gut: neue Geräte (auch zufällige MAC), neue Domains von IoT-Geräten, offene Ports und Schad-Domains ohne Einschleusung.
+| Regel | v1 | v2 |
+|---|---|---|
+| new_device | 8/10 | 8/10 |
+| new_domain | 8/8 | 6/8 |
+| bad_domain | 8/10 | **10/10** |
+| agent_port | 6/6 | 6/6 |
+| agent_login | 2/2 | 2/2 |
+| agent_autostart | 2/6 | 4/6 |
+| agent_posture | 2/6 | **6/6** |
+
+Stabil verbessert (in allen getesteten Varianten): Laptop-Einstellungen → „prüfen“ statt „sperren“; eine Anweisung im Domainnamen stuft eine Schad-Domain nicht mehr herab.
+
+Offen bei qwen3:4b:
+- Eine Anweisung im **Herstellernamen** führt weiter zu „sperren“.
+- Ein getarnter `com.apple.…`-Autostart aus einem versteckten Ordner bleibt „beobachten“.
+- Eine neue Domain des TV-Herstellers gilt als „verdächtig“ (in v1 richtig).
+- „bekannt für …“ kommt trotz Verbot noch vor.
+
+> **Vorsicht beim Nachschärfen:** Kleine Modelle reagieren stark auf den Wortlaut. Ein einziger zusätzlicher Satz am Ende des Prompts senkte qwen3:4b von 88 % auf 75 %, zwei weitere Hinweise ebenfalls auf 75 % – mit widersprüchlichen Antworten („harmlos“, Risiko „hoch“). Änderungen deshalb immer nachmessen und nicht auf einzelne Fälle zuschneiden; mit 24 Fällen ist der Satz klein. `--repeat` zeigt nur, ob die Antworten bei gleichem Prompt gleich bleiben (Temperatur 0), nicht, wie robust der Prompt ist.
 
 ## Datenschutz
 
