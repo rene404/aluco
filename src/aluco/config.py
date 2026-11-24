@@ -99,6 +99,26 @@ def db_path_from_env(env: Mapping[str, str] | None = None) -> Path:
     return Path(e.get("ALUCO_DB_PATH", "").strip() or DEFAULT_DB_PATH)
 
 
+def _weekday(raw: str | None) -> int:
+    from aluco.report import parse_weekday
+
+    try:
+        return 6 if raw is None else parse_weekday(raw)
+    except ValueError as exc:
+        raise ConfigError(f"ALUCO_REPORT_WEEKDAY: {exc}") from exc
+
+
+def _timezone(raw: str | None) -> str:
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+    name = raw or "UTC"
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError) as exc:
+        raise ConfigError(f"TZ: unbekannte Zeitzone {name!r}") from exc
+    return name
+
+
 @dataclass(frozen=True, slots=True)
 class Config:
     db_path: Path = DEFAULT_DB_PATH
@@ -121,6 +141,10 @@ class Config:
     threat_feeds: str | None = None  # None = Standardliste; "off" = aus
     nrd_feeds: str | None = None  # neu registrierte Domains; None = HaGeZi 14 Tage; "off" = aus
     nrd_allow: str | None = None  # eigene Domains, die nie als "neu registriert" gelten
+    report_enabled: bool = True  # Wochenbericht über ntfy (nur mit NTFY_URL)
+    report_weekday: int = 6  # Montag = 0 … Sonntag = 6
+    report_hour: int = 18
+    timezone: str = "UTC"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Config:
@@ -167,7 +191,13 @@ class Config:
             threat_feeds=opt("ALUCO_THREAT_FEEDS"),
             nrd_feeds=opt("ALUCO_NRD_FEEDS"),
             nrd_allow=opt("ALUCO_NRD_ALLOW"),
+            report_enabled=(opt("ALUCO_REPORT") or "on").lower() not in {"off", "false", "0", "no"},
+            report_weekday=_weekday(opt("ALUCO_REPORT_WEEKDAY")),
+            report_hour=integer("ALUCO_REPORT_HOUR", 18, 0),
+            timezone=_timezone(opt("TZ")),
         )
+        if cfg.report_hour > 23:
+            raise ConfigError("ALUCO_REPORT_HOUR muss zwischen 0 und 23 liegen")
         try:
             from aluco.threatintel import ThreatIntelError, parse_feeds
 

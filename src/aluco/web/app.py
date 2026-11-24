@@ -284,6 +284,9 @@ def create_app(
             s.set_cursor("web:last_visit", now.isoformat())
             prev_visit = datetime.fromisoformat(prev_raw) if prev_raw else None
             since_events = s.events(limit=500, since=prev_visit) if prev_visit else []
+            from aluco.report import build_report
+
+            week_report = build_report(s, end=now)
 
         chart = (
             views.hourly_chart(week, now, tz) if rng == "24h" else views.daily_chart(week, now, tz)
@@ -323,6 +326,7 @@ def create_app(
             event_filter=flt,
             top=[(devices.get(mac), n, round(n / peak_top * 100, 1)) for mac, n in top],
             top_blocked=top_blocked,
+            week_report=week_report,
         )
 
     async def incidents(request: Request) -> Response:
