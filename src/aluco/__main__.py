@@ -378,6 +378,9 @@ def _run_command(command: str) -> int:
         log.error("Konfiguration: %s", e)
         return 2
 
+    from aluco.i18n import set_language
+
+    set_language(cfg.language)
     cfg.db_path.parent.mkdir(parents=True, exist_ok=True)
     store = Store(cfg.db_path)
     runner = build_runner(cfg, store)

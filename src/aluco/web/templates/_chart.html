@@ -1,5 +1,5 @@
 {# Gestapeltes Balkendiagramm als SVG (Höhen als Attribute – CSP-konform). Erwartet: chart #}
-<svg class="chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" role="img" aria-label="Balkendiagramm: {{ fmt_int(chart.total) }} Anfragen, davon {{ fmt_int(chart.blocked) }} blockiert">
+<svg class="chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" preserveAspectRatio="none" role="img" aria-label="{{ _('Balkendiagramm: {total} Anfragen, davon {blocked} blockiert', total=fmt_int(chart.total), blocked=fmt_int(chart.blocked)) }}">
   {% for b in chart.bars %}
   <g>
     <title>{{ b.tip }}</title>

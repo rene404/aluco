@@ -59,6 +59,7 @@ services:
     environment:
       ALUCO_DB_PATH: /data/aluco.db
       TZ: ${TZ:-UTC}
+      ALUCO_LANGUAGE: ${ALUCO_LANGUAGE:-de}
       ALUCO_INTERVAL_SECONDS: ${ALUCO_INTERVAL_SECONDS:-300}
       ALUCO_RETENTION_DAYS: ${ALUCO_RETENTION_DAYS:-30}
       ADGUARD_URL: ${ADGUARD_URL:-}
@@ -112,6 +113,7 @@ services:
     environment:
       ALUCO_DB_PATH: /data/aluco.db
       TZ: ${TZ:-UTC}
+      ALUCO_LANGUAGE: ${ALUCO_LANGUAGE:-de}
       ALUCO_DASHBOARD_PASSWORD: ${ALUCO_DASHBOARD_PASSWORD:-}
       ALUCO_WEB_PORT: ${ALUCO_WEB_PORT:-8088}
       ALUCO_WEB_SECURE_COOKIES: ${ALUCO_WEB_SECURE_COOKIES:-false}
