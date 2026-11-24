@@ -15,6 +15,7 @@ from aluco.config import Config, FirewallSettings
 from aluco.engine import Engine, RunResult
 from aluco.model import DeviceSighting, DnsQuery, Event, EventKind, Incident, Severity, utcnow
 from aluco.notify import Notifier, notify_all
+from aluco.nrd import NewlyRegistered
 from aluco.quarantine import Blocker, resync
 from aluco.store import Store
 from aluco.threatintel import ThreatIntel
@@ -63,10 +64,12 @@ class Runner:
         assessor: Assessor | None = None,
         ai_max_per_run: int = 5,
         threat_intel: ThreatIntel | None = None,
+        nrd: NewlyRegistered | None = None,
         disk_path: Path | None = None,
         blocker: Blocker | None = None,
     ) -> None:
         self._intel = threat_intel
+        self._nrd = nrd
         self._disk_path = disk_path
         self._blocker = blocker
         self._assessor = assessor
@@ -84,6 +87,8 @@ class Runner:
         errors: list[str] = []
         if self._intel is not None:
             errors += self._intel.refresh(now)  # Listen aktuell halten (Fehler: alte weiter)
+        if self._nrd is not None:
+            errors += self._nrd.refresh(now)
         if self._disk_path is not None:
             warning = disk_warning(self._disk_path)
             if warning:
@@ -225,12 +230,25 @@ def build_runner(cfg: Config, store: Store) -> Runner:
         if cfg.ntfy_url
         else None
     )
-    from aluco.rules import KnownBadDomainRule, default_dns_rules
-    from aluco.threatintel import ThreatIntel, parse_feeds
+    from aluco.nrd import parse_allow, parse_nrd_feeds
+    from aluco.rules import KnownBadDomainRule, NewlyRegisteredDomainRule, default_dns_rules
+    from aluco.threatintel import parse_feeds
 
     feeds = parse_feeds(cfg.threat_feeds)
     intel = ThreatIntel(feeds, cache_dir=cfg.db_path.parent / "threatintel") if feeds else None
-    dns_rules = [*default_dns_rules(), *([KnownBadDomainRule(intel)] if intel else [])]
+    nrd_feeds = parse_nrd_feeds(cfg.nrd_feeds)
+    nrd = (
+        NewlyRegistered(
+            nrd_feeds, cache_dir=cfg.db_path.parent / "nrd", allow=parse_allow(cfg.nrd_allow)
+        )
+        if nrd_feeds
+        else None
+    )
+    dns_rules = [
+        *default_dns_rules(),
+        *([KnownBadDomainRule(intel)] if intel else []),
+        *([NewlyRegisteredDomainRule(nrd, threats=intel)] if nrd else []),
+    ]
     from aluco.ai import build_assessor
 
     assessor = build_assessor(cfg.ai)
@@ -244,6 +262,7 @@ def build_runner(cfg: Config, store: Store) -> Runner:
         assessor=assessor,
         ai_max_per_run=cfg.ai.max_per_run,
         threat_intel=intel,
+        nrd=nrd,
         engine=Engine(store, dns_rules=dns_rules),
         disk_path=cfg.db_path.parent,
         blocker=firewall,

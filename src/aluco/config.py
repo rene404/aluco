@@ -119,6 +119,8 @@ class Config:
     ai: AiSettings = field(default_factory=AiSettings)
     firewall: FirewallSettings = field(default_factory=FirewallSettings)
     threat_feeds: str | None = None  # None = Standardliste; "off" = aus
+    nrd_feeds: str | None = None  # neu registrierte Domains; None = HaGeZi 14 Tage; "off" = aus
+    nrd_allow: str | None = None  # eigene Domains, die nie als "neu registriert" gelten
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> Config:
@@ -163,6 +165,8 @@ class Config:
             ai=ai_settings_from_env(e),
             firewall=firewall_settings_from_env(e),
             threat_feeds=opt("ALUCO_THREAT_FEEDS"),
+            nrd_feeds=opt("ALUCO_NRD_FEEDS"),
+            nrd_allow=opt("ALUCO_NRD_ALLOW"),
         )
         try:
             from aluco.threatintel import ThreatIntelError, parse_feeds
@@ -170,6 +174,13 @@ class Config:
             parse_feeds(cfg.threat_feeds)
         except ThreatIntelError as exc:
             raise ConfigError(f"ALUCO_THREAT_FEEDS: {exc}") from exc
+        try:
+            from aluco.nrd import parse_allow, parse_nrd_feeds
+
+            parse_nrd_feeds(cfg.nrd_feeds)
+            parse_allow(cfg.nrd_allow)
+        except ThreatIntelError as exc:
+            raise ConfigError(f"ALUCO_NRD_FEEDS/ALUCO_NRD_ALLOW: {exc}") from exc
         if cfg.adguard_url and not (cfg.adguard_user and cfg.adguard_password):
             raise ConfigError("ADGUARD_URL gesetzt, aber ADGUARD_USER/ADGUARD_PASSWORD fehlen")
         if cfg.netalertx_url and not cfg.netalertx_token:
