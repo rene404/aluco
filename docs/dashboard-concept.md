@@ -1,76 +1,76 @@
-# Aluco – Dashboard-Konzept
+# Aluco – Dashboard concept
 
-Stand: 2026-11-18
+As of: 2026-11-18
 
-## Unterseiten
+## Pages
 
-1. **Übersicht:** Geräte (online / neu / unbekannt), offene Alarme, Traffic der letzten 24 h, Status der Sensoren.
-2. **Geräte („Radar“):** Inventar mit MAC, Hersteller, IP, zuerst/zuletzt gesehen, Vertrauensstufe (bekannt / IoT / Gast / unbekannt / Firma), Button „Trennen“.
-3. **Gerätedetail:** kontaktierte Domains und Länder, Datenmenge im Zeitverlauf, typisches Verhalten.
-4. **DNS & Traffic:** Top-Domains, blockierte Anfragen, neu gesehene Domains.
-5. **Vorfälle:** Protokoll mit Status (neu / untersucht / ignoriert / getrennt) und Notiz. **Das Herzstück.**
-6. **Laptop:** Prozesse mit Netzwerkverbindungen, offene Ports, neue Autostart-Einträge (LaunchAgents/-Daemons), Anmeldungen. Nur private Laptops.
-7. **Regeln & Aktionen:** Definition „ungewöhnlich“, gesperrte Geräte, Quarantäne aufheben, Schutzliste. Umgesetzt: Regel-Qualität (siehe unten).
+1. **Overview:** devices (online / new / unknown), open alarms, traffic of the last 24 h, sensor status.
+2. **Devices ("Radar"):** inventory with MAC, vendor, IP, first/last seen, trust level (known / IoT / guest / unknown / company), "Disconnect" button.
+3. **Device detail:** contacted domains and countries, data volume over time, typical behavior.
+4. **DNS & traffic:** top domains, blocked queries, newly seen domains.
+5. **Incidents:** log with status (new / investigating / ignored / disconnected) and note. **The heart of it.**
+6. **Laptop:** processes with network connections, open ports, new autostart entries (LaunchAgents/-Daemons), logins. Private laptops only.
+7. **Rules & actions:** definition of "unusual", blocked devices, lifting quarantine, protected list. Implemented: rule quality (see below).
 
-## Erkennungsregeln (Start, wenig Fehlalarme)
+## Detection rules (start, few false alarms)
 
-- Neues Gerät (unbekannte MAC) im Netz.
-- IoT-Gerät spricht andere Geräte im Heimnetz an statt nur ins Internet.
-- Gerät kontaktiert ein Land oder eine Domain, die es noch nie kontaktiert hat.
-- Ungewöhnlich viel Upload, besonders nachts.
-- Port-Scans im Heimnetz; Suricata-Alarme mit hoher Schwere.
-- Laptop: neuer Prozess lauscht auf einem Port; neuer LaunchAgent/LaunchDaemon.
-- DNS-Anfragen an neu registrierte Domains (< 14 Tage), Schweregrad mittel – siehe [stage-0.md](stage-0.md#neu-registrierte-domains).
+- New device (unknown MAC) on the network.
+- IoT device talks to other devices on the home network instead of only to the internet.
+- Device contacts a country or domain it has never contacted before.
+- Unusually high upload, especially at night.
+- Port scans on the home network; Suricata alarms with high severity.
+- Laptop: new process listens on a port; new LaunchAgent/LaunchDaemon.
+- DNS queries to newly registered domains (< 14 days), severity medium – see [stage-0.md](stage-0.md#newly-registered-domains).
 
-Von Anfang an: Schweregrade und ein Knopf „bekannt / ignorieren“, sonst stumpft man ab.
+From the start: severities and a "known / ignore" button, otherwise you become desensitized.
 
-### Regel-Qualität (Seite „Regeln“)
+### Rule quality ("Rules" page)
 
-Ob man abstumpft, zeigt die Seite **Regeln** (`/rules`): je Regel für 30 oder 90 Tage
+Whether you are becoming desensitized is shown on the **Rules** page (`/rules`): per rule, for 30 or 90 days
 
-- **ausgelöst:** neue Vorfälle, dazu „+n“ für erledigte Befunde, die erneut aufgetreten sind;
-- **ignoriert / erledigt / getrennt:** nur Entscheidungen von Hand. Automatisch erledigte Vorfälle (Sicherheitsgrundlage laut Agent wieder an) stehen als „+n auto“ daneben und zählen nicht;
-- **Ignorier-Quote:** ignoriert ÷ (ignoriert + erledigt + getrennt). Über 70 % bei mindestens 3 Entscheidungen ist die Regel als „abgestumpft?“ markiert und oben gesammelt;
-- **Zeit bis Entscheidung:** Median vom Auftreten (oder Wiederöffnen) bis zur Entscheidung;
-- **KI daneben:** wie oft die KI „verdächtig“ sagte und trotzdem ignoriert wurde, oder „harmlos“ und trotzdem getrennt.
+- **triggered:** new incidents, plus "+n" for resolved findings that occurred again;
+- **ignored / resolved / disconnected:** manual decisions only. Automatically resolved incidents (security setting back on according to the agent) are shown next to them as "+n auto" and do not count;
+- **ignore rate:** ignored ÷ (ignored + resolved + disconnected). Above 70 % with at least 3 decisions, the rule is marked as "desensitized?" and collected at the top;
+- **time to decision:** median from occurrence (or reopening) to decision;
+- **AI off the mark:** how often the AI said "suspicious" and the incident was ignored anyway, or "harmless" and the device was disconnected anyway.
 
-Grundlage ist ein eigener Verlauf (`incident_history`) mit nur Regel, Zeitpunkt, Status und KI-Einstufung – ohne Gerät, Domain oder Titel. Darum bleibt er 400 Tage, auch wenn erledigte Vorfälle nach der Aufbewahrungsfrist (30 Tage) gelöscht werden. Beim Update auf Schema v6 werden vorhandene Vorfälle als „ausgelöst“ übernommen; frühere Entscheidungen lassen sich nicht rekonstruieren. Dieselben Zahlen liefert der MCP-Server mit `rule_quality`.
+It is based on a separate history (`incident_history`) with only rule, time, status and AI verdict – without device, domain or title. That is why it is kept for 400 days, even though resolved incidents are deleted after the retention period (30 days). When updating to schema v6, existing incidents are taken over as "triggered"; earlier decisions cannot be reconstructed. The MCP server provides the same numbers with `rule_quality`.
 
-## Optionen zum Trennen
+## Ways to disconnect
 
-| Weg | Bewertung |
+| Way | Assessment |
 |---|---|
-| Am Router/an der Firewall sperren (OPNsense-API, Sperrliste) | **Gewählt** (ab Stufe 1). Sauber. |
-| Per DNS sperren (AdGuard) | Einfach, umgehbar durch festen DNS oder DNS-over-HTTPS. Übergangslösung in Stufe 0. |
-| Quarantäne-VLAN | Sauberste Trennung, braucht VLAN-fähige Access Points (Roadmap). |
-| ARP-Spoofing | Fragil, nicht als Dauerlösung. |
+| Block at the router/firewall (OPNsense API, block list) | **Chosen** (from stage 1). Clean. |
+| Block via DNS (AdGuard) | Simple, can be bypassed with fixed DNS or DNS-over-HTTPS. Interim solution in stage 0. |
+| Quarantine VLAN | Cleanest separation, needs VLAN-capable access points (roadmap). |
+| ARP spoofing | Fragile, not a permanent solution. |
 
-Regel: Trennen nur auf Knopfdruck mit Bestätigung. Automatisch nur „unbekanntes neues Gerät → Quarantäne“. Schutzliste (Infrastruktur und markierte Geräte) nie sperrbar.
+Rule: disconnect only at the push of a button, with confirmation. The only automatic action is "unknown new device → quarantine". The protected list (infrastructure and marked devices) can never be blocked.
 
 ## Laptops
 
-| Gerät | Umgang |
+| Device | Handling |
 |---|---|
-| Private Laptops | Kleiner Agent (osquery oder eigenes Skript) meldet an den Aluco-Server; unterwegs per WireGuard. |
-| Firmengeräte | Nichts installieren (IT-Richtlinien, EDR). Im Dashboard „Firma – nur beobachten“: online/offline, Datenmenge. Nie automatisch sperren, keine Daten an die KI. Mit Firmen-VPN ist ohnehin nur der Tunnel sichtbar. |
+| Private laptops | Small agent (osquery or own script) reports to the Aluco server; on the road via WireGuard. |
+| Company devices | Install nothing (IT policies, EDR). In the dashboard "Company – observe only": online/offline, data volume. Never block automatically, no data to the AI. With a company VPN, only the tunnel is visible anyway. |
 
-## Design V1 (Stand 2026-11-19)
+## Design V1 (as of 2026-11-19)
 
-Umgesetzt in `src/aluco/web/` (Dashboard v2). Diese Fassung ist die Referenz für weitere Seiten.
+Implemented in `src/aluco/web/` (dashboard v2). This version is the reference for further pages.
 
-**Seiten:** Übersicht (Lagebild, Kennzahlen, DNS-Diagramm 24 h/7 Tage, Chronik, aktivste Geräte, meistblockierte Domains) · Vorfälle (aufklappbare Karten mit „Warum auffällig“, Notiz, Aktionen) · Geräte (Karten mit Online-Status, Stufe, Mini-Verlauf, Suche/Filter) · Gerätedetail (Aktivität 7 Tage, typisches Verhalten, Domains, Einstellungen, Vorfälle, Verlauf).
+**Pages:** Overview (situation, key figures, DNS chart 24 h/7 days, timeline, most active devices, most blocked domains) · Incidents (expandable cards with "Why it stands out", note, actions) · Devices (cards with online status, trust level, mini history, search/filter) · Device detail (activity 7 days, typical behavior, domains, settings, incidents, history).
 
-**Farben (hell / dunkel):**
+**Colors (light / dark):**
 
-| Rolle | Hell | Dunkel |
+| Role | Light | Dark |
 |---|---|---|
-| Akzent | `#1d4ed8` | `#7ea2f7` |
-| Akzent dunkel | `#1e3a8a` | `#b3c8fb` |
-| Akzent-Hintergrund | `#dbe6fd` | `#1c2b4d` |
-| Seite / Fläche | `#f3f5f7` / `#ffffff` | `#0f1318` / `#171c22` |
-| Text / Nebentext | `#151a1f` / `#56606b` | `#e8edf2` / `#9aa5b1` |
-| Diagramm erlaubt / blockiert | `#3b6ee0` / `#d9822b` | `#6f95ef` / `#e39a4f` |
+| Accent | `#1d4ed8` | `#7ea2f7` |
+| Accent dark | `#1e3a8a` | `#b3c8fb` |
+| Accent background | `#dbe6fd` | `#1c2b4d` |
+| Page / surface | `#f3f5f7` / `#ffffff` | `#0f1318` / `#171c22` |
+| Text / secondary text | `#151a1f` / `#56606b` | `#e8edf2` / `#9aa5b1` |
+| Chart allowed / blocked | `#3b6ee0` / `#d9822b` | `#6f95ef` / `#e39a4f` |
 
-Farbe trägt nur Bedeutung: Orange/Rot = Schwere, Grün = online/erledigt, Grau = niedrig/offline, Türkis = IoT, Violett = KI. Keine Emojis, Logo ist die SVG-Eule.
+Color carries meaning only: orange/red = severity, green = online/resolved, gray = low/offline, teal = IoT, violet = AI. No emojis; the logo is the SVG owl.
 
-**Technik:** serverseitig gerendert (Jinja2), htmx lokal eingebunden, Diagramme als SVG-Attribute, keine Inline-Styles (strikte CSP), Farben als CSS-Variablen in `static/aluco.css`.
+**Technology:** server-side rendered (Jinja2), htmx bundled locally, charts as SVG attributes, no inline styles (strict CSP), colors as CSS variables in `static/aluco.css`.

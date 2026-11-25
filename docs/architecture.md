@@ -1,50 +1,50 @@
-# Aluco – Architektur
+# Aluco – Architecture
 
-Stand: 2026-11-18 · Status: Konzept
+As of: 2026-11-18 · Status: concept
 
-## Zielbild
+## Target picture
 
 ```
 Internet
    │
-Provider-Router     (Bridge-Modus, falls möglich)
+ISP router          (bridge mode, if possible)
    │
-Firewall: OPNsense  Firewall, DHCP, Suricata, Traffic pro Gerät, WireGuard, Sperren per API
+Firewall: OPNsense  firewall, DHCP, Suricata, traffic per device, WireGuard, blocking via API
    │
-WLAN / Mesh         nur Access Point
+Wi-Fi / mesh        access point only
    │
-Geräte  +  Server (z. B. Raspberry Pi): AdGuard Home, NetAlertX, Aluco-Dashboard, MCP-Server
+Devices  +  server (e.g. Raspberry Pi): AdGuard Home, NetAlertX, Aluco dashboard, MCP server
 ```
 
-**Grenze:** Verkehr zwischen Geräten im Heimnetz läuft an der Firewall vorbei. Eine Quarantäne trennt vom Internet, nicht vom restlichen Heimnetz. Für echte Trennung braucht es VLAN-fähige Access Points (siehe [roadmap.md](roadmap.md)).
+**Limit:** Traffic between devices on the home network bypasses the firewall. A quarantine cuts a device off from the internet, not from the rest of the home network. Real isolation needs VLAN-capable access points (see [roadmap.md](roadmap.md)).
 
-## Grundsätze
+## Principles
 
-- **Adapter-Architektur:** Datenquellen (AdGuard Home, NetAlertX, OPNsense, Suricata, Endgeräte-Agent) und Aktionen (Sperren) liegen hinter Schnittstellen. Weitere Systeme wie UniFi, OpenWrt oder MikroTik lassen sich andocken.
-- **Erkennung nicht neu bauen:** Bewährte Tools liefern die Daten; Aluco liefert Zusammenführung, Ablauf für Vorfälle, Aktionen und KI-Vorbewertung.
-- **Trennen nur manuell mit Bestätigung.** Einzige Automatik: unbekanntes neues Gerät → Quarantäne.
-- **Schutzliste:** Infrastruktur (Firewall, Aluco-Server) und markierte Geräte sind nie sperrbar.
-- **Firmengeräte nur passiv:** online/offline und Datenmenge. Keine Agenten, keine automatischen Regeln, keine Daten an die KI.
-- **Datenschutz:** Protokolle standardmäßig 30 Tage; Daten an die KI minimiert/anonymisiert oder lokales Modell.
-- **Sicherheit des Dashboards:** Zugriff nur aus dem Heimnetz oder per VPN, mit Login; API-Schlüssel der Firewall nur für die Sperrliste berechtigt.
-- Keine Secrets im Repo (`.env`). Deployment per Docker Compose.
+- **Adapter architecture:** Data sources (AdGuard Home, NetAlertX, OPNsense, Suricata, endpoint agent) and actions (blocking) sit behind interfaces. Other systems such as UniFi, OpenWrt or MikroTik can be plugged in.
+- **Don't rebuild detection:** Proven tools provide the data; Aluco provides the aggregation, the incident workflow, actions and AI pre-assessment.
+- **Disconnect only manually, with confirmation.** The only automatic action: unknown new device → quarantine.
+- **Protected list:** Infrastructure (firewall, Aluco server) and marked devices can never be blocked.
+- **Company devices passive only:** online/offline and data volume. No agents, no automatic rules, no data to the AI.
+- **Privacy:** Logs kept for 30 days by default; data sent to the AI is minimized/anonymized, or a local model is used.
+- **Dashboard security:** Access only from the home network or via VPN, with login; the firewall API key is only authorized for the block list.
+- No secrets in the repo (`.env`). Deployment with Docker Compose.
 
-## Ausbaustufen
+## Stages
 
-| Stufe | Inhalt | Netz umbauen? |
+| Stage | Contents | Network changes? |
 |---|---|---|
-| 0 | AdGuard Home + NetAlertX auf dem Server, Router verteilt ihn als DNS | nein |
-| 1 | OPNsense als Firewall, Mesh → Access Point, Suricata, Traffic-Daten, Sperren per API | ja |
-| 2 | Agent auf privaten Laptops, WireGuard für unterwegs | nein |
-| 3 | Aluco-Dashboard + Ablauf für Vorfälle + MCP-Ebene | nein |
-| 4 | Normalverhalten pro Gerät lernen, Abweichungen melden | nein |
+| 0 | AdGuard Home + NetAlertX on the server, the router hands it out as DNS | no |
+| 1 | OPNsense as firewall, mesh → access point, Suricata, traffic data, blocking via API | yes |
+| 2 | Agent on private laptops, WireGuard on the road | no |
+| 3 | Aluco dashboard + incident workflow + MCP layer | no |
+| 4 | Learn normal behavior per device, report deviations | no |
 
-### Stufe 0 – Ablauf
+### Stage 0 – Procedure
 
-1. Server: 64-bit-Linux, SSH-Key, Docker + Compose, feste IP per DHCP-Reservierung.
-2. AdGuard Home als Container, Upstream-DNS verschlüsselt (DoH/DoT).
-3. Router: primärer DNS = Server. **Kein öffentlicher Zweit-DNS** (sonst Umgehung). Server aus = kein DNS → Rückweg dokumentieren und testen.
-4. NetAlertX als Container (Host-Netzwerk für ARP-Scan), Meldung bei neuen Geräten.
-5. Eine Woche Baseline: alle Geräte benennen, Firmengeräte markieren, Fehlalarme notieren.
+1. Server: 64-bit Linux, SSH key, Docker + Compose, fixed IP via DHCP reservation.
+2. AdGuard Home as a container, encrypted upstream DNS (DoH/DoT).
+3. Router: primary DNS = server. **No public secondary DNS** (otherwise it can be bypassed). Server off = no DNS → document and test the way back.
+4. NetAlertX as a container (host network for ARP scan), alert on new devices.
+5. One week of baseline: name all devices, mark company devices, note false alarms.
 
-**Abnahme:** jedes Gerät im Inventar benannt · DNS-Protokoll pro Gerät sichtbar · Meldung bei neuem Gerät funktioniert · Rückweg getestet.
+**Acceptance:** every device in the inventory is named · DNS log visible per device · alert on new device works · way back tested.

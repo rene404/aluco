@@ -11,7 +11,9 @@ Aluco ersetzt keine bewährten Tools, sondern setzt auf ihnen auf: OPNsense, AdG
 
 **Status:** v0.4.1 – Software für Stufe 0 und 1 fertig (Dashboard, KI-Vorbewertung mit Claude – direkt oder über OpenRouter – oder lokal mit Ollama, MCP, Laptop-Agent, Trennen über OPNsense, neu registrierte Domains, Regel-Qualität, Wochenbericht, Deutsch und Englisch); Inbetriebnahme auf dem Raspberry Pi steht aus. Änderungen: [CHANGELOG.md](CHANGELOG.md).
 
-## Dokumente
+> Aluco gibt es auf Deutsch (Standard) und Englisch (`ALUCO_LANGUAGE=en`). Die Dokumentation ist englisch.
+
+## Dokumente (englisch)
 
 | Datei | Inhalt |
 |---|---|

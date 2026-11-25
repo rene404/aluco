@@ -1,69 +1,69 @@
-# Aluco – Roadmap nach Stufe 4
+# Aluco – Roadmap beyond stage 4
 
-Stand: 2026-11-18 · Bewertung: Nutzen ⭐–⭐⭐⭐
+As of: 2026-11-18 · Rating: benefit ⭐–⭐⭐⭐
 
-## A. Netz-Infrastruktur
+## A. Network infrastructure
 
-| Ausbau | Was er bringt | Nutzen | Aufwand |
+| Extension | What it brings | Benefit | Effort |
 |---|---|---|---|
-| Access Points mit VLANs (z. B. Omada/UniFi statt Consumer-Mesh) | Getrennte Netze: Haushalt, IoT, Gäste, Quarantäne; echte Trennung auch im Heimnetz | ⭐⭐⭐ | mittel, neue Hardware |
-| Managed Switch + Port-Mirror + Zeek | Verkehr zwischen Geräten sichtbar, Protokoll-Logs (TLS-Fingerprints, Zertifikate) | ⭐⭐ | mittel |
-| DNS-Umgehung verhindern | Port 53 auf AdGuard umleiten, bekannte DoH/DoT-Server sperren | ⭐⭐⭐ | gering |
-| Ausfallsicherheit | USV, automatisches OPNsense-Backup, Notfallplan „Firewall raus, alter Router zurück“ | ⭐⭐⭐ | gering |
+| Access points with VLANs (e.g. Omada/UniFi instead of consumer mesh) | Separate networks: household, IoT, guests, quarantine; real isolation inside the home network too | ⭐⭐⭐ | medium, new hardware |
+| Managed switch + port mirror + Zeek | Traffic between devices visible, protocol logs (TLS fingerprints, certificates) | ⭐⭐ | medium |
+| Prevent DNS bypass | Redirect port 53 to AdGuard, block known DoH/DoT servers | ⭐⭐⭐ | low |
+| Resilience | UPS, automatic OPNsense backup, emergency plan "firewall out, old router back" | ⭐⭐⭐ | low |
 
-## B. Erkennung
+## B. Detection
 
-| Ausbau | Was er bringt | Nutzen | Aufwand |
+| Extension | What it brings | Benefit | Effort |
 |---|---|---|---|
-| Honeypot & Canary-Tokens (OpenCanary) | Jeder Zugriff ist ein echter Alarm; bestes Signal pro Aufwand | ⭐⭐⭐ | gering |
-| Listen bekannter Angreifer (CrowdSec, abuse.ch, Spamhaus DROP) | Bekannte bösartige IPs/Domains sperren und melden – **Domains umgesetzt** (HaGeZi TIF, erweiterbar) | ⭐⭐⭐ | gering |
-| Eigene Geräte auf Schwachstellen scannen (nmap, Greenbone) | Neue Ports, veraltete Firmware | ⭐⭐ | mittel |
-| Angriffsfläche von außen | Öffentliche IP scannen, Shodan, UPnP-Freigaben (UPnP abschalten) | ⭐⭐ | gering |
-| CVE-Abgleich | Hersteller/Modell → bekannte Lücken | ⭐⭐ | mittel |
-| Mac härten (Santa, KnockKnock, Datei-Integrität) | Nur freigegebene Programme auf privaten Laptops – **Teil umgesetzt:** Laptop-Agent prüft Autostart, Ports, Firewall/FileVault/Gatekeeper/SIP | ⭐⭐ | mittel |
+| Honeypot & canary tokens (OpenCanary) | Every access is a real alarm; best signal per effort | ⭐⭐⭐ | low |
+| Lists of known attackers (CrowdSec, abuse.ch, Spamhaus DROP) | Block and report known malicious IPs/domains – **domains implemented** (HaGeZi TIF, extensible) | ⭐⭐⭐ | low |
+| Scan your own devices for vulnerabilities (nmap, Greenbone) | New ports, outdated firmware | ⭐⭐ | medium |
+| Attack surface from outside | Scan the public IP, Shodan, UPnP forwards (turn UPnP off) | ⭐⭐ | low |
+| CVE matching | Vendor/model → known vulnerabilities | ⭐⭐ | medium |
+| Harden the Mac (Santa, KnockKnock, file integrity) | Only approved programs on private laptops – **partly implemented:** the laptop agent checks autostart, ports, firewall/FileVault/Gatekeeper/SIP | ⭐⭐ | medium |
 
-## C. KI und Bedienung
+## C. AI and usability
 
-| Ausbau | Was er bringt | Nutzen | Aufwand |
+| Extension | What it brings | Benefit | Effort |
 |---|---|---|---|
-| KI-Vorbewertung von Vorfällen | Zusammenfassung, Erklärung, Vorschlag; Tagesbericht – **Vorbewertung umgesetzt** | ⭐⭐⭐ | gering–mittel |
-| MCP-Server für das Netz | „Was hat der Fernseher letzte Nacht gemacht?“ – **umgesetzt** (nur lesend, stdio über SSH) | ⭐⭐ | mittel |
-| Push-Meldungen (ntfy, Telegram, Pushover) | Alarm aufs Handy, Abendzusammenfassung | ⭐⭐⭐ | gering |
-| „Trennen“ direkt aus der Meldung | Nur mit Bestätigung/Login (Angriffspunkt) | ⭐⭐ | gering |
-| Dashboard als PWA | App-Gefühl am Handy | ⭐ | gering |
+| AI pre-assessment of incidents | Summary, explanation, suggestion; daily report – **pre-assessment implemented** | ⭐⭐⭐ | low–medium |
+| MCP server for the network | "What did the TV do last night?" – **implemented** (read-only, stdio over SSH) | ⭐⭐ | medium |
+| Push notifications (ntfy, Telegram, Pushover) | Alarm on the phone, evening summary | ⭐⭐⭐ | low |
+| "Disconnect" directly from the notification | Only with confirmation/login (attack surface) | ⭐⭐ | low |
+| Dashboard as a PWA | App feel on the phone | ⭐ | low |
 
-Datenschutz: Daten an die KI ausdünnen/anonymisieren oder lokales Modell auf eigener Hardware.
+Privacy: thin out/anonymize data sent to the AI, or use a local model on your own hardware.
 
-## D. Komfort und Haushalt
+## D. Comfort and household
 
-| Ausbau | Was er bringt | Nutzen | Aufwand |
+| Extension | What it brings | Benefit | Effort |
 |---|---|---|---|
-| Home Assistant | Anwesenheit, Automationen | ⭐⭐ | mittel |
-| Zeitregeln pro Gerät | Kinder-/Konsolenzeiten, IoT nachts offline | ⭐⭐ | gering |
-| Datenschutz-Ansicht | Tracker/Telemetrie pro Gerät, gezielt sperren | ⭐⭐ | gering |
-| Verbindungsqualität | Speedtest, Latenz, Provider-Ausfälle, WLAN pro Access Point | ⭐⭐ | gering |
+| Home Assistant | Presence, automations | ⭐⭐ | medium |
+| Time rules per device | Kids/console times, IoT offline at night | ⭐⭐ | low |
+| Privacy view | Trackers/telemetry per device, block selectively | ⭐⭐ | low |
+| Connection quality | Speed test, latency, ISP outages, Wi-Fi per access point | ⭐⭐ | low |
 
-## E. Größere Ausbauten
+## E. Larger extensions
 
-| Ausbau | Was er bringt | Nutzen | Aufwand |
+| Extension | What it brings | Benefit | Effort |
 |---|---|---|---|
-| Paketaufzeichnung (Arkime, rollierend) | Forensik nach Vorfällen | ⭐ | hoch, Datenschutz heikel |
-| SIEM (Wazuh, Grafana Loki) | Alle Logs an einer Stelle | ⭐ | hoch, meist überdimensioniert |
-| Zweiter Standort | Weiterer Server (z. B. bei der Familie) per WireGuard | ⭐⭐ | mittel |
-| Feste Abläufe für Vorfälle | z. B. neues Gerät → Quarantäne → Push → Freigabe | ⭐⭐ | mittel |
+| Packet capture (Arkime, rolling) | Forensics after incidents | ⭐ | high, privacy-sensitive |
+| SIEM (Wazuh, Grafana Loki) | All logs in one place | ⭐ | high, usually oversized |
+| Second site | Another server (e.g. at family) via WireGuard | ⭐⭐ | medium |
+| Fixed incident playbooks | e.g. new device → quarantine → push → release | ⭐⭐ | medium |
 
-## Prioritäten nach Stufe 4
+## Priorities after stage 4
 
-1. DNS-Umgehung verhindern + Ausfallsicherheit
-2. Honeypot + Listen bekannter Angreifer
-3. Push-Meldungen + KI-Vorbewertung
-4. Access Points mit VLANs
-5. Rest nur bei konkretem Bedarf
+1. Prevent DNS bypass + resilience
+2. Honeypot + lists of known attackers
+3. Push notifications + AI pre-assessment
+4. Access points with VLANs
+5. The rest only when there is a concrete need
 
-## Risiken
+## Risks
 
-- **Zu viele Alarme** ist das größte Risiko: Schweregrade und „ignorieren“ von Anfang an.
-- **Firewall = Single Point of Failure:** fällt sie aus, ist das Internet weg (auch fürs Homeoffice). Rückweg einfach halten.
-- **Wartung:** jede Komponente braucht Updates. Wenige Werkzeuge gut betreiben statt viele halb.
-- **Haushalt:** Protokolle zeigen, was andere tun. Offen sagen, kurz aufbewahren (7–30 Tage).
-- **Firmengeräte** bleiben in jeder Stufe ausgenommen.
+- **Too many alarms** is the biggest risk: severities and "ignore" from the start.
+- **Firewall = single point of failure:** if it fails, the internet is gone (including for working from home). Keep the way back simple.
+- **Maintenance:** every component needs updates. Run a few tools well rather than many halfway.
+- **Household:** logs show what others do. Be open about it, keep them briefly (7–30 days).
+- **Company devices** stay excluded at every stage.
