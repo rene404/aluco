@@ -2,7 +2,9 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.4.2] – 2026-11-25
+
+Documentation release – no changes to the software or the database.
 
 ### Changed
 - **Documentation in English:** all documents in `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md` and `SECURITY.md` are now English. `README.de.md` remains as a German overview.
@@ -108,7 +110,7 @@ First version: software for **stage 0** (inventory + DNS log without rebuilding 
 - Dashboard without built-in HTTPS – a reverse proxy with TLS is recommended.
 - NetAlertX scan and continuous operation on the Raspberry Pi not yet tested.
 
-[Unreleased]: https://github.com/rene404/aluco/compare/v0.4.1...develop
+[0.4.2]: https://github.com/rene404/aluco/releases/tag/v0.4.2
 [0.4.1]: https://github.com/rene404/aluco/releases/tag/v0.4.1
 [0.4.0]: https://github.com/rene404/aluco/releases/tag/v0.4.0
 [0.3.0]: https://github.com/rene404/aluco/releases/tag/v0.3.0
