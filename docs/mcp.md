@@ -1,36 +1,36 @@
-# MCP-Server
+# MCP server
 
-Stand: 2026-11-19
+As of: 2026-11-19
 
-Mit dem MCP-Server kannst du Claude (Desktop, Code) oder einen anderen MCP-Host direkt nach deinem Netz fragen – z. B. *„Was hat der Fernseher letzte Nacht gemacht?“*, *„Gibt es offene Vorfälle?“*, *„Welche Geräte waren heute offline?“*.
+With the MCP server you can ask Claude (Desktop, Code) or another MCP host directly about your network – e.g. *"What did the TV do last night?"*, *"Are there open incidents?"*, *"Which devices were offline today?"*.
 
-## Eigenschaften
+## Properties
 
-- **Nur lesend:** Die Datenbank wird schreibgeschützt geöffnet; Vorfälle bearbeiten geht weiter nur im Dashboard.
-- **Kein offener Port:** Transport ist stdio. Der Host startet den Server per SSH auf dem Pi – Zugang also nur mit deinem SSH-Schlüssel.
-- **Firmengeräte:** nur Stammdaten und Online-Status; Aluco speichert zu ihnen keine Domains oder DNS-Statistik.
-- **Sprache:** `ALUCO_LANGUAGE=en` stellt Antwortsprache und Werte (Schweregrad, Status, Stufe, Erklärungen) auf Englisch um. Die Feldnamen der Werkzeuge bleiben deutsch – sie sind die Schnittstelle.
-- **Datenschutz:** Was ein Werkzeug zurückgibt, sieht das Modell. Bei einem Cloud-Modell (Claude) gehen diese Antworten an dessen Anbieter. Anders als bei der KI-Vorbewertung enthalten sie Gerätenamen, IPs und Domains – du fragst ja gezielt danach.
+- **Read-only:** The database is opened read-only; incidents can still only be handled in the dashboard.
+- **No open port:** The transport is stdio. The host starts the server via SSH on the Pi – so access requires your SSH key.
+- **Company devices:** master data and online status only; Aluco stores no domains or DNS statistics for them.
+- **Language:** `ALUCO_LANGUAGE=en` switches the response language and values (severity, status, trust level, explanations) to English. The tools' field names stay German – they are the interface.
+- **Privacy:** Whatever a tool returns is seen by the model. With a cloud model (Claude), these responses go to its provider. Unlike the AI pre-assessment, they contain device names, IPs and domains – after all, that is what you are asking about.
 
-## Werkzeuge
+## Tools
 
-| Werkzeug | Inhalt |
+| Tool | Contents |
 |---|---|
-| `get_overview` | Lagebild: offene Vorfälle, Geräte online/offline, DNS der letzten 24 h, Datenquellen |
-| `list_incidents` | Vorfälle nach Status (offen, ignoriert, erledigt, alle) |
-| `get_incident` | Ein Vorfall mit „Warum auffällig“, Notiz und KI-Einschätzung |
-| `list_devices` | Inventar, optional mit Suche und Stufe |
-| `get_device` | Gerät mit Aktivität (7 Tage), meistgenutzten Domains, Vorfällen, Verlauf |
-| `device_activity` | Zeitraum (z. B. letzte Nacht): Anfragen pro Stunde, Domains der Tage, Ereignisse |
-| `timeline` | Chronik der letzten Stunden |
-| `dns_top` | Aktivste Geräte, meistblockierte Domains |
-| `rule_quality` | Regel-Qualität: ausgelöst, ignoriert, erledigt, getrennt, Ignorier-Quote je Regel (30–400 Tage) |
+| `get_overview` | Situation: open incidents, devices online/offline, DNS of the last 24 h, data sources |
+| `list_incidents` | Incidents by status (open, ignored, resolved, all) |
+| `get_incident` | One incident with "Why it stands out", note and AI assessment |
+| `list_devices` | Inventory, optionally with search and trust level |
+| `get_device` | Device with activity (7 days), most-used domains, incidents, history |
+| `device_activity` | Time range (e.g. last night): queries per hour, domains of the days, events |
+| `timeline` | Timeline of the last hours |
+| `dns_top` | Most active devices, most blocked domains |
+| `rule_quality` | Rule quality: triggered, ignored, resolved, disconnected, ignore rate per rule (30–400 days) |
 
-Genauigkeit: DNS-Daten liegen pro Stunde als Anzahl und pro Tag je Hauptdomain vor – nicht als einzelne Anfragen mit Uhrzeit.
+Precision: DNS data is stored as counts per hour and per main domain per day – not as individual queries with timestamps.
 
-## Einrichten
+## Setup
 
-Voraussetzung: SSH mit Schlüssel vom Mac auf den Server (`ssh aluco-pi` funktioniert ohne Passwort-Abfrage) und der Aluco-Dienst läuft.
+Prerequisite: SSH with a key from the Mac to the server (`ssh aluco-pi` works without a password prompt) and the Aluco service is running.
 
 **Claude Code:**
 
@@ -51,9 +51,9 @@ claude mcp add aluco -- ssh aluco-pi docker exec -i aluco python -m aluco mcp
 }
 ```
 
-`aluco-pi` ist ein Eintrag in `~/.ssh/config` (Host, Benutzer, Schlüssel). Lokal am Server selbst genügt `docker exec -i aluco python -m aluco mcp`.
+`aluco-pi` is an entry in `~/.ssh/config` (host, user, key). Locally on the server itself, `docker exec -i aluco python -m aluco mcp` is enough.
 
-## Ausprobieren ohne Host
+## Trying it without a host
 
 ```sh
 npx @modelcontextprotocol/inspector docker exec -i aluco python -m aluco mcp

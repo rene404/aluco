@@ -1,19 +1,19 @@
-# Sicherheit
+# Security
 
-## Lücke melden
+## Reporting a vulnerability
 
-Bitte **nicht** als öffentliches Issue. Stattdessen über GitHub melden:
-**Security → Report a vulnerability** ([privater Bericht](https://github.com/rene404/aluco/security/advisories/new)).
+Please **do not** open a public issue. Instead, report it via GitHub:
+**Security → Report a vulnerability** ([private report](https://github.com/rene404/aluco/security/advisories/new)).
 
-Hilfreich sind: betroffene Version bzw. Commit, Schritte zum Nachvollziehen, mögliche Auswirkung.
+Helpful: affected version or commit, steps to reproduce, possible impact.
 
-Rückmeldung in der Regel innerhalb von 7 Tagen. Aluco ist ein Hobbyprojekt ohne Gewährleistung.
+You will usually get a response within 7 days. Aluco is a hobby project without warranty.
 
-## Unterstützte Versionen
+## Supported versions
 
-Bis zum ersten Release (`v0.1.0`) gibt es keine unterstützten Versionen; Korrekturen landen in `develop`.
+Only the latest release (see [CHANGELOG.md](CHANGELOG.md)); fixes land in `develop` and come with the next release.
 
-## Hinweise zum Betrieb
+## Operating notes
 
-- Dashboard nur im Heimnetz oder per VPN erreichbar machen, nie direkt aus dem Internet.
-- API-Schlüssel der Firewall nur mit den Rechten, die Aluco braucht (Sperrliste).
+- Make the dashboard reachable only from the home network or via VPN, never directly from the internet.
+- Give the firewall's API key only the privileges Aluco needs (block list).

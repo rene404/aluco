@@ -1,48 +1,49 @@
-# Mitarbeiten an Aluco
+# Contributing to Aluco
 
 ## Branches (Gitflow)
 
-| Branch | Zweck | Abzweig von | Merge nach |
+| Branch | Purpose | Branched from | Merged into |
 |---|---|---|---|
-| `main` | Nur Releases, jeder Stand ist getaggt (`vX.Y.Z`) | – | – |
-| `develop` | Integrationsstand, Standard-Branch | – | – |
-| `feature/<kurzname>` | Neue Funktionen | `develop` | `develop` |
-| `bugfix/<kurzname>` | Fehler im Entwicklungsstand | `develop` | `develop` |
-| `release/<version>` | Release vorbereiten | `develop` | `main` + `develop` |
-| `hotfix/<version>` | Dringende Korrektur am Release | `main` | `main` + `develop` |
+| `main` | Releases only, every state is tagged (`vX.Y.Z`) | – | – |
+| `develop` | Integration state, default branch | – | – |
+| `feature/<short-name>` | New features | `develop` | `develop` |
+| `bugfix/<short-name>` | Bugs in the development state | `develop` | `develop` |
+| `release/<version>` | Prepare a release | `develop` | `main` + `develop` |
+| `hotfix/<version>` | Urgent fix to a release | `main` | `main` + `develop` |
 
-Änderungen kommen per Pull Request; `main` ist geschützt.
+Changes come in via pull request; `main` is protected.
 
 ## Commits
 
 [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`, `chore:`, `ci:`, `test:`, `refactor:`.
 
-## Entwicklungsumgebung
+## Development environment
 
-Voraussetzungen: [uv](https://docs.astral.sh/uv/), [pre-commit](https://pre-commit.com/).
+Prerequisites: [uv](https://docs.astral.sh/uv/), [pre-commit](https://pre-commit.com/).
 
 ```sh
-uv sync                 # Abhängigkeiten installieren (aus uv.lock)
-pre-commit install      # Prüfungen vor jedem Commit
-uv run pytest           # Tests
-uv run ruff check .     # Linter
-uv run ruff format .    # Formatierung
+uv sync                 # install dependencies (from uv.lock)
+pre-commit install      # checks before every commit
+uv run pytest           # tests
+uv run ruff check .     # linter
+uv run ruff format .    # formatting
 ```
 
-## Prüfungen vor jedem Commit
+## Checks before every commit
 
-- **Secrets:** gitleaks und `detect-private-key`.
-- **Private Begriffe:** `scripts/check-private-terms.sh` liest eine lokale, nicht versionierte Liste (`private/forbidden-terms.txt`) und blockiert Commits, die diese Begriffe enthalten. Ohne Liste wird die Prüfung übersprungen.
-- **Kein direkter Commit auf `main`.**
-- Linter und Formatierung (ruff).
+- **Secrets:** gitleaks and `detect-private-key`.
+- **Private terms:** `scripts/check-private-terms.sh` reads a local, unversioned list (`private/forbidden-terms.txt`) and blocks commits that contain these terms. Without the list, the check is skipped.
+- **No direct commit to `main`.**
+- Linter and formatting (ruff).
 
-## Abhängigkeiten
+## Dependencies
 
-- Jede neue Abhängigkeit braucht einen Grund; weniger ist mehr.
-- Versionen sind über `uv.lock` festgelegt, GitHub Actions und pre-commit-Hooks über Commit-SHAs.
-- Updates kommen über Dependabot mit 7 Tagen Wartezeit (Schutz vor frisch kompromittierten Paketen).
+- Every new dependency needs a reason; less is more.
+- Versions are pinned via `uv.lock`, GitHub Actions and pre-commit hooks via commit SHAs.
+- Updates come via Dependabot with a 7-day waiting period (protection against freshly compromised packages).
 
-## Grundsätze
+## Principles
 
-- Keine Secrets im Repo; Einstellungen über `.env` (Vorlage: `.env.example`).
-- Keine echten Netzdaten (IP-Bereiche, MAC-Adressen, Gerätenamen) in Code, Tests oder Doku – nur Beispielwerte (`192.0.2.0/24`, `02:00:00:00:00:01`).
+- No secrets in the repo; settings via `.env` (template: `.env.example`).
+- No real network data (IP ranges, MAC addresses, device names) in code, tests or docs – only example values (`192.0.2.0/24`, `02:00:00:00:00:01`).
+- User-facing text is written in German and translated in `src/aluco/locale_en.py` (`ALUCO_LANGUAGE=en`); `tests/test_i18n.py` reports missing translations. Documentation is written in English.

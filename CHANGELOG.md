@@ -1,108 +1,116 @@
 # Changelog
 
-Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Versionen nach [SemVer](https://semver.org/lang/de/).
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
+
+## [0.4.2] – 2026-11-25
+
+Documentation release – no changes to the software or the database.
+
+### Changed
+- **Documentation in English:** all documents in `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md` and `SECURITY.md` are now English. `README.de.md` remains as a German overview.
 
 ## [0.4.1] – 2026-11-24
 
-Claude für die KI-Vorbewertung jetzt auch **über OpenRouter** – und erstmals gemessen: 100 % im Beispielsatz, auf Deutsch und auf Englisch.
+Claude for the AI pre-assessment now also **via OpenRouter** – and measured for the first time: 100 % on the sample set, in German and in English.
 
-### Neu
-- **KI über OpenRouter:** `ALUCO_AI_PROVIDER=openrouter` mit `OPENROUTER_API_KEY` und z. B. `ALUCO_AI_MODEL=anthropic/claude-opus-5.5` (günstiger: `anthropic/claude-sonnet-5.5`, `anthropic/claude-haiku-5.5`). Gleicher Prompt, strenges Antwortschema, Schutzregel; OpenRouter leitet nur an Anbieter weiter, die Anfragen nicht speichern oder zum Training nutzen (`data_collection: deny`). Claude-Modelle bekommen keine `temperature` (Claude 5 lehnt sie ab). Auch für `aluco ai-eval --provider openrouter` ([docs/ai.md](docs/ai.md#über-openrouter)).
-- **Claude gemessen (#24):** Claude Opus 5.5 über OpenRouter trifft im Beispielsatz 64/64 – auf Deutsch und auf Englisch, ohne dass die Schutzregel eingreifen musste. Empfehlung: Ollama, wenn die Daten das Heimnetz nicht verlassen sollen; Claude für die beste Einschätzung ([docs/ai.md](docs/ai.md)).
+### Added
+- **AI via OpenRouter:** `ALUCO_AI_PROVIDER=openrouter` with `OPENROUTER_API_KEY` and e.g. `ALUCO_AI_MODEL=anthropic/claude-opus-5.5` (cheaper: `anthropic/claude-sonnet-5.5`, `anthropic/claude-haiku-5.5`). Same prompt, strict response schema, guard; OpenRouter only routes to providers that do not store requests or use them for training (`data_collection: deny`). Claude models get no `temperature` (Claude 5 rejects it). Also for `aluco ai-eval --provider openrouter` ([docs/ai.md](docs/ai.md#via-openrouter)).
+- **Claude measured (#24):** Claude Opus 5.5 via OpenRouter scores 64/64 on the sample set – in German and in English, without the guard having to step in. Recommendation: Ollama if the data should not leave the home network; Claude for the best assessment ([docs/ai.md](docs/ai.md)).
 
-### Hinweis
-- Wer `ALUCO_AI_PROVIDER=openrouter` setzt, braucht mindestens diese Version – ältere brechen mit einem Konfigurationsfehler ab.
+### Note
+- If you set `ALUCO_AI_PROVIDER=openrouter`, you need at least this version – older ones abort with a configuration error.
 
 ## [0.4.0] – 2026-11-24
 
-**Aluco auf Englisch** und eine KI-Vorbewertung, die Zusammenhänge pro Gerät sieht und sich nicht durch eingeschleusten Text kleinreden lässt. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
+**Aluco in English**, and an AI pre-assessment that sees connections per device and cannot be talked down by injected text. Still not tested in continuous operation on real hardware.
 
-### Neu
-- **Englische Version (#29):** `ALUCO_LANGUAGE=en` stellt Dashboard, Wochenbericht, ntfy-Meldungen, Titel neuer Vorfälle und Ereignisse, MCP-Server und KI-Vorbewertung auf Englisch um; Deutsch bleibt Standard. Übersetzung über `aluco.i18n` (deutscher Text als Schlüssel, Katalog in `aluco/locale_en.py`); Tests melden fehlende Übersetzungen und fest eingebaute Texte in Vorlagen. Zahlen und Daten im jeweiligen Format. Schon gespeicherte Titel bleiben in ihrer ursprünglichen Sprache.
-- **KI-Vorbewertung auf Englisch:** eigener englischer Prompt mit erklärten Antwortwerten; der deutsche Prompt bleibt Zeichen für Zeichen unverändert. `aluco ai-eval --language en`. qwen3:4b: Englisch 91 %, Deutsch 88 % ([docs/ai.md](docs/ai.md)).
-- **Schutzregel gegen eingeschleuste Anweisungen:** Enthalten die Vorfallsdaten Text, der wie eine Anweisung an die KI aussieht (z. B. ein Domainname `ignore-previous-instructions…`), fällt die Einschätzung nie unter „beobachten / prüfen“ – unabhängig von Sprache und Modell. Anlass: Der englische Prompt ließ sich so auf „harmlos“ drehen.
-- **KI erkennt Zusammenhänge pro Gerät (#26):** Die Vorbewertung sieht bis zu 5 andere offene Vorfälle desselben Geräts (±7 Tage) – nur Regel, Abstand, Status, KI-Einstufung, keine Kennungen. Ein neues Gerät, das kurz darauf eine Schad-Domain anfragt, gilt jetzt als „verdächtig“ statt „beobachten“. Erledigte und ignorierte Vorfälle bleiben bewusst weg (gemessen). Beispielsatz: 32 Fälle.
+### Added
+- **English version (#29):** `ALUCO_LANGUAGE=en` switches the dashboard, weekly report, ntfy alerts, titles of new incidents and events, MCP server and AI pre-assessment to English; German remains the default. Translation via `aluco.i18n` (German text as key, catalog in `aluco/locale_en.py`); tests report missing translations and hardcoded text in templates. Numbers and dates in the respective format. Titles already stored stay in their original language.
+- **AI pre-assessment in English:** a separate English prompt with explained answer values; the German prompt stays unchanged character for character. `aluco ai-eval --language en`. qwen3:4b: English 91 %, German 88 % ([docs/ai.md](docs/ai.md)).
+- **Guard against injected instructions:** If the incident data contains text that looks like an instruction to the AI (e.g. a domain name `ignore-previous-instructions…`), the assessment never falls below "beobachten / pruefen" (keep an eye on it / check) – regardless of language and model. Reason: the English prompt could be turned to "harmlos" (harmless) this way.
+- **AI sees connections per device (#26):** The pre-assessment sees up to 5 other open incidents of the same device (±7 days) – only rule, offset, status, AI verdict, no identifiers. A new device that queries a malicious domain shortly afterwards now counts as "suspicious" instead of "keep an eye on it". Resolved and ignored incidents are deliberately left out (measured). Sample set: 32 cases.
 
-### Geändert
-- Wochenbericht: Eine Datenquelle gilt erst als gestört, wenn sie mindestens 30 Minuten am Stück ausgefallen war. Kurze Aussetzer machen eine Woche nicht mehr unruhig.
-- Ereignisse tragen sprachneutrale Merkmale (`tag`, `subject`); Wochenbericht und Chronik werten nicht mehr den Wortlaut der Titel aus. Datenbankschema v7 – wird beim Start automatisch migriert, bestehende Ereignisse werden eingeordnet. Vor dem Update `scripts/backup.sh` ausführen.
-- „Inventar übernommen: 1 Gerät“ statt „1 Geräte“; Blockquote im Dashboard mit Dezimalkomma.
+### Changed
+- Weekly report: a data source only counts as disrupted if it was down for at least 30 minutes at a time. Short interruptions no longer make a week look restless.
+- Events carry language-neutral attributes (`tag`, `subject`); the weekly report and the timeline no longer evaluate the wording of titles. Database schema v7 – migrated automatically at startup, existing events are classified. Run `scripts/backup.sh` before updating.
+- "Inventar übernommen: 1 Gerät" instead of "1 Geräte"; block rate in the dashboard with a decimal comma.
 
-### Bekannte Grenzen
-- Die Dokumentation in `docs/` ist weiterhin deutsch.
-- KI-Vorbewertung nur mit qwen3:4b gemessen; Messung mit Claude steht aus (#24). Auf Englisch erkennt qwen3:4b die Kombination „neues Gerät, kurz danach Schad-Domain“ nicht.
-- Dass die Block-Regel echten Verkehr stoppt, ist noch nicht mit einem echten Gerät hinter OPNsense geprüft; Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
+### Known limitations
+- The documentation in `docs/` is still German.
+- AI pre-assessment only measured with qwen3:4b; measurement with Claude pending (#24). In English, qwen3:4b does not recognize the combination "new device, malicious domain shortly afterwards".
+- That the block rule stops real traffic has not yet been tested with a real device behind OPNsense; continuous operation on the Raspberry Pi not yet tested.
 
 ## [0.3.0] – 2026-11-24
 
-Mehr Erkennung, weniger Abstumpfen: neue Regel für **neu registrierte Domains**, eine Übersicht zur **Regel-Qualität**, ein **Wochenbericht** und ein Beispielsatz, mit dem sich die KI-Vorbewertung messen lässt. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
+More detection, less desensitization: a new rule for **newly registered domains**, an overview of **rule quality**, a **weekly report** and a sample set to measure the AI pre-assessment. Still not tested in continuous operation on real hardware.
 
-### Neu
-- **Regel „neu registrierte Domain“ (#25):** Anfragen an Domains, die jünger als 14 Tage sind (HaGeZi NRD, ~5 Mio. Domains), Schweregrad mittel. Binärsuche direkt in der Datei statt im Speicher (unter 30 MB), Erlaubnisliste `ALUCO_NRD_ALLOW`, abschaltbar mit `ALUCO_NRD_FEEDS=off`. ~90 MB Download pro Tag ([docs/stage-0.md](docs/stage-0.md#neu-registrierte-domains)).
-- **Beispielsatz für die KI-Vorbewertung (#30):** `aluco ai-eval` misst die Bewertungsqualität eines Modells ([docs/ai.md](docs/ai.md)).
-- **Regel-Qualität (#28):** neue Seite „Regeln“ im Dashboard und MCP-Werkzeug `rule_quality` – je Regel ausgelöst, ignoriert, erledigt, getrennt, Ignorier-Quote und Zeit bis zur Entscheidung; Regeln mit über 70 % ignorierten Vorfällen werden hervorgehoben. Datenbank-Schema v6 (Verlauf ohne Gerätekennungen, 400 Tage).
-- **Wochenbericht (#27):** jeden Sonntag 18 Uhr per ntfy „Ruhige Woche – alles normal“ oder was los war – nur Zahlen, keine Namen. Tag und Uhrzeit einstellbar (`ALUCO_REPORT_WEEKDAY`, `ALUCO_REPORT_HOUR`), abschaltbar (`ALUCO_REPORT=off`). Im Dashboard als Karte in der Übersicht.
+### Added
+- **Rule "newly registered domain" (#25):** queries to domains younger than 14 days (HaGeZi NRD, ~5 million domains), severity medium. Binary search directly in the file instead of in memory (below 30 MB), allowlist `ALUCO_NRD_ALLOW`, can be turned off with `ALUCO_NRD_FEEDS=off`. ~90 MB download per day ([docs/stage-0.md](docs/stage-0.md#newly-registered-domains)).
+- **Sample set for the AI pre-assessment (#30):** `aluco ai-eval` measures a model's assessment quality ([docs/ai.md](docs/ai.md)).
+- **Rule quality (#28):** new "Rules" page in the dashboard and MCP tool `rule_quality` – per rule triggered, ignored, resolved, disconnected, ignore rate and time to decision; rules with more than 70 % ignored incidents are highlighted. Database schema v6 (history without device identifiers, 400 days).
+- **Weekly report (#27):** every Sunday at 6 pm via ntfy "Quiet week – all normal" or what happened – numbers only, no names. Day and time configurable (`ALUCO_REPORT_WEEKDAY`, `ALUCO_REPORT_HOUR`), can be turned off (`ALUCO_REPORT=off`). In the dashboard as a card on the overview.
 
-### Geändert
-- **KI-Prompt v2 (#31):** erklärt, was „sperren“ bewirkt, verbietet Wissen von außen und härtet gegen eingeschleuste Anweisungen; qwen3:4b von 75 % auf 88 % Treffer ([docs/ai.md](docs/ai.md)).
-- Datenbankschema v6 (Tabelle `incident_history`) – wird beim Start automatisch migriert; vorhandene Vorfälle zählen als „ausgelöst“, frühere Entscheidungen lassen sich nicht rekonstruieren. Vor dem Update `scripts/backup.sh` ausführen.
-- Breite Tabellen verbreitern auf dem Handy nicht mehr die ganze Seite.
+### Changed
+- **AI prompt v2 (#31):** explains what "sperren" (block) does, forbids outside knowledge and hardens against injected instructions; qwen3:4b from 75 % to 88 % hits ([docs/ai.md](docs/ai.md)).
+- Database schema v6 (table `incident_history`) – migrated automatically at startup; existing incidents count as "triggered", earlier decisions cannot be reconstructed. Run `scripts/backup.sh` before updating.
+- Wide tables no longer widen the whole page on the phone.
 
-### Bekannte Grenzen
-- Die NRD-Listen kosten ~90 MB Download pro Tag (~2,6 GB im Monat); bei knappem Datenvolumen `ALUCO_NRD_FEEDS=off`.
-- KI-Vorbewertung bisher nur mit qwen3:4b gemessen (88 %); Messung mit Claude steht aus (#24).
-- Dass die Block-Regel echten Verkehr stoppt, ist noch nicht mit einem echten Gerät hinter OPNsense geprüft; Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
+### Known limitations
+- The NRD lists cost ~90 MB download per day (~2.6 GB per month); with a limited data plan, `ALUCO_NRD_FEEDS=off`.
+- AI pre-assessment so far only measured with qwen3:4b (88 %); measurement with Claude pending (#24).
+- That the block rule stops real traffic has not yet been tested with a real device behind OPNsense; continuous operation on the Raspberry Pi not yet tested.
 
 ## [0.2.0] – 2026-11-23
 
-Stufe 1 in der Software: Geräte über **OPNsense** trennen, KI-Vorbewertung auch **lokal mit Ollama**, dazu HTTPS, Sicherung/Update und ein Integrationstest des ganzen Stacks. Weiterhin nicht im Dauerbetrieb auf echter Hardware geprüft.
+Stage 1 in the software: disconnect devices via **OPNsense**, AI pre-assessment also **locally with Ollama**, plus HTTPS, backup/update and an integration test of the whole stack. Still not tested in continuous operation on real hardware.
 
-### Neu
-- **OPNsense (Stufe 1, optional):** Gerät eines Vorfalls per Klick vom Internet **trennen** und wieder **freigeben** (IP im Firewall-Alias `aluco_quarantine`), immer mit Rückfrage; Schutzliste und Firmengeräte nie. Bei DHCP-Wechsel wird die neue IP nachgezogen. ARP-Tabelle der Firewall als weitere Geräte-Quelle. Gegen OPNsense 26.7 mit Minimalrechten geprüft ([docs/opnsense.md](docs/opnsense.md)).
-- **Lokale KI mit Ollama (optional):** `ALUCO_AI_PROVIDER=ollama` – Vorfallsdaten verlassen das Heimnetz nicht, keine API-Kosten ([docs/ai.md](docs/ai.md)).
-- **HTTPS fürs Dashboard:** Caddy mit lokaler Zertifizierungsstelle, Compose-Profil `https` ([docs/https.md](docs/https.md)).
-- **Betrieb:** `scripts/backup.sh`, `restore.sh`, `update.sh`; Warnung bei wenig Speicherplatz ([docs/operations.md](docs/operations.md)).
-- **README auf Englisch**, deutsche Fassung in `README.de.md`.
+### Added
+- **OPNsense (stage 1, optional):** **disconnect** the device of an incident from the internet with one click and **release** it again (IP in the firewall alias `aluco_quarantine`), always with confirmation; never for the protected list and company devices. On a DHCP change, the new IP is followed. The firewall's ARP table as an additional device source. Tested against OPNsense 26.7 with minimal privileges ([docs/opnsense.md](docs/opnsense.md)).
+- **Local AI with Ollama (optional):** `ALUCO_AI_PROVIDER=ollama` – incident data does not leave the home network, no API costs ([docs/ai.md](docs/ai.md)).
+- **HTTPS for the dashboard:** Caddy with a local certificate authority, Compose profile `https` ([docs/https.md](docs/https.md)).
+- **Operations:** `scripts/backup.sh`, `restore.sh`, `update.sh`; warning when disk space is low ([docs/operations.md](docs/operations.md)).
+- **README in English**, German version in `README.de.md`.
 
-### Geändert
-- KI-Prompt: Eine zufällige (private) MAC-Adresse allein gilt nicht mehr als verdächtig; eine Domain von einer Bedrohungsliste bleibt ein starker Hinweis, auch wenn AdGuard sie blockiert hat.
-- Datenbankschema v5 (Tabelle `blocks` für getrennte Geräte) – wird beim Start automatisch migriert. Vor dem Update `scripts/backup.sh` ausführen.
+### Changed
+- AI prompt: a random (private) MAC address alone no longer counts as suspicious; a domain from a threat list remains a strong indication, even if AdGuard blocked it.
+- Database schema v5 (table `blocks` for disconnected devices) – migrated automatically at startup. Run `scripts/backup.sh` before updating.
 
-### Behoben
-- OPNsense legt eine IP bei erneutem Sperren unter Umständen doppelt in der Konfiguration ab, entfernt beim Löschen aber nur einen Eintrag; Aluco räumt beim Freigeben jetzt vollständig auf, sonst wäre das Gerät nach dem nächsten Neuladen der Firewall wieder gesperrt.
+### Fixed
+- When an IP is blocked again, OPNsense may store it twice in the configuration but removes only one entry when deleting; Aluco now cleans up completely when releasing, otherwise the device would be blocked again after the next firewall reload.
 
-### Intern
-- CI: Integrationstest des ganzen Stacks (Job `integration`), Pflichtprüfung für `main` und `develop`.
+### Internal
+- CI: integration test of the whole stack (job `integration`), required check for `main` and `develop`.
 
-### Bekannte Grenzen
-- Getrennt wird vom **Internet**, nicht vom übrigen Heimnetz (dafür braucht es VLANs).
-- Dass die Block-Regel echten Verkehr stoppt, ist noch nicht mit einem echten Gerät hinter OPNsense geprüft.
-- Keine Datenmengen pro Gerät; NetAlertX-Scan und Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
+### Known limitations
+- Devices are cut off from the **internet**, not from the rest of the home network (that needs VLANs).
+- That the block rule stops real traffic has not yet been tested with a real device behind OPNsense.
+- No data volumes per device; NetAlertX scan and continuous operation on the Raspberry Pi not yet tested.
 
 ## [0.1.0] – 2026-11-19
 
-Erste Version: Software für **Stufe 0** (Inventar + DNS-Protokoll ohne Netzumbau) samt Dashboard, KI-Vorbewertung, MCP-Server und Laptop-Agent. Noch nicht auf echter Hardware im Dauerbetrieb geprüft.
+First version: software for **stage 0** (inventory + DNS log without rebuilding the network) including dashboard, AI pre-assessment, MCP server and laptop agent. Not yet tested in continuous operation on real hardware.
 
-### Neu
-- **Stufe 0 per Docker Compose:** AdGuard Home + NetAlertX, gehärtete Container, Einrichtungsskript für AdGuard (`scripts/adguard-setup.sh`).
-- **Kern:** Datenmodell, Vorfall-Ablauf (zusammenfassen, dauerhaft ignorieren, wieder öffnen), Schutzliste, Firmengeräte nur passiv.
-- **Regeln:** neues Gerät · neue Domain bei IoT-Geräten nach Lernphase · **bekannte Schad-Domain** (HaGeZi TIF, erweiterbar).
-- **Runner:** regelmäßiger Lauf, Lernmodus beim ersten Lauf, Meldungen per **ntfy**.
-- **Dashboard (Design V1):** Lagebild, Kennzahlen, DNS-Diagramm, Chronik, Vorfälle als Karten, Gerätekarten mit Mini-Verlauf, Gerätedetail; hell/dunkel; strikte CSP.
-- **KI-Vorbewertung (optional):** Claude bewertet neue Vorfälle datensparsam (nie Namen, IPs, MACs, Firmengeräte).
-- **MCP-Server (optional):** Claude Desktop/Code fragt das Netz **nur lesend** über stdio/SSH.
-- **Laptop-Agent (osquery, optional):** offene Ports, Autostart, Fern-Anmeldungen, Firewall/FileVault/Gatekeeper/SIP auf privaten Macs.
-- **Kommandozeile:** `aluco run|once|web|mcp`, `aluco device …`, `aluco agent …`.
+### Added
+- **Stage 0 with Docker Compose:** AdGuard Home + NetAlertX, hardened containers, setup script for AdGuard (`scripts/adguard-setup.sh`).
+- **Core:** data model, incident workflow (aggregate, ignore permanently, reopen), protected list, company devices passive only.
+- **Rules:** new device · new domain for IoT devices after the learning phase · **known malicious domain** (HaGeZi TIF, extensible).
+- **Runner:** regular runs, learning mode on the first run, alerts via **ntfy**.
+- **Dashboard (design V1):** situation, key figures, DNS chart, timeline, incidents as cards, device cards with mini history, device detail; light/dark; strict CSP.
+- **AI pre-assessment (optional):** Claude assesses new incidents with minimal data (never names, IPs, MACs, company devices).
+- **MCP server (optional):** Claude Desktop/Code queries the network **read-only** via stdio/SSH.
+- **Laptop agent (osquery, optional):** open ports, autostart, remote logins, firewall/FileVault/Gatekeeper/SIP on private Macs.
+- **Command line:** `aluco run|once|web|mcp`, `aluco device …`, `aluco agent …`.
 
-### Sicherheit
-- Unabhängige Sicherheitsprüfung, alle Befunde (3 mittel, 6 niedrig) behoben: u. a. keine IPs/Hostnamen über lokale DNS-Namen an die KI, sichere Zuordnung bei DHCP-Wechseln, Schutz vor DNS-Rebinding, Secrets je Container getrennt.
-- Abhängigkeiten, Images, Actions und Hooks auf Versionen/Commits festgelegt; 7 Tage Wartezeit für Updates.
+### Security
+- Independent security review, all findings (3 medium, 6 low) fixed: among others, no IPs/hostnames sent to the AI via local DNS names, safe attribution on DHCP changes, protection against DNS rebinding, secrets separated per container.
+- Dependencies, images, actions and hooks pinned to versions/commits; 7-day waiting period for updates.
 
-### Bekannte Grenzen
-- Ohne Firewall (Stufe 1): kein „Trennen“, keine Datenmengen pro Gerät.
-- Dashboard ohne eingebautes HTTPS – Reverse-Proxy mit TLS empfohlen.
-- NetAlertX-Scan und Dauerbetrieb auf dem Raspberry Pi noch nicht getestet.
+### Known limitations
+- Without a firewall (stage 1): no "disconnect", no data volumes per device.
+- Dashboard without built-in HTTPS – a reverse proxy with TLS is recommended.
+- NetAlertX scan and continuous operation on the Raspberry Pi not yet tested.
 
+[0.4.2]: https://github.com/rene404/aluco/releases/tag/v0.4.2
 [0.4.1]: https://github.com/rene404/aluco/releases/tag/v0.4.1
 [0.4.0]: https://github.com/rene404/aluco/releases/tag/v0.4.0
 [0.3.0]: https://github.com/rene404/aluco/releases/tag/v0.3.0
