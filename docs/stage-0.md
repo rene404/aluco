@@ -1,144 +1,146 @@
-# Stufe 0 – DNS-Protokoll und Geräteinventar
+# Stage 0 – DNS log and device inventory
 
-Stand: 2026-11-19 · Ziel: sehen, welche Geräte im Netz sind und welche Domains sie anfragen – ohne das Netz umzubauen.
+As of: 2026-11-19 · Goal: see which devices are on the network and which domains they query – without rebuilding the network.
 
-| Dienst | Aufgabe | Oberfläche |
+| Service | Task | Interface |
 |---|---|---|
-| AdGuard Home | DNS für das Heimnetz, Protokoll pro Gerät, Filter | `http://<server>/` |
-| NetAlertX | Geräteinventar per ARP-Scan, Meldung bei neuen Geräten | `http://<server>:20211/` |
-| Aluco | Führt beides zusammen: Inventar, Domains pro Gerät, Vorfälle, Meldungen per ntfy | – |
-| Aluco-Dashboard | Übersicht, Vorfälle bearbeiten, Geräte einordnen | `http://<server>:8088/` |
+| AdGuard Home | DNS for the home network, log per device, filters | `http://<server>/` |
+| NetAlertX | Device inventory via ARP scan, alert on new devices | `http://<server>:20211/` |
+| Aluco | Brings both together: inventory, domains per device, incidents, alerts via ntfy | – |
+| Aluco dashboard | Overview, handling incidents, classifying devices | `http://<server>:8088/` |
 
-Alle laufen per Docker Compose (`compose.yaml`) im Host-Netz des Servers.
+All run with Docker Compose (`compose.yaml`) in the server's host network.
 
-## Voraussetzungen
+## Prerequisites
 
-- Server mit 64-bit-Linux (z. B. Raspberry Pi OS Lite 64-bit), per Kabel im Heimnetz.
-- **Feste IP** für den Server per DHCP-Reservierung im Router.
-- Zugang per SSH mit Schlüssel, Passwort-Login abgeschaltet.
-- Docker Engine + Compose-Plugin (`curl -fsSL https://get.docker.com | sh` – Skript vorher lesen).
-- Port 53 frei: unter Ubuntu belegt `systemd-resolved` ihn (`DNSStubListener=no` setzen). Raspberry Pi OS ist nicht betroffen.
+- Server with 64-bit Linux (e.g. Raspberry Pi OS Lite 64-bit), wired to the home network.
+- **Fixed IP** for the server via DHCP reservation in the router.
+- SSH access with a key, password login disabled.
+- Docker Engine + Compose plugin (`curl -fsSL https://get.docker.com | sh` – read the script first).
+- Port 53 free: on Ubuntu, `systemd-resolved` occupies it (set `DNSStubListener=no`). Raspberry Pi OS is not affected.
 
-## Einrichtung
+## Setup
 
 ```sh
 git clone https://github.com/rene404/aluco.git && cd aluco
-cp .env.example .env              # TZ, Speichergrenzen anpassen
-chmod 600 .env                    # enthält später Passwörter
-mkdir -p data/aluco && sudo chown 10001:10001 data/aluco   # Aluco läuft als Benutzer 10001
+cp .env.example .env              # adjust TZ, memory limits
+chmod 600 .env                    # will contain passwords later
+mkdir -p data/aluco && sudo chown 10001:10001 data/aluco   # Aluco runs as user 10001
 docker compose pull adguardhome netalertx
 docker compose up -d adguardhome netalertx
-scripts/adguard-setup.sh          # Login, verschlüsseltes Upstream-DNS, 30 Tage Protokoll
+scripts/adguard-setup.sh          # login, encrypted upstream DNS, 30-day log
 ```
 
-`adguard-setup.sh` fragt das Passwort ab (mindestens 12 Zeichen, nirgends gespeichert) und lässt sich gefahrlos erneut ausführen.
+`adguard-setup.sh` asks for the password (at least 12 characters, not stored anywhere) and can safely be run again.
 
-**Kontrolle am Server:**
+**Check on the server:**
 
 ```sh
-docker compose ps                                  # beide "running"
-dig +short @127.0.0.1 example.com                  # liefert eine IP
+docker compose ps                                  # both "running"
+dig +short @127.0.0.1 example.com                  # returns an IP
 ```
 
 ### NetAlertX
 
-1. `http://<server>:20211/` öffnen → **Settings**.
-2. `SCAN_SUBNETS` auf das eigene Netz setzen, z. B. `192.0.2.0/24 --interface=eth0` (Netz und Schnittstelle mit `ip -4 addr` prüfen).
-3. Benachrichtigung bei neuem Gerät einschalten (z. B. ntfy oder E-Mail).
-4. Oberfläche mit Passwort schützen (`SETPWD_enable_password`).
-5. **API-Token für Aluco:** Settings → `API_TOKEN` kopieren und in `.env` als `NETALERTX_API_TOKEN` eintragen. Das Token erlaubt auch Schreiben und Löschen – Aluco nutzt es nur lesend, trotzdem wie ein Passwort behandeln.
+1. Open `http://<server>:20211/` → **Settings**.
+2. Set `SCAN_SUBNETS` to your own network, e.g. `192.0.2.0/24 --interface=eth0` (check network and interface with `ip -4 addr`).
+3. Turn on notifications for new devices (e.g. ntfy or email).
+4. Protect the interface with a password (`SETPWD_enable_password`).
+5. **API token for Aluco:** Settings → copy `API_TOKEN` and enter it in `.env` as `NETALERTX_API_TOKEN`. The token also allows writing and deleting – Aluco only uses it for reading, but treat it like a password anyway.
 
-### Aluco-Dienst
+### Aluco service
 
-1. In `.env` eintragen: `ADGUARD_PASSWORD` (aus `adguard-setup.sh`), `NETALERTX_API_TOKEN` (siehe oben).
-2. Optional Meldungen: `NTFY_URL` (komplette Topic-URL). Bei öffentlichem ntfy-Server einen langen, zufälligen Topic-Namen wählen und `ALUCO_NOTIFY_MINIMAL=true` setzen – dann verlassen keine Geräte- oder Domainnamen das Heimnetz.
-   - **Wochenbericht:** Mit ntfy kommt jeden Sonntag um 18 Uhr (Zeitzone `TZ`) eine leise Meldung – „Ruhige Woche – alles normal“ oder was los war: neue Geräte, Vorfälle je Schweregrad, Entscheidungen, Offenes, getrennte Geräte, DNS-Anfragen und Blockquote, Laptops, Datenquellen, die mindestens 30 Minuten am Stück ausgefallen waren (kurze Aussetzer, etwa wenn der Rechner schläft, zählen nicht). Nur Zahlen, keine Namen. Einstellbar mit `ALUCO_REPORT_WEEKDAY` (mo … so) und `ALUCO_REPORT_HOUR`, abschaltbar mit `ALUCO_REPORT=off`. Der erste Bericht kommt zum ersten Termin nach dem Start; war Aluco zum Termin aus, wird er beim nächsten Lauf nachgeholt. Dieselben Zahlen zeigt die Übersicht im Dashboard (Karte „Wochenbericht“, letzte 7 Tage).
-3. Dashboard-Passwort setzen: `ALUCO_DASHBOARD_PASSWORD` (mindestens 12 Zeichen). Sprache von Dashboard, ntfy-Meldungen, Wochenbericht, MCP-Server und KI-Vorbewertung: `ALUCO_LANGUAGE=de` (Standard) oder `en`. Schon gespeicherte Titel von Vorfällen und Ereignissen bleiben in der Sprache, in der sie entstanden sind.
-4. Starten: `docker compose up -d --build aluco aluco-web`, Kontrolle: `docker logs -f aluco`.
-5. Dashboard: `http://<server>:8088/` – nur im Heimnetz bzw. per VPN, nie per Portfreigabe ins Internet. Aufruf über die IP-Adresse; für einen Namen (z. B. `aluco.lan`) diesen in `ALUCO_WEB_ALLOWED_HOSTS` eintragen.
-6. **HTTPS empfohlen:** Ohne TLS gehen Passwort und Sitzung im WLAN unverschlüsselt über die Luft. Caddy mit lokaler Zertifizierungsstelle ist vorbereitet: [docs/https.md](https.md). Aluco warnt beim Start, solange HTTPS fehlt.
-7. NetAlertX- und AdGuard-Oberfläche ebenfalls mit Passwort schützen (siehe oben) – sie zeigen das komplette Inventar bzw. alle DNS-Anfragen.
+1. In `.env`, set: `ADGUARD_PASSWORD` (from `adguard-setup.sh`), `NETALERTX_API_TOKEN` (see above).
+2. Optional alerts: `NTFY_URL` (complete topic URL). With a public ntfy server, choose a long, random topic name and set `ALUCO_NOTIFY_MINIMAL=true` – then no device or domain names leave the home network.
+   - **Weekly report:** With ntfy, a quiet notification arrives every Sunday at 6 pm (time zone `TZ`) – "Quiet week – all normal" or what happened: new devices, incidents per severity, decisions, open items, disconnected devices, DNS queries and block rate, laptops, data sources that were down for at least 30 minutes at a time (short interruptions, e.g. while the computer sleeps, do not count). Numbers only, no names. Configurable with `ALUCO_REPORT_WEEKDAY` (`mon` … `sun` or `mo` … `so`) and `ALUCO_REPORT_HOUR`, turned off with `ALUCO_REPORT=off`. The first report comes at the first due time after start; if Aluco was off at the due time, it is sent on the next run. The overview in the dashboard shows the same numbers ("Weekly report" card, last 7 days).
+3. Set the dashboard password: `ALUCO_DASHBOARD_PASSWORD` (at least 12 characters). Language of the dashboard, ntfy alerts, weekly report, MCP server and AI pre-assessment: `ALUCO_LANGUAGE=de` (default) or `en`. Titles of incidents and events that are already stored stay in the language they were created in.
+4. Start: `docker compose up -d --build aluco aluco-web`, check: `docker logs -f aluco`.
+5. Dashboard: `http://<server>:8088/` – only in the home network or via VPN, never exposed to the internet via port forwarding. Open it via the IP address; to use a name (e.g. `aluco.lan`), add it to `ALUCO_WEB_ALLOWED_HOSTS`.
+6. **HTTPS recommended:** Without TLS, the password and session travel unencrypted over Wi-Fi. Caddy with a local certificate authority is prepared: [docs/https.md](https.md). Aluco warns at startup as long as HTTPS is missing.
+7. Protect the NetAlertX and AdGuard interfaces with a password as well (see above) – they show the complete inventory and all DNS queries respectively.
 
-Der **erste Lauf lernt nur** (übernimmt alle vorhandenen Geräte ohne Alarm). Ab dem zweiten Lauf meldet Aluco unbekannte Geräte; Anfragen an neue Domains meldet es nur bei IoT-Geräten und erst nach 7 Tagen Lernphase. ### Geräte einordnen
+The **first run only learns** (takes over all existing devices without alarm). From the second run on, Aluco reports unknown devices; queries to new domains are only reported for IoT devices and only after a 7-day learning phase.
 
-**Direkt nach dem ersten Lauf** Firmengeräte markieren – dabei löscht Aluco alles, was es über deren DNS-Verhalten schon gespeichert hat. Am einfachsten im Dashboard unter **Geräte**; alternativ per Kommandozeile:
+### Classifying devices
+
+**Right after the first run**, mark company devices – Aluco then deletes everything it has already stored about their DNS behavior. Easiest in the dashboard under **Devices**; alternatively on the command line:
 
 ```sh
-docker compose run --rm aluco device list                         # Inventar mit MAC-Adressen
-docker compose run --rm aluco device set-trust <MAC> company      # Firmengerät: nur passiv, nie trennbar
-docker compose run --rm aluco device set-trust <MAC> iot          # IoT: Meldung bei neuen Domains
-docker compose run --rm aluco device protect <MAC>                # Schutzliste (Server, Firewall …)
-docker compose run --rm aluco device name <MAC> "Fernseher"       # Namen vergeben
+docker compose run --rm aluco device list                         # inventory with MAC addresses
+docker compose run --rm aluco device set-trust <MAC> company      # company device: passive only, never disconnectable
+docker compose run --rm aluco device set-trust <MAC> iot          # IoT: alert on new domains
+docker compose run --rm aluco device protect <MAC>                # protected list (server, firewall …)
+docker compose run --rm aluco device name <MAC> "TV"              # assign names
 ```
 
-Stufen: `known`, `iot`, `guest`, `unknown`, `company`. Den Aluco-Server selbst und die Firewall auf die Schutzliste setzen.
+Trust levels: `known`, `iot`, `guest`, `unknown`, `company`. Put the Aluco server itself and the firewall on the protected list.
 
-### Bekannte Schad-Domains
+### Known malicious domains
 
-Aluco gleicht jede DNS-Anfrage mit öffentlichen Bedrohungslisten ab (Malware, Phishing, Command-and-Control). Ein Treffer ist ein Vorfall mit Schweregrad **hoch** – auch wenn AdGuard die Anfrage schon blockiert hat, denn der Versuch selbst deutet auf Schadsoftware oder einen Phishing-Link hin. Firmengeräte sind ausgenommen.
+Aluco checks every DNS query against public threat lists (malware, phishing, command-and-control). A match is an incident with severity **high** – even if AdGuard has already blocked the query, because the attempt itself points to malware or a phishing link. Company devices are excluded.
 
-- Standardliste: [HaGeZi Threat Intelligence Feeds](https://github.com/hagezi/dns-blocklists) (mini, ~210 000 Domains, ohne Schlüssel, GPL-3.0). Wird alle 12 Stunden geladen und im Datenordner zwischengespeichert; fällt der Download aus, gilt die letzte Liste weiter.
-- Weitere Listen (z. B. abuse.ch URLhaus/ThreatFox mit kostenlosem Auth-Key) über `ALUCO_THREAT_FEEDS`, Formate: Domains, Hosts-Datei, Adblock.
-- Tipp: dieselbe Liste zusätzlich in AdGuard unter *Filter → DNS-Sperrlisten* eintragen, dann wird auch blockiert.
-- Speicherbedarf ca. 20–40 MB.
+- Default list: [HaGeZi Threat Intelligence Feeds](https://github.com/hagezi/dns-blocklists) (mini, ~210,000 domains, no key, GPL-3.0). Loaded every 12 hours and cached in the data folder; if the download fails, the last list stays in effect.
+- More lists (e.g. abuse.ch URLhaus/ThreatFox with a free auth key) via `ALUCO_THREAT_FEEDS`, formats: domains, hosts file, Adblock.
+- Tip: add the same list in AdGuard under *Filters → DNS blocklists* as well, then it is also blocked.
+- Memory use about 20–40 MB.
 
-### Neu registrierte Domains
+### Newly registered domains
 
-Aluco meldet Anfragen an Domains, die erst in den letzten 14 Tagen registriert wurden. Solche Domains nutzen Betrüger gern für Phishing, Schadsoftware und Command-and-Control, weil sie billig und schnell wieder weg sind. Viele neue Domains sind aber harmlos (neue Webseiten, Kampagnen, Dienste) – darum nur Schweregrad **mittel**. Firmengeräte sind ausgenommen.
+Aluco reports queries to domains that were registered only within the last 14 days. Scammers like to use such domains for phishing, malware and command-and-control because they are cheap and quickly gone again. Many new domains are harmless, though (new websites, campaigns, services) – hence only severity **medium**. Company devices are excluded.
 
-- Ein Vorfall je Gerät und registrierter Domain (`login.neu.example` und `neu.example` zählen zusammen), Wiederholungen zählen hoch.
-- Steht die Domain zugleich auf einer Bedrohungsliste, meldet Aluco nur die Schad-Domain (hoch).
-- Standardliste: [HaGeZi NRD](https://github.com/hagezi/nrd), letzte 14 Tage (`nrd7` + `nrd14-8`, ~5 Mio. Domains). Wird einmal am Tag geladen (**~90 MB Download pro Tag**, ~2,6 GB im Monat) und im Datenordner zwischengespeichert (~90 MB); fällt der Download aus, gilt die letzte Liste weiter.
-- Arbeitsspeicher: kaum (unter 30 MB). Aluco sucht per Binärsuche direkt in der sortierten Datei, statt 5 Mio. Domains in den Speicher zu laden (wären ~500 MB).
-- `ALUCO_NRD_ALLOW`: eigene oder bekannte neue Domains, die nie als neu registriert gelten (inkl. Subdomains), z. B. `meinverein-2026.at, neuer-shop.example`.
-- `ALUCO_NRD_FEEDS=off` schaltet die Regel ab, z. B. bei knappem Datenvolumen. Eigene Listen: `name=https-URL` (reine Domains).
+- One incident per device and registered domain (`login.new.example` and `new.example` count together); repetitions increase the count.
+- If the domain is also on a threat list, Aluco reports only the malicious domain (high).
+- Default list: [HaGeZi NRD](https://github.com/hagezi/nrd), last 14 days (`nrd7` + `nrd14-8`, ~5 million domains). Loaded once a day (**~90 MB download per day**, ~2.6 GB per month) and cached in the data folder (~90 MB); if the download fails, the last list stays in effect.
+- Memory: hardly any (below 30 MB). Aluco uses binary search directly in the sorted file instead of loading 5 million domains into memory (that would be ~500 MB).
+- `ALUCO_NRD_ALLOW`: your own or known new domains that never count as newly registered (including subdomains), e.g. `myclub-2026.example, new-shop.example`.
+- `ALUCO_NRD_FEEDS=off` turns the rule off, e.g. with a limited data plan. Your own lists: `name=https-URL` (plain domains).
 
-## DNS im Router umstellen
+## Switching DNS in the router
 
-Erst wenn AdGuard am Server antwortet.
+Only once AdGuard answers on the server.
 
-- **Router verteilt per DHCP:** primären DNS auf die IP des Servers setzen. **Keinen öffentlichen Zweit-DNS** eintragen – Geräte würden ihn nutzen und am Protokoll vorbeigehen.
-- **Router/Mesh im Access-Point-Modus:** dort lässt sich kein DNS eintragen. Dann im Gerät einstellen, das DHCP macht (meist der Provider-Router), oder DHCP an AdGuard Home übergeben (nur ein DHCP-Server im Netz!).
+- **Router hands out DHCP:** set the primary DNS to the server's IP. **Do not enter a public secondary DNS** – devices would use it and bypass the log.
+- **Router/mesh in access point mode:** no DNS can be set there. Then configure it on the device that does DHCP (usually the ISP router), or hand DHCP over to AdGuard Home (only one DHCP server on the network!).
 
-Geräte übernehmen den neuen DNS erst mit der nächsten DHCP-Verlängerung (WLAN aus/an beschleunigt das).
+Devices only pick up the new DNS with the next DHCP renewal (turning Wi-Fi off and on speeds this up).
 
-## Rückweg (vorher testen!)
+## Way back (test it beforehand!)
 
-Fällt der Server aus, funktioniert im Netz keine Namensauflösung mehr.
+If the server fails, name resolution no longer works on the network.
 
-1. Im Router den DNS-Eintrag wieder auf **automatisch/Provider** stellen.
-2. Geräte neu verbinden (WLAN aus/an).
+1. In the router, set the DNS entry back to **automatic/ISP**.
+2. Reconnect the devices (Wi-Fi off/on).
 
-Diesen Ablauf einmal bewusst durchspielen und die Schritte für den Router notieren (privat, nicht im Repo).
+Go through this procedure once deliberately and note the steps for your router (privately, not in the repo).
 
-## Abnahme
+## Acceptance
 
-- [ ] Jedes Gerät benannt (NetAlertX oder `aluco device name`), Firmengeräte als `company` markiert, Server auf der Schutzliste.
-- [ ] AdGuard zeigt Anfragen pro Gerät (nicht nur die IP des Routers).
-- [ ] Meldung bei neuem Gerät kommt an (Test: Handy im Gästemodus/mit zufälliger MAC verbinden).
-- [ ] Rückweg getestet.
-- [ ] Eine Woche Baseline: Fehlalarme notiert.
+- [ ] Every device named (NetAlertX or `aluco device name`), company devices marked as `company`, server on the protected list.
+- [ ] AdGuard shows queries per device (not just the router's IP).
+- [ ] The alert for a new device arrives (test: connect a phone in guest mode/with a random MAC).
+- [ ] Way back tested.
+- [ ] One week of baseline: false alarms noted.
 
-## Betrieb
+## Operations
 
-- **Updates:** `scripts/update.sh` (sichert vorher, prüft danach) – siehe [operations.md](operations.md).
-- **Sicherung:** `scripts/backup.sh`, am besten täglich per cron – siehe [operations.md](operations.md).
-- **Protokolle:** werden nach `ALUCO_RETENTION_DAYS` (Standard 30) gelöscht. Haushalt informieren, dass DNS-Anfragen protokolliert werden.
+- **Updates:** `scripts/update.sh` (backs up first, checks afterwards) – see [operations.md](operations.md).
+- **Backup:** `scripts/backup.sh`, ideally daily via cron – see [operations.md](operations.md).
+- **Logs:** deleted after `ALUCO_RETENTION_DAYS` (default 30). Let the household know that DNS queries are logged.
 
-## Lokal testen (Mac)
+## Testing locally (Mac)
 
 ```sh
 docker compose -f compose.yaml -f compose.local.yaml up -d
 AGH_SETUP_URL=http://127.0.0.1:3300 AGH_URL=http://127.0.0.1:8300 scripts/adguard-setup.sh
 dig @127.0.0.1 -p 5300 example.com
-docker compose -f compose.yaml -f compose.local.yaml down -v   # aufräumen
+docker compose -f compose.yaml -f compose.local.yaml down -v   # clean up
 ```
 
-NetAlertX läuft lokal nicht (ARP-Scan braucht ein Linux-Host-Netz).
+NetAlertX does not run locally (the ARP scan needs a Linux host network).
 
-## Sicherheitshinweise
+## Security notes
 
-- Beide Container: Dateisystem schreibgeschützt, Rechte auf das Nötige beschränkt, Speicher- und Prozessgrenzen.
-- AdGuard läuft als root (Vorgabe beim ersten Start), aber ohne weitere Rechte als Ports binden und Daten schreiben, ohne Rechteausweitung.
-- Oberflächen nur im Heimnetz erreichbar machen, nie per Portfreigabe ins Internet.
-- NetAlertX enthält PHP; bei PHP-Sicherheitswarnungen das Image zeitnah aktualisieren.
+- Both containers: read-only file system, privileges limited to what is needed, memory and process limits.
+- AdGuard runs as root (default on first start), but without privileges beyond binding ports and writing data, and without privilege escalation.
+- Make the interfaces reachable only from the home network, never via port forwarding to the internet.
+- NetAlertX contains PHP; update the image promptly when there are PHP security advisories.

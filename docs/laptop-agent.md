@@ -1,38 +1,38 @@
-# Laptop-Agent (osquery)
+# Laptop agent (osquery)
 
-Stand: 2026-11-19 · nur für **private** Macs – nie auf Firmengeräten installieren
+As of: 2026-11-19 · for **private** Macs only – never install on company devices
 
-Der Agent führt alle 10 Minuten feste, **nur lesende** [osquery](https://osquery.io)-Abfragen aus und schickt das Ergebnis an Aluco. Aluco merkt sich, was es kennt, und meldet Neues als Vorfall.
+Every 10 minutes, the agent runs fixed, **read-only** [osquery](https://osquery.io) queries and sends the result to Aluco. Aluco remembers what it knows and reports anything new as an incident.
 
-| Was | Vorfall, wenn … | Schwere |
+| What | Incident when … | Severity |
 |---|---|---|
-| Offene Ports (nach außen, nicht nur localhost) | ein Programm neu Verbindungen annimmt | mittel |
-| Autostart (LaunchAgents/-Daemons außerhalb von `/System`) | ein neuer Eintrag dazukommt | mittel |
-| Anmeldungen | eine **Fern**-Anmeldung (z. B. SSH) neu auftaucht | mittel |
-| Firewall, FileVault, Gatekeeper, SIP | eine Sicherheitsgrundlage aus ist – wird automatisch erledigt, sobald sie wieder an ist | mittel/hoch |
+| Open ports (external, not just localhost) | a program newly accepts connections | medium |
+| Autostart (LaunchAgents/-Daemons outside `/System`) | a new entry appears | medium |
+| Logins | a new **remote** login (e.g. SSH) appears | medium |
+| Firewall, FileVault, Gatekeeper, SIP | a basic security setting is off – resolved automatically as soon as it is back on | medium/high |
 
-Der **erste Bericht lernt nur** (alles Vorhandene gilt als bekannt). Im Dashboard zeigt das Gerätedetail einen Abschnitt **Laptop**.
+The **first report only learns** (everything present counts as known). In the dashboard, the device detail shows a **Laptop** section.
 
-## Einrichten
+## Setup
 
-1. osquery installieren: `brew install --cask osquery`
-2. Am Aluco-Server einen Agenten anlegen – das Token wird **nur einmal** angezeigt:
+1. Install osquery: `brew install --cask osquery`
+2. Create an agent on the Aluco server – the token is shown **only once**:
    ```sh
-   docker compose exec aluco python -m aluco agent add "<Gerätename oder MAC>"
+   docker compose exec aluco python -m aluco agent add "<device name or MAC>"
    ```
-3. Auf dem Mac (aus dem Repo):
+3. On the Mac (from the repo):
    ```sh
    sudo agent/install.sh http://<server>:8088 <TOKEN>
    ```
-   Das installiert `/usr/local/libexec/aluco-agent` (root, nur lesbar/ausführbar), die Konfiguration `/usr/local/etc/aluco-agent.conf` (nur root lesbar) und den launchd-Job `dev.aluco.agent`. Log: `/var/log/aluco-agent.log`.
+   This installs `/usr/local/libexec/aluco-agent` (root, read/execute only), the configuration `/usr/local/etc/aluco-agent.conf` (readable by root only) and the launchd job `dev.aluco.agent`. Log: `/var/log/aluco-agent.log`.
 
-Entfernen: `sudo agent/uninstall.sh` und `aluco agent remove <Gerät>`.
+Removal: `sudo agent/uninstall.sh` and `aluco agent remove <device>`.
 
-## Sicherheit und Datenschutz
+## Security and privacy
 
-- Feste Abfragen im Skript, keine Fernsteuerung: Aluco kann dem Agenten nichts befehlen.
-- Token pro Gerät (in Aluco nur als Hash gespeichert), an curl über stdin übergeben – nie in der Prozessliste.
-- Bericht max. 1 MB, höchstens alle 30 s, Werte bereinigt und gekürzt.
-- Benutzernamen in Pfaden werden zu `~` gekürzt; an die KI-Vorbewertung gehen nur Programm, gekürzter Pfad und Port.
-- Markiert man das Gerät als **Firma**, löscht Aluco Agent und alle Einträge und nimmt keine Berichte mehr an.
-- Ohne HTTPS geht das Token im Heimnetz unverschlüsselt über die Leitung – wie beim Dashboard wird ein TLS-Reverse-Proxy empfohlen.
+- Fixed queries in the script, no remote control: Aluco cannot command the agent.
+- Token per device (stored in Aluco only as a hash), passed to curl via stdin – never in the process list.
+- Report max. 1 MB, at most every 30 s, values sanitized and truncated.
+- User names in paths are shortened to `~`; only the program, shortened path and port go to the AI pre-assessment.
+- If you mark the device as **company**, Aluco deletes the agent and all entries and no longer accepts reports.
+- Without HTTPS, the token travels unencrypted across the home network – as with the dashboard, a TLS reverse proxy is recommended.
