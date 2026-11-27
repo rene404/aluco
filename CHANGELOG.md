@@ -2,10 +2,16 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.4.3] – 2026-11-27
+
+Bug fix for the rule quality and dependency updates, including **AdGuard Home v1.0.0**. No change to the database schema.
 
 ### Fixed
 - **Rule quality:** a decision that was taken back by hand (e.g. "ignored", then reopened and resolved) no longer counts as ignored. Per incident only the last decision counts until the finding occurs again; the time to decision runs until the first one. Previously a rule could be marked "desensitized?" by mistake.
+
+### Changed
+- **AdGuard Home v1.0.0** (from v0.107.80). AdGuard migrates its configuration automatically on first start (format 34 → 35); Aluco does not use any of the API fields removed in v1.0. `scripts/update.sh` backs up `data/` (including the AdGuard configuration) first; to go back, restore that backup with `scripts/restore.sh` rather than only switching the image back.
+- Python dependencies (`anthropic` 2.11.0, `python-multipart` 0.0.34, `ruff` 0.17.6) and `setup-uv` in CI updated.
 
 ## [0.4.2] – 2026-11-25
 
@@ -115,6 +121,7 @@ First version: software for **stage 0** (inventory + DNS log without rebuilding 
 - Dashboard without built-in HTTPS – a reverse proxy with TLS is recommended.
 - NetAlertX scan and continuous operation on the Raspberry Pi not yet tested.
 
+[0.4.3]: https://github.com/rene404/aluco/releases/tag/v0.4.3
 [0.4.2]: https://github.com/rene404/aluco/releases/tag/v0.4.2
 [0.4.1]: https://github.com/rene404/aluco/releases/tag/v0.4.1
 [0.4.0]: https://github.com/rene404/aluco/releases/tag/v0.4.0
