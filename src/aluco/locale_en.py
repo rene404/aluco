@@ -27,6 +27,7 @@ EN: dict[str, str] = {
     "Sa": "Sat",
     "So": "Sun",
     "seit {when}": "since {when}",
+    "{n}× seit {when}": "{n}× since {when}",
     # --- Allgemein, Navigation ------------------------------------------------------
     "Hausradar für dein Netz": "Home radar for your network",
     "Hauptnavigation": "Main navigation",

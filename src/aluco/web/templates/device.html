@@ -155,8 +155,8 @@
       <h2 id="hist">{{ _("Verlauf") }}</h2>
       {% if history %}
       <ol class="timeline compact">
-        {% for e in history %}
-        <li><time datetime="{{ e.at.isoformat() }}" title="{{ e.at | local }}">{{ rel(e.at) }}</time><span class="dot dot-{{ tone(e) }}" aria-hidden="true"></span><span class="tl-body">{{ e.title }}</span></li>
+        {% for row in history %}{% set e = row.event %}
+        <li><time datetime="{{ e.at.isoformat() }}" title="{{ e.at | local }}">{{ rel(e.at) }}</time><span class="dot dot-{{ tone(e) }}" aria-hidden="true"></span><span class="tl-body"><span>{{ e.title }}{% if row.count > 1 %} <span class="repeat" title="{{ row.first_at | local }}">{{ _("{n}× seit {when}", n=row.count, when=rel(row.first_at)) }}</span>{% endif %}</span></span></li>
         {% endfor %}
       </ol>
       {% else %}

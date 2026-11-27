@@ -107,3 +107,29 @@ def test_since_summary_and_tone() -> None:
     assert views.event_tone(ev(EventKind.SOURCE, "source_up")) == "muted"
     assert views.event_tone(ev(EventKind.INCIDENT_STATUS, "resolved")) == "ok"
     assert views.event_tone(ev(EventKind.DEVICE_ONLINE)) == "ok"
+
+
+def test_collapse_events_groups_repeats_in_a_row() -> None:
+    def ev(minutes: int, kind: EventKind = EventKind.DEVICE_OFFLINE, title: str = "L ist offline",
+           mac: str | None = MAC_A) -> Event:  # fmt: skip
+        return Event(id=None, at=T0 - timedelta(minutes=minutes), kind=kind, title=title,
+                     device_mac=mac)  # fmt: skip
+
+    events = [
+        ev(0),
+        ev(10),
+        ev(20),  # 3× dasselbe in Folge
+        ev(25, EventKind.INCIDENT, "Neuer offener Port"),
+        ev(30),
+        ev(40),  # wieder offline: eigene Gruppe, weil unterbrochen
+        ev(50, title="Anderes Gerät ist offline", mac=None),
+    ]
+    rows = views.collapse_events(events, limit=10)
+    assert [(r.event.title, r.count) for r in rows] == [
+        ("L ist offline", 3), ("Neuer offener Port", 1), ("L ist offline", 2),
+        ("Anderes Gerät ist offline", 1),
+    ]  # fmt: skip
+    assert rows[0].event.at == T0 and rows[0].first_at == T0 - timedelta(minutes=20)
+    assert rows[1].first_at is None
+    assert len(views.collapse_events(events, limit=2)) == 2
+    assert views.collapse_events([], limit=5) == []

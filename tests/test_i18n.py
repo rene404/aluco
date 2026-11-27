@@ -219,7 +219,11 @@ def test_dashboard_pages_render_in_english(tmp_path: Path) -> None:
             html = client.get(url).text
             text = _visible_text(html)
             # Titel von Vorfällen und Ereignissen sind gespeicherte Daten (Sprache bei Entstehung).
-            for stored in ("Neues Gerät im Netz", "fragt neue Domain an", "Inventar übernommen"):
+            stored_texts = (
+                "Neues Gerät im Netz", "fragt neue Domain an", "Inventar übernommen",
+                "Erster Lauf", "Neuer Vorfall",
+            )  # fmt: skip
+            for stored in stored_texts:
                 text = re.sub(rf"[^<>\n]*{stored}[^<>\n]*", " ", text)
             hits = sorted({m.group(0) for m in GERMAN.finditer(text)})
             assert hits == [], f"{url}: deutsch geblieben: {hits}"

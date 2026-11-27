@@ -32,6 +32,10 @@ from aluco.store import Store
 
 # Wie lange nach der letzten Sichtung eine IP noch als die des Geräts gilt.
 STALE_AFTER = timedelta(hours=2)
+# Laptop-Agent berichtet alle 10 Min.: Wer in diesem Fenster berichtet hat, ist erreichbar –
+# auch wenn das Geräteinventar (NetAlertX) ihn gerade nicht sieht. Sonst kippt der Status
+# bei jedem Bericht hin und her ("ist offline" alle 10 Minuten).
+AGENT_ONLINE_WINDOW = timedelta(minutes=25)
 
 
 @dataclass(slots=True)
@@ -115,16 +119,19 @@ class Engine:
             device = known.seen(s.at, ip=s.ip, hostname=s.hostname)
             if s.vendor and not device.vendor:
                 device = replace(device, vendor=s.vendor)
-            if s.online is not None:
-                device = replace(device, online=s.online)
-                if known.online is not None and known.online != s.online:
+            online = s.online
+            if online is False and self._agent_reported_recently(s.mac, now):
+                online = True
+            if online is not None:
+                device = replace(device, online=online)
+                if known.online is not None and known.online != online:
                     self._store.add_event(
                         Event(
                             id=None,
                             at=now,
-                            kind=EventKind.DEVICE_ONLINE if s.online else EventKind.DEVICE_OFFLINE,
+                            kind=EventKind.DEVICE_ONLINE if online else EventKind.DEVICE_OFFLINE,
                             title=_("{label} ist online", label=device.label)
-                            if s.online
+                            if online
                             else _("{label} ist offline", label=device.label),
                             device_mac=device.mac,
                         )
@@ -132,6 +139,11 @@ class Engine:
         if device.ip:
             self._store.release_ip(device.ip, device.mac)
         self._store.save_device(device)
+
+    def _agent_reported_recently(self, mac: str, now: datetime) -> bool:
+        agent = self._store.agent(mac)
+        last = agent["last_report_at"] if agent else None
+        return isinstance(last, datetime) and now - last <= AGENT_ONLINE_WINDOW
 
     def _process_query(
         self, q: DnsQuery, now: datetime, result: RunResult, *, evaluate: bool

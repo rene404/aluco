@@ -73,12 +73,12 @@
     </div>
     {% if events %}
     <ol class="timeline">
-      {% for e in events %}
+      {% for row in events %}{% set e = row.event %}
       <li>
         <time datetime="{{ e.at.isoformat() }}" title="{{ e.at | local }}">{{ rel(e.at) }}</time>
         <span class="dot dot-{{ tone(e) }}" aria-hidden="true"></span>
         <span class="tl-body">
-          {% if e.device_mac and e.device_mac in devices %}<a href="/devices/{{ e.device_mac }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}
+          <span>{% if e.device_mac and e.device_mac in devices %}<a href="/devices/{{ e.device_mac }}">{{ e.title }}</a>{% else %}{{ e.title }}{% endif %}{% if row.count > 1 %} <span class="repeat" title="{{ row.first_at | local }}">{{ _("{n}× seit {when}", n=row.count, when=rel(row.first_at)) }}</span>{% endif %}</span>
           {% if e.detail %}<span class="muted small">{{ e.detail }}</span>{% endif %}
         </span>
       </li>
