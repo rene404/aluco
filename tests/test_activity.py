@@ -53,6 +53,27 @@ def test_new_device_and_online_changes_are_recorded(store: Store) -> None:
     assert incident_event.device_mac == MAC_A
 
 
+def test_recent_agent_report_keeps_device_online(store: Store) -> None:
+    """Agent berichtet, Inventar sieht den Laptop nicht: kein "offline" alle 10 Minuten."""
+    from aluco.engine import AGENT_ONLINE_WINDOW
+
+    engine = Engine(store)
+    engine.process(sightings=[DeviceSighting(mac=MAC_A, at=T0, online=True)], now=T0)
+    store.add_agent(MAC_A, "hash", T0)
+    report = T0 + timedelta(minutes=5)
+    store.update_agent_report(MAC_A, report, "laptop", "macOS", {})
+    for minutes in (6, 16, 26):  # alle innerhalb des Fensters nach dem Bericht
+        at = report + timedelta(minutes=minutes - 5)
+        engine.process(sightings=[DeviceSighting(mac=MAC_A, at=at, online=False)], now=at)
+    assert EventKind.DEVICE_OFFLINE not in _kinds(store)
+    assert store.device(MAC_A).online is True  # type: ignore[union-attr]
+
+    late = report + AGENT_ONLINE_WINDOW + timedelta(minutes=1)  # Agent schweigt
+    engine.process(sightings=[DeviceSighting(mac=MAC_A, at=late, online=False)], now=late)
+    assert _kinds(store)[-1] is EventKind.DEVICE_OFFLINE
+    assert store.device(MAC_A).online is False  # type: ignore[union-attr]
+
+
 def test_manual_status_change_is_recorded(store: Store) -> None:
     engine = Engine(store)
     engine.process(sightings=[DeviceSighting(mac=MAC_A, at=T0)], now=T0)

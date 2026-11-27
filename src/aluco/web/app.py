@@ -304,7 +304,7 @@ def create_app(
             last_run_raw = s.cursor("runner:last_run")
             last_errors = [e for e in (s.cursor("runner:last_errors") or "").split("\n") if e]
             week = s.dns_hourly(since=now - timedelta(days=8))
-            events = s.events(limit=12, kinds=kinds)
+            events = views.collapse_events(s.events(limit=500, kinds=kinds), limit=12)
             top = s.top_devices(since=day_ago)
             top_blocked = s.top_blocked_domains(since=day_ago)
             # "Seit deinem letzten Besuch": ein Besuch endet nach 30 Min. Pause.
@@ -546,7 +546,7 @@ def create_app(
             rows = [] if device.is_company else s.dns_hourly(since=week_ago, mac=mac)
             domains = [] if device.is_company else s.device_domain_stats(mac, since=week_ago)
             items = [i for i in s.incidents() if i.device_mac == mac]
-            history = s.events(limit=10, device_mac=mac)
+            history = views.collapse_events(s.events(limit=200, device_mac=mac), limit=10)
             agent = s.agent(mac)
             host = s.host_items(mac) if agent else []
             block = s.block(mac)

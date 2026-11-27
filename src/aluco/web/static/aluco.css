@@ -278,6 +278,7 @@ g:hover .bar-allowed, g:hover .bar-blocked { opacity: .8; }
 .tl-body a { color: var(--text); text-decoration: none; font-weight: 500; }
 .tl-body a:hover { color: var(--accent); text-decoration: underline; }
 .timeline.compact time { width: 5.5rem; }
+.repeat { font: 500 .7rem/1.4 var(--font-mono); color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 .35rem; white-space: nowrap; }
 
 .toprow { display: flex; flex-direction: column; gap: .3rem; padding: .35rem 0; color: var(--text); text-decoration: none; }
 .toprow-head { display: flex; justify-content: space-between; gap: .5rem; font-size: .92rem; }
