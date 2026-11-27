@@ -54,7 +54,23 @@ Rule: disconnect only at the push of a button, with confirmation. The only autom
 | Private laptops | Small agent (osquery or own script) reports to the Aluco server; on the road via WireGuard. |
 | Company devices | Install nothing (IT policies, EDR). In the dashboard "Company – observe only": online/offline, data volume. Never block automatically, no data to the AI. With a company VPN, only the tunnel is visible anyway. |
 
-## Design V1 (as of 2026-11-19)
+## Design V2 (in progress, as of 2026-11-27)
+
+Dark theme only, inspired by the structure of a developer-conference style (stepped dark surfaces, lines instead of shadows, small radii, monospace labels). Colors keep their meaning: the accent stays blue, orange/red stay reserved for severity.
+
+| Role | Value |
+|---|---|
+| Page / surfaces | `#13131a` / `#1b1b24`, `#20202b`, `#2c2c38` |
+| Text / secondary / muted | `#f5f5f7` / `#c8c8d0` / `#9a9aa5` |
+| Accent (default) | `#7ea2f7` – configurable with `ALUCO_UI_ACCENT` |
+| OK | `#10b981` |
+| Radius | 4 px (small 3 px), no shadows, max width 1100 px |
+
+**Configurable accent:** `ALUCO_UI_ACCENT=#22d3ee` (hex). Aluco derives hover, tint and text-on-accent colors and serves them as `/theme.css` (the CSP forbids inline styles). A color with less than 4.5:1 contrast on the dark surface is rejected at startup. All color pairs in `aluco.css` are checked against WCAG AA by a test.
+
+Next steps: Geist / Geist Mono self-hosted and monospace for technical values; components (navigation, section labels, rows instead of cards).
+
+## Design V1 (as of 2026-11-19, light/dark – replaced by V2)
 
 Implemented in `src/aluco/web/` (dashboard v2). This version is the reference for further pages.
 

@@ -70,10 +70,11 @@ from aluco.quarantine import Blocker, QuarantineError, disconnect, release
 from aluco.store import Store
 from aluco.web import views
 from aluco.web.auth import LoginThrottle, Sessions, check_password
+from aluco.web.theme import Theme, ThemeError
 
 HERE = Path(__file__).parent
 COOKIE = "aluco_session"
-PUBLIC_PATHS = ("/login", "/static/", "/healthz")
+PUBLIC_PATHS = ("/login", "/static/", "/healthz", "/theme.css")
 AGENT_PATH = "/api/agent/"  # eigene Anmeldung per Token, kein Cookie → keine CSRF-Gefahr
 MAX_REPORT_BYTES = 1024 * 1024
 MIN_REPORT_INTERVAL = 30  # Sekunden zwischen zwei Berichten eines Agenten
@@ -130,6 +131,7 @@ class WebConfig:
     trust_proxy: bool = False
     language: str = "de"  # ALUCO_LANGUAGE: de | en
     agent: AgentSettings = field(default_factory=AgentSettings)
+    theme: Theme = field(default_factory=Theme)  # ALUCO_UI_ACCENT
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> WebConfig:
@@ -156,6 +158,7 @@ class WebConfig:
             ai=ai_settings_from_env(e),
             firewall=firewall_settings_from_env(e),
             agent=agent_settings_from_env(e),
+            theme=_theme(e.get("ALUCO_UI_ACCENT")),
             trust_proxy=e.get("ALUCO_WEB_TRUST_PROXY", "").lower() in {"1", "true", "yes"},
             language=_language(e.get("ALUCO_LANGUAGE")),
             allowed_hosts=tuple(
@@ -164,6 +167,13 @@ class WebConfig:
                 if h.strip()
             ),
         )
+
+
+def _theme(raw: str | None) -> Theme:
+    try:
+        return Theme.parse(raw)
+    except ThemeError as exc:
+        raise ConfigError(str(exc)) from exc
 
 
 def _language(raw: str | None) -> str:
@@ -272,6 +282,11 @@ def create_app(
 
     async def healthz(_: Request) -> Response:
         return PlainTextResponse("ok")
+
+    theme_css = cfg.theme.css()
+
+    async def theme(_: Request) -> Response:
+        return Response(theme_css, media_type="text/css", headers={"Cache-Control": "no-cache"})
 
     # --- Seiten -------------------------------------------------------------------
 
@@ -677,6 +692,7 @@ def create_app(
         Route("/login", login, methods=["POST"]),
         Route("/logout", logout, methods=["POST"]),
         Route("/healthz", healthz),
+        Route("/theme.css", theme),
         Route("/api/agent/report", agent_report, methods=["POST"]),
         Route("/", overview),
         Route("/incidents", incidents),
