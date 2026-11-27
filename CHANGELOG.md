@@ -5,6 +5,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 ## [Unreleased]
 
 ### Changed
+- **Dashboard design V2, part 1:** dark theme only with new surfaces, smaller radii and no shadows; all color pairs meet WCAG AA (checked by a test). The accent stays blue and is configurable with `ALUCO_UI_ACCENT` ([docs/dashboard-concept.md](docs/dashboard-concept.md)).
 - **Laptop agent – fewer false alarms for open ports (#57):** new ports are only learned for 24 h after the first report (`ALUCO_AGENT_LEARN_HOURS`); random ports of macOS system programs (`/System/`, `/usr/libexec/`, `/usr/sbin/`, `/usr/bin/`) are not reported while SIP is on; allow list `ALUCO_AGENT_PORT_ALLOW` for programs or single entries ([docs/laptop-agent.md](docs/laptop-agent.md)). Autostart entries and remote logins are reported as before.
 
 ## [0.4.3] – 2026-11-27
