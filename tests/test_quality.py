@@ -174,7 +174,7 @@ def test_window_uses_older_start_for_wait_but_does_not_count_it() -> None:
     assert (q.triggered, q.ignored, q.median_wait) == (0, 1, timedelta(days=1))
 
 
-def test_manual_reopen_restarts_the_wait() -> None:
+def test_revoked_decision_counts_only_the_last_one() -> None:
     history = [
         _entry(0, 1, H.OPENED),
         _entry(10, 1, status=S.IGNORED),
@@ -182,7 +182,31 @@ def test_manual_reopen_restarts_the_wait() -> None:
         _entry(130, 1, status=S.RESOLVED),
     ]
     [q] = rule_quality(history, T0)
-    assert q.median_wait == timedelta(minutes=20)  # Median von 10 und 30
+    assert (q.ignored, q.resolved, q.decided) == (0, 1, 1)
+    assert q.median_wait == timedelta(minutes=10)  # bis zur ersten Entscheidung
+
+
+def test_revoked_and_still_open_counts_no_decision() -> None:
+    history = [
+        _entry(0, 1, H.OPENED),
+        _entry(10, 1, status=S.IGNORED, ai="verdaechtig"),
+        _entry(20, 1, status=S.INVESTIGATING),  # zurückgenommen, noch offen
+    ]
+    [q] = rule_quality(history, T0)
+    assert (q.triggered, q.decided, q.ai_suspect_ignored) == (1, 0, 0)
+
+
+def test_real_world_case_is_no_longer_flagged() -> None:
+    """Stand lokal 2026-11-26: 5 × ignoriert, davon 4 zurückgenommen (2 dann erledigt,
+    2 wieder offen) – vorher 5 ignoriert/2 erledigt (71 %, "abgestumpft?")."""
+    history = [_entry(0, i, H.OPENED) for i in range(5)]
+    history += [_entry(10, i, status=S.IGNORED) for i in range(5)]
+    history += [_entry(20, i, status=S.NEW) for i in range(1, 5)]
+    history += [_entry(30, i, status=S.RESOLVED) for i in (1, 2)]
+    history.sort(key=lambda h: h.at)
+    [q] = rule_quality(history, T0)
+    assert (q.ignored, q.resolved) == (1, 2)
+    assert not q.flagged
 
 
 @pytest.mark.parametrize(
