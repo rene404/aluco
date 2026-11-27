@@ -143,7 +143,9 @@ h3 { font: 500 .72rem/1.4 var(--font-mono); text-transform: uppercase; letter-sp
 /* Abschnittsnummern im Stil "// 01" – reine Dekoration, per CSS-Zähler (keine Template-Änderung). */
 .page { counter-reset: section; }
 .card h2::before {
-  counter-increment: section; content: "// " counter(section, decimal-leading-zero) "  ";
+  counter-increment: section;
+  content: "// " counter(section, decimal-leading-zero) "  ";
+  content: "// " counter(section, decimal-leading-zero) "  " / "";  /* Screenreader: nicht vorlesen */
   font: 500 .72rem/1 var(--font-mono); letter-spacing: .06em; color: var(--muted); white-space: pre;
   vertical-align: .12em;
 }
