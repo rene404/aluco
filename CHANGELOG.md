@@ -2,7 +2,9 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.5.2] – 2026-11-27
+
+Bug fixes from a code review: laptop agent learning phase, DNS attribution for laptops away from home, timeline and port allow list. No change to the database schema.
 
 ### Fixed
 - **Laptop agent – learning phase could be skipped:** if the first report was empty (e.g. osquery without permissions yet) or a laptop came back after all its entries were deleted by the retention period, every port, autostart entry and login was reported as new. Now a report only learns as long as nothing is known about the laptop.
@@ -153,6 +155,7 @@ First version: software for **stage 0** (inventory + DNS log without rebuilding 
 - Dashboard without built-in HTTPS – a reverse proxy with TLS is recommended.
 - NetAlertX scan and continuous operation on the Raspberry Pi not yet tested.
 
+[0.5.2]: https://github.com/rene404/aluco/releases/tag/v0.5.2
 [0.5.1]: https://github.com/rene404/aluco/releases/tag/v0.5.1
 [0.5.0]: https://github.com/rene404/aluco/releases/tag/v0.5.0
 [0.4.3]: https://github.com/rene404/aluco/releases/tag/v0.4.3
