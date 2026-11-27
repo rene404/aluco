@@ -70,7 +70,7 @@ Dark theme only, inspired by the structure of a developer-conference style (step
 
 **Typography:** Geist for text, Geist Mono for labels (uppercase, letter-spacing 0.1 em), times and technical values (`.mono`: IP, MAC, hostname, domains, ports). Both are served from `static/fonts/` (variable fonts, SIL Open Font License) – no external requests.
 
-Next step: components (navigation, section labels, rows instead of cards).
+**Components:** navigation, buttons, filter chips and tags in uppercase monospace with square corners; the current page is marked by an accent line. Card headings carry a section number ("// 01", CSS counter – decoration only). Incidents are rows in one frame; open incidents have a severity bar on the left (red/orange/yellow).
 
 ## Design V1 (as of 2026-11-19, light/dark – replaced by V2)
 
