@@ -1,6 +1,6 @@
 # Laptop agent (osquery)
 
-As of: 2026-11-19 · for **private** Macs only – never install on company devices
+As of: 2026-11-27 · for **private** Macs only – never install on company devices
 
 Every 10 minutes, the agent runs fixed, **read-only** [osquery](https://osquery.io) queries and sends the result to Aluco. Aluco remembers what it knows and reports anything new as an incident.
 
@@ -12,6 +12,15 @@ Every 10 minutes, the agent runs fixed, **read-only** [osquery](https://osquery.
 | Firewall, FileVault, Gatekeeper, SIP | a basic security setting is off – resolved automatically as soon as it is back on | medium/high |
 
 The **first report only learns** (everything present counts as known). In the dashboard, the device detail shows a **Laptop** section.
+
+### Fewer false alarms for open ports
+
+macOS services do not all open their ports at once, and many programs use random ports. So that "new open port" does not become noise:
+
+- **Learning phase:** for `ALUCO_AGENT_LEARN_HOURS` (default 24) after the first report, new ports are only learned. Autostart entries and remote logins are reported from the second report on, as before.
+- **Random ports** (49152 and above) are grouped per program ("dynamic"): a new random port of a known program is not new.
+- **System programs:** random ports of programs under `/System/`, `/usr/libexec/`, `/usr/sbin/` and `/usr/bin/` are not reported – but only while SIP is on, because only then can these folders not be changed. Fixed ports (e.g. 68/udp) are still reported.
+- **Allow list:** `ALUCO_AGENT_PORT_ALLOW` (comma-separated) – a program name (`WhatsApp`) or an exact entry as shown in the incident (`5000/tcp ControlCenter`). Applies to all laptops.
 
 ## Setup
 

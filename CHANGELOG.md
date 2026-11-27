@@ -2,6 +2,22 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [0.5.0] – 2026-11-27
+
+New dashboard design (**V2**: dark only, green accent, Geist fonts) and fewer false alarms from the laptop agent. No change to the database schema.
+
+### Changed
+- **Dashboard design V2:** dark theme only with stepped surfaces, lines instead of shadows and small radii; all color pairs meet WCAG AA (checked by a test). Fonts **Geist** and **Geist Mono**, served locally (SIL Open Font License, ~140 KB). Navigation, buttons, filters and labels in uppercase monospace; technical values (IP, MAC, domains, ports) in monospace; numbered sections ("// 01"); incidents as rows in one frame with a severity bar; square tags. The owl logo is gone – the header shows the name only ([docs/dashboard-concept.md](docs/dashboard-concept.md)).
+- **Configurable accent:** green `#10b981` by default (blue before), changeable with `ALUCO_UI_ACCENT`. "Investigating" and info banners are neutral gray so that green keeps meaning "OK".
+- **Laptop agent – fewer false alarms for open ports (#57):** new ports are only learned for 24 h after the first report (`ALUCO_AGENT_LEARN_HOURS`); random ports of macOS system programs (`/System/`, `/usr/libexec/`, `/usr/sbin/`, `/usr/bin/`) are not reported while SIP is on; allow list `ALUCO_AGENT_PORT_ALLOW` for programs or single entries ([docs/laptop-agent.md](docs/laptop-agent.md)). Autostart entries and remote logins are reported as before.
+
+### Removed
+- **Light theme:** the dashboard no longer follows the system's light/dark setting.
+
+### Upgrade notes
+- New optional settings in `.env` (see `.env.example`): `ALUCO_UI_ACCENT`, `ALUCO_AGENT_LEARN_HOURS`, `ALUCO_AGENT_PORT_ALLOW`. Use `compose.yaml` from this release – it passes them to the dashboard container.
+- If `ALUCO_UI_ACCENT` is set to a color with less than 4.5:1 contrast on the dark background, the dashboard does not start and says why.
+
 ## [0.4.3] – 2026-11-27
 
 Bug fix for the rule quality and dependency updates, including **AdGuard Home v1.0.0**. No change to the database schema.
@@ -121,6 +137,7 @@ First version: software for **stage 0** (inventory + DNS log without rebuilding 
 - Dashboard without built-in HTTPS – a reverse proxy with TLS is recommended.
 - NetAlertX scan and continuous operation on the Raspberry Pi not yet tested.
 
+[0.5.0]: https://github.com/rene404/aluco/releases/tag/v0.5.0
 [0.4.3]: https://github.com/rene404/aluco/releases/tag/v0.4.3
 [0.4.2]: https://github.com/rene404/aluco/releases/tag/v0.4.2
 [0.4.1]: https://github.com/rene404/aluco/releases/tag/v0.4.1

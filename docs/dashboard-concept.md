@@ -54,23 +54,32 @@ Rule: disconnect only at the push of a button, with confirmation. The only autom
 | Private laptops | Small agent (osquery or own script) reports to the Aluco server; on the road via WireGuard. |
 | Company devices | Install nothing (IT policies, EDR). In the dashboard "Company – observe only": online/offline, data volume. Never block automatically, no data to the AI. With a company VPN, only the tunnel is visible anyway. |
 
-## Design V1 (as of 2026-11-19)
+## Design V2 (as of 2026-11-27)
 
-Implemented in `src/aluco/web/` (dashboard v2). This version is the reference for further pages.
+Implemented in `src/aluco/web/`. This version is the reference for further pages.
 
-**Pages:** Overview (situation, key figures, DNS chart 24 h/7 days, timeline, most active devices, most blocked domains) · Incidents (expandable cards with "Why it stands out", note, actions) · Devices (cards with online status, trust level, mini history, search/filter) · Device detail (activity 7 days, typical behavior, domains, settings, incidents, history).
+**Pages:** Overview (situation, key figures, DNS chart 24 h/7 days, timeline, most active devices, most blocked domains) · Incidents (expandable rows with "Why it stands out", note, actions) · Devices (cards with online status, trust level, mini history, search/filter) · Device detail (activity 7 days, typical behavior, domains, laptop agent, settings, incidents, history) · Rules (rule quality).
 
-**Colors (light / dark):**
+Dark theme only, inspired by the structure of a developer-conference style (stepped dark surfaces, lines instead of shadows, small radii, monospace labels). Colors keep their meaning: the accent is green (same green as "OK"), orange/red stay reserved for severity. "Investigating" and info banners are neutral gray so that green does not read as a status. No logo – the header shows the name "Aluco" only.
 
-| Role | Light | Dark |
-|---|---|---|
-| Accent | `#1d4ed8` | `#7ea2f7` |
-| Accent dark | `#1e3a8a` | `#b3c8fb` |
-| Accent background | `#dbe6fd` | `#1c2b4d` |
-| Page / surface | `#f3f5f7` / `#ffffff` | `#0f1318` / `#171c22` |
-| Text / secondary text | `#151a1f` / `#56606b` | `#e8edf2` / `#9aa5b1` |
-| Chart allowed / blocked | `#3b6ee0` / `#d9822b` | `#6f95ef` / `#e39a4f` |
+| Role | Value |
+|---|---|
+| Page / surfaces | `#13131a` / `#1b1b24`, `#20202b`, `#2c2c38` |
+| Text / secondary / muted | `#f5f5f7` / `#c8c8d0` / `#9a9aa5` |
+| Accent (default) | `#10b981` – configurable with `ALUCO_UI_ACCENT` |
+| OK, chart "allowed" | `#10b981` |
+| Radius | 4 px (small 3 px), no shadows, max width 1100 px |
 
-Color carries meaning only: orange/red = severity, green = online/resolved, gray = low/offline, teal = IoT, violet = AI. No emojis; the logo is the SVG owl.
+**Configurable accent:** `ALUCO_UI_ACCENT=#22d3ee` (hex). Aluco derives hover, tint and text-on-accent colors and serves them as `/theme.css` (the CSP forbids inline styles). A color with less than 4.5:1 contrast on the dark surface is rejected at startup. All color pairs in `aluco.css` are checked against WCAG AA by a test.
 
-**Technology:** server-side rendered (Jinja2), htmx bundled locally, charts as SVG attributes, no inline styles (strict CSP), colors as CSS variables in `static/aluco.css`.
+**Typography:** Geist for text, Geist Mono for labels (uppercase, letter-spacing 0.1 em), times and technical values (`.mono`: IP, MAC, hostname, domains, ports). Both are served from `static/fonts/` (variable fonts, SIL Open Font License) – no external requests.
+
+**Components:** navigation, buttons, filter chips and tags in uppercase monospace with square corners; the current page is marked by an accent line. Card headings carry a section number ("// 01", CSS counter, visual only – empty alternative text, so screen readers skip it). Incidents are rows in one frame; open incidents have a severity bar on the left (red/orange/yellow).
+
+**Color meaning:** green = accent and online/resolved, orange/red = severity, gray = low/offline/investigating, teal = IoT, violet = AI. No emojis.
+
+**Technology:** server-side rendered (Jinja2), htmx bundled locally, charts as SVG attributes, no inline styles (strict CSP), colors as CSS variables in `static/aluco.css` plus the generated `/theme.css` for the accent.
+
+## Design V1 (2026-11-19 – replaced by V2 in v0.5.0)
+
+Light and dark theme following the system setting, blue accent `#1d4ed8` (dark `#7ea2f7`), rounded cards (12 px), Inter / system fonts, owl logo. Replaced by V2 (decided 2026-11-27); the full V1 token table is in the git history of this file.
