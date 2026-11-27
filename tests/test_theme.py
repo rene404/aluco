@@ -81,3 +81,15 @@ def test_stylesheet_is_dark_only() -> None:
 def test_token_contrast_meets_wcag_aa(fg: str, bg: str) -> None:
     tokens = dict(re.findall(r"--([\w-]+):\s*(#[0-9a-f]{6})", CSS.read_text()))
     assert contrast(tokens[fg], tokens[bg]) >= MIN_CONTRAST
+
+
+def test_fonts_are_local_with_license(tmp_path: Path) -> None:
+    client = TestClient(create_app(WebConfig(db_path=tmp_path / "a.db", password="x" * 12)))
+    css = CSS.read_text()
+    for name in ("Geist-Variable.woff2", "GeistMono-Variable.woff2"):
+        assert f'url("fonts/{name}")' in css
+        r = client.get(f"/static/fonts/{name}")
+        assert r.status_code == 200 and r.content[:4] == b"wOF2"
+        assert r.headers["content-type"] == "font/woff2"
+    assert "SIL Open Font License" in (CSS.parent / "fonts/OFL.txt").read_text()
+    assert "http" not in re.sub(r"/\*.*?\*/", "", css, flags=re.S)  # keine externen Quellen

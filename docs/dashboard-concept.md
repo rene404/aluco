@@ -68,7 +68,9 @@ Dark theme only, inspired by the structure of a developer-conference style (step
 
 **Configurable accent:** `ALUCO_UI_ACCENT=#22d3ee` (hex). Aluco derives hover, tint and text-on-accent colors and serves them as `/theme.css` (the CSP forbids inline styles). A color with less than 4.5:1 contrast on the dark surface is rejected at startup. All color pairs in `aluco.css` are checked against WCAG AA by a test.
 
-Next steps: Geist / Geist Mono self-hosted and monospace for technical values; components (navigation, section labels, rows instead of cards).
+**Typography:** Geist for text, Geist Mono for labels (uppercase, letter-spacing 0.1 em), times and technical values (`.mono`: IP, MAC, hostname, domains, ports). Both are served from `static/fonts/` (variable fonts, SIL Open Font License) – no external requests.
+
+Next step: components (navigation, section labels, rows instead of cards).
 
 ## Design V1 (as of 2026-11-19, light/dark – replaced by V2)
 
