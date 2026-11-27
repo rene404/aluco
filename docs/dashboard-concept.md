@@ -54,7 +54,11 @@ Rule: disconnect only at the push of a button, with confirmation. The only autom
 | Private laptops | Small agent (osquery or own script) reports to the Aluco server; on the road via WireGuard. |
 | Company devices | Install nothing (IT policies, EDR). In the dashboard "Company – observe only": online/offline, data volume. Never block automatically, no data to the AI. With a company VPN, only the tunnel is visible anyway. |
 
-## Design V2 (in progress, as of 2026-11-27)
+## Design V2 (as of 2026-11-27)
+
+Implemented in `src/aluco/web/`. This version is the reference for further pages.
+
+**Pages:** Overview (situation, key figures, DNS chart 24 h/7 days, timeline, most active devices, most blocked domains) · Incidents (expandable rows with "Why it stands out", note, actions) · Devices (cards with online status, trust level, mini history, search/filter) · Device detail (activity 7 days, typical behavior, domains, laptop agent, settings, incidents, history) · Rules (rule quality).
 
 Dark theme only, inspired by the structure of a developer-conference style (stepped dark surfaces, lines instead of shadows, small radii, monospace labels). Colors keep their meaning: the accent is green (same green as "OK"), orange/red stay reserved for severity. "Investigating" and info banners are neutral gray so that green does not read as a status. No logo – the header shows the name "Aluco" only.
 
@@ -72,23 +76,10 @@ Dark theme only, inspired by the structure of a developer-conference style (step
 
 **Components:** navigation, buttons, filter chips and tags in uppercase monospace with square corners; the current page is marked by an accent line. Card headings carry a section number ("// 01", CSS counter, visual only – empty alternative text, so screen readers skip it). Incidents are rows in one frame; open incidents have a severity bar on the left (red/orange/yellow).
 
-## Design V1 (as of 2026-11-19, light/dark – replaced by V2)
+**Color meaning:** green = accent and online/resolved, orange/red = severity, gray = low/offline/investigating, teal = IoT, violet = AI. No emojis.
 
-Implemented in `src/aluco/web/` (dashboard v2). This version is the reference for further pages.
+**Technology:** server-side rendered (Jinja2), htmx bundled locally, charts as SVG attributes, no inline styles (strict CSP), colors as CSS variables in `static/aluco.css` plus the generated `/theme.css` for the accent.
 
-**Pages:** Overview (situation, key figures, DNS chart 24 h/7 days, timeline, most active devices, most blocked domains) · Incidents (expandable cards with "Why it stands out", note, actions) · Devices (cards with online status, trust level, mini history, search/filter) · Device detail (activity 7 days, typical behavior, domains, settings, incidents, history).
+## Design V1 (2026-11-19 – replaced by V2 in v0.5.0)
 
-**Colors (light / dark):**
-
-| Role | Light | Dark |
-|---|---|---|
-| Accent | `#1d4ed8` | `#7ea2f7` |
-| Accent dark | `#1e3a8a` | `#b3c8fb` |
-| Accent background | `#dbe6fd` | `#1c2b4d` |
-| Page / surface | `#f3f5f7` / `#ffffff` | `#0f1318` / `#171c22` |
-| Text / secondary text | `#151a1f` / `#56606b` | `#e8edf2` / `#9aa5b1` |
-| Chart allowed / blocked | `#3b6ee0` / `#d9822b` | `#6f95ef` / `#e39a4f` |
-
-Color carries meaning only: orange/red = severity, green = online/resolved, gray = low/offline, teal = IoT, violet = AI. No emojis; the logo is the SVG owl.
-
-**Technology:** server-side rendered (Jinja2), htmx bundled locally, charts as SVG attributes, no inline styles (strict CSP), colors as CSS variables in `static/aluco.css`.
+Light and dark theme following the system setting, blue accent `#1d4ed8` (dark `#7ea2f7`), rounded cards (12 px), Inter / system fonts, owl logo. Replaced by V2 (decided 2026-11-27); the full V1 token table is in the git history of this file.
