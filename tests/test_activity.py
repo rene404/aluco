@@ -74,6 +74,25 @@ def test_recent_agent_report_keeps_device_online(store: Store) -> None:
     assert store.device(MAC_A).online is False  # type: ignore[union-attr]
 
 
+def test_agent_laptop_away_from_lan_gets_no_dns_queries(store: Store) -> None:
+    """Review: Agent hält den Laptop "online" – seine alte IP darf trotzdem keine DNS-Anfragen
+    eines neuen Inhabers (DHCP, z. B. Firmengerät) mehr bekommen."""
+    engine = Engine(store)
+    engine.process(sightings=[DeviceSighting(mac=MAC_A, at=T0, ip=IP_A, online=True)], now=T0)
+    store.add_agent(MAC_A, "hash", T0)
+    store.update_agent_report(MAC_A, T0 + timedelta(minutes=5), "laptop", "macOS", {})
+    at = T0 + timedelta(minutes=10)
+    away = DeviceSighting(mac=MAC_A, at=at, ip=IP_A, online=False)
+    result = engine.process(
+        sightings=[away],
+        queries=[DnsQuery(at=at, client_ip=IP_A, domain="example.org")],
+        now=at,
+    )
+    device = store.device(MAC_A)
+    assert device is not None and device.online is True and device.ip is None
+    assert result.queries_unmatched == 1
+
+
 def test_manual_status_change_is_recorded(store: Store) -> None:
     engine = Engine(store)
     engine.process(sightings=[DeviceSighting(mac=MAC_A, at=T0)], now=T0)

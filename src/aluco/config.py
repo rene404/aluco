@@ -80,6 +80,12 @@ class FirewallSettings:
         return bool(self.url)
 
 
+def _allow_entry(item: str) -> str:
+    """Groß/klein egal; zufällige Ports auch als ``dynamic/tcp …`` (englische Oberfläche)."""
+    entry = " ".join(item.split()).casefold()
+    return "dynamisch/" + entry[len("dynamic/") :] if entry.startswith("dynamic/") else entry
+
+
 @dataclass(frozen=True, slots=True)
 class AgentSettings:
     """Laptop-Agent (#57): weniger Fehlalarme bei offenen Ports."""
@@ -88,6 +94,9 @@ class AgentSettings:
     learn_hours: int = DEFAULT_AGENT_LEARN_HOURS
     # Programme ("firefox") oder Einträge ("5000/tcp ControlCenter"), die nie gemeldet werden
     port_allow: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "port_allow", frozenset(map(_allow_entry, self.port_allow)))
 
 
 def agent_settings_from_env(env: Mapping[str, str] | None = None) -> AgentSettings:
@@ -100,9 +109,7 @@ def agent_settings_from_env(env: Mapping[str, str] | None = None) -> AgentSettin
     if not 0 <= hours <= 24 * 30:
         raise ConfigError("ALUCO_AGENT_LEARN_HOURS muss zwischen 0 und 720 liegen")
     allow = frozenset(
-        " ".join(item.split())
-        for item in (e.get("ALUCO_AGENT_PORT_ALLOW", "") or "").split(",")
-        if item.strip()
+        item for item in (e.get("ALUCO_AGENT_PORT_ALLOW", "") or "").split(",") if item.strip()
     )
     return AgentSettings(learn_hours=hours, port_allow=allow)
 

@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from aluco.model import Device, Event, EventKind, Incident, IncidentStatus, Severity
 from aluco.web import views
-from tests.conftest import MAC_A, T0
+from tests.conftest import MAC_A, MAC_B, T0
 
 TZ = ZoneInfo("Europe/Berlin")
 
@@ -133,3 +133,18 @@ def test_collapse_events_groups_repeats_in_a_row() -> None:
     assert rows[1].first_at is None
     assert len(views.collapse_events(events, limit=2)) == 2
     assert views.collapse_events([], limit=5) == []
+
+
+def test_collapse_events_groups_on_off_of_one_device() -> None:
+    """Review: ein Gerät, das ständig an- und abgeht, ergibt eine Zeile."""
+    on, off = EventKind.DEVICE_ONLINE, EventKind.DEVICE_OFFLINE
+    events = [
+        Event(id=None, at=T0 - timedelta(minutes=m), kind=k, title=t, device_mac=MAC_A)
+        for m, k, t in [(0, on, "L ist online"), (5, off, "L ist offline"),
+                        (10, on, "L ist online"), (15, off, "L ist offline")]
+    ] + [Event(id=None, at=T0 - timedelta(minutes=20), kind=off, title="B ist offline",
+               device_mac=MAC_B)]  # fmt: skip
+    rows = views.collapse_events(events, limit=10)
+    assert [(r.event.title, r.count, r.toggles) for r in rows] == [
+        ("L ist online", 4, True), ("B ist offline", 1, False),
+    ]  # fmt: skip
