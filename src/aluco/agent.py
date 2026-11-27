@@ -5,6 +5,10 @@ nur lesender osquery-Abfragen. Aluco merkt sich offene Ports, Autostart-Einträg
 Anmeldungen pro Gerät; Neues nach dem ersten Bericht wird ein Vorfall. Dazu werden die
 Sicherheitsgrundlagen geprüft (Firewall, FileVault, Gatekeeper, SIP).
 
+Gegen Fehlalarme bei offenen Ports (#57): Ports werden in den ersten Stunden nach dem ersten
+Bericht nur gelernt (Systemdienste öffnen nicht alle sofort einen Port), Zufallsports von
+macOS-Systemprogrammen nicht gemeldet, solange SIP an ist, und eine Ausnahmeliste greift.
+
 Nur für private Geräte: Firmengeräte können keinen Agenten haben.
 """
 
@@ -15,9 +19,10 @@ import ipaddress
 import re
 import secrets
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
+from aluco.config import AgentSettings
 from aluco.i18n import _
 from aluco.incidents import IncidentService
 from aluco.model import (
@@ -40,6 +45,8 @@ MAX_ROWS = 500  # pro Abschnitt
 MAX_VALUE = 500  # Zeichen pro Wert
 PROTOCOLS = {"6": "tcp", "17": "udp"}
 DYNAMIC_PORTS = 49152  # IANA: ab hier vergibt das System Ports zufällig
+# Von SIP geschützte Ordner: Programme darin kann ohne SIP-Abschaltung niemand ersetzen.
+SYSTEM_PATHS = ("/System/", "/usr/libexec/", "/usr/sbin/", "/usr/bin/")
 
 POSTURE_CHECKS: dict[str, tuple[str, Severity, str]] = {
     # Schlüssel: (Anzeigename, Schwere wenn aus, Erklärung)
@@ -190,11 +197,29 @@ class ReportResult:
     posture: dict[str, bool | None] = field(default_factory=dict)
 
 
+def quiet_port(data: dict[str, str], settings: AgentSettings, sip_on: bool | None) -> bool:
+    """Neuer Port, der nur gelernt und nicht gemeldet wird (#57)."""
+    key = f"{data['port']}/{data['protocol']} {data['program']}"
+    if key in settings.port_allow or data["program"] in settings.port_allow:
+        return True
+    return (
+        sip_on is True
+        and data["port"] == "dynamisch"
+        and data.get("path", "").startswith(SYSTEM_PATHS)
+    )
+
+
 def process_report(
-    store: Any, agent_mac: str, raw: Any, now: datetime | None = None
+    store: Any,
+    agent_mac: str,
+    raw: Any,
+    now: datetime | None = None,
+    settings: AgentSettings | None = None,
 ) -> ReportResult:
-    """Bericht übernehmen – in einer Transaktion. Erster Bericht = nur lernen."""
+    """Bericht übernehmen – in einer Transaktion. Erster Bericht = nur lernen; neue Ports
+    werden ``settings.learn_hours`` lang ab dem ersten Bericht nur gelernt."""
     now = now or utcnow()
+    settings = settings or AgentSettings()
     report = validate_report(raw)
     mac = normalize_mac(agent_mac)
     service = IncidentService(store)
@@ -205,6 +230,11 @@ def process_report(
         agent = store.agent(mac)
         learn_only = agent is None or agent["last_report_at"] is None
         result = ReportResult(device=device, learn_only=learn_only)
+        first = store.first_host_item(mac)  # Zeitpunkt des ersten Berichts
+        learn_ports = learn_only or (
+            first is not None and now < first + timedelta(hours=settings.learn_hours)
+        )
+        state = posture(report)
 
         groups = [
             ("port", ports(report), Severity.MEDIUM, _("Neuer offener Port")),
@@ -215,6 +245,8 @@ def process_report(
             for key, data in items.items():
                 is_new = store.upsert_host_item(mac, kind, key, data, now)
                 if not is_new or learn_only:
+                    continue
+                if kind == "port" and (learn_ports or quiet_port(data, settings, state["sip"])):
                     continue
                 if kind == "login" and data["remote"] != "true":
                     continue  # lokale Anmeldungen sind normal
@@ -229,7 +261,6 @@ def process_report(
                 )
                 _ingest(store, service, finding, now, result)
 
-        state = posture(report)
         result.posture = state
         for check, on in state.items():
             name, severity, text = POSTURE_CHECKS[check]

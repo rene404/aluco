@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- **Laptop agent – fewer false alarms for open ports (#57):** new ports are only learned for 24 h after the first report (`ALUCO_AGENT_LEARN_HOURS`); random ports of macOS system programs (`/System/`, `/usr/libexec/`, `/usr/sbin/`, `/usr/bin/`) are not reported while SIP is on; allow list `ALUCO_AGENT_PORT_ALLOW` for programs or single entries ([docs/laptop-agent.md](docs/laptop-agent.md)). Autostart entries and remote logins are reported as before.
+
 ## [0.4.3] – 2026-11-27
 
 Bug fix for the rule quality and dependency updates, including **AdGuard Home v1.0.0**. No change to the database schema.
