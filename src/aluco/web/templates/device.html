@@ -156,7 +156,7 @@
       {% if history %}
       <ol class="timeline compact">
         {% for row in history %}{% set e = row.event %}
-        <li><time datetime="{{ e.at.isoformat() }}" title="{{ e.at | local }}">{{ rel(e.at) }}</time><span class="dot dot-{{ tone(e) }}" aria-hidden="true"></span><span class="tl-body"><span>{{ e.title }}{% if row.count > 1 %} <span class="repeat" title="{{ row.first_at | local }}">{{ _("{n}× seit {when}", n=row.count, when=rel(row.first_at)) }}</span>{% endif %}</span></span></li>
+        <li><time datetime="{{ e.at.isoformat() }}" title="{{ e.at | local }}">{{ rel(e.at) }}</time><span class="dot dot-{{ tone(e) }}" aria-hidden="true"></span><span class="tl-body"><span>{{ e.title }}{% if row.count > 1 %} <span class="repeat" title="{{ row.first_at | local }}">{% if row.toggles %}{{ _("{n}× an/ab seit {when}", n=row.count, when=rel(row.first_at)) }}{% else %}{{ _("{n}× seit {when}", n=row.count, when=rel(row.first_at)) }}{% endif %}</span>{% endif %}</span></span></li>
         {% endfor %}
       </ol>
       {% else %}
