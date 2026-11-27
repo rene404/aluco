@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-DEFAULT_ACCENT = "#7ea2f7"  # Blau (V1-Akzent für dunkle Flächen)
+DEFAULT_ACCENT = "#10b981"  # Grün (Design V2)
 SURFACE = "#1b1b24"  # Kartenfläche – der Akzent muss darauf lesbar sein
 BACKGROUND = "#13131a"
 MIN_CONTRAST = 4.5  # WCAG AA für normalen Text (Links sind Akzent auf Fläche)

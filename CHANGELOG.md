@@ -5,9 +5,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versio
 ## [Unreleased]
 
 ### Changed
-- **Dashboard design V2, part 1:** dark theme only with new surfaces, smaller radii and no shadows; all color pairs meet WCAG AA (checked by a test). The accent stays blue and is configurable with `ALUCO_UI_ACCENT` ([docs/dashboard-concept.md](docs/dashboard-concept.md)).
+- **Dashboard design V2, part 1:** dark theme only with new surfaces, smaller radii and no shadows; all color pairs meet WCAG AA (checked by a test). The accent is green `#10b981` (blue before) and configurable with `ALUCO_UI_ACCENT` ([docs/dashboard-concept.md](docs/dashboard-concept.md)).
 - **Dashboard design V2, part 2:** fonts Geist and Geist Mono, served locally (SIL Open Font License, ~140 KB); labels, times and technical values (IP, MAC, domains, ports) in monospace.
-- **Dashboard design V2, part 3:** navigation, buttons, filters and labels as uppercase monospace; numbered sections ("// 01"); incidents as rows in one frame with a severity bar; square tags; long hostnames wrap.
+- **Dashboard design V2, part 3:** navigation, buttons, filters and labels as uppercase monospace; numbered sections ("// 01"); incidents as rows in one frame with a severity bar; square tags; long hostnames wrap. The owl logo is gone – the header shows the name only.
 - **Laptop agent – fewer false alarms for open ports (#57):** new ports are only learned for 24 h after the first report (`ALUCO_AGENT_LEARN_HOURS`); random ports of macOS system programs (`/System/`, `/usr/libexec/`, `/usr/sbin/`, `/usr/bin/`) are not reported while SIP is on; allow list `ALUCO_AGENT_PORT_ALLOW` for programs or single entries ([docs/laptop-agent.md](docs/laptop-agent.md)). Autostart entries and remote logins are reported as before.
 
 ## [0.4.3] – 2026-11-27
