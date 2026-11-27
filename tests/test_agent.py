@@ -276,6 +276,27 @@ def test_new_ports_are_only_learned_within_the_learning_window(laptop: Store) ->
     assert sorted(i.rule for i in laptop.incidents()) == ["agent_autostart", "agent_port"]
 
 
+def test_learning_starts_with_the_first_report_that_has_content(laptop: Store) -> None:
+    """Review: leerer erster Bericht (osquery ohne Rechte) darf das Lernen nicht überspringen."""
+    empty = report(listening_ports=[], autostart=[], logged_in_users=[])
+    assert process_report(laptop, MAC_A, empty, now=T0).learn_only
+    second = process_report(laptop, MAC_A, REPORT, now=T0 + timedelta(minutes=10))
+    assert second.learn_only and second.incidents == 0
+    r = _ports(_port("4444", "nc"))
+    within = process_report(laptop, MAC_A, r, now=T0 + timedelta(hours=2))
+    assert within.incidents == 0  # Lernzeitraum ab dem zweiten Bericht
+
+
+def test_relearns_after_all_items_were_purged(laptop: Store) -> None:
+    """Review: Laptop länger als die Aufbewahrungsfrist weg – keine Alarmflut bei Rückkehr."""
+    process_report(laptop, MAC_A, REPORT, now=T0)
+    back = T0 + timedelta(days=31)
+    laptop.purge_host_items(back - timedelta(days=30))
+    assert laptop.host_items(MAC_A) == []
+    r = process_report(laptop, MAC_A, _ports(_port("4444", "nc")), now=back, settings=NO_LEARN)
+    assert r.learn_only and r.incidents == 0 and laptop.host_items(MAC_A)
+
+
 def test_dynamic_ports_of_system_programs_are_quiet_only_with_sip(laptop: Store) -> None:
     process_report(laptop, MAC_A, REPORT, now=T0)
     later = T0 + timedelta(days=2)
@@ -308,6 +329,21 @@ def test_port_allow_list_by_program_or_entry(laptop: Store) -> None:
     assert result.incidents == 1
     [inc] = laptop.incidents()
     assert "5354/udp qemu" in inc.title
+
+
+def test_port_allow_list_ignores_case_and_accepts_english_dynamic(laptop: Store) -> None:
+    process_report(laptop, MAC_A, REPORT, now=T0)
+    allow = agent_settings_from_env(
+        {"ALUCO_AGENT_LEARN_HOURS": "0", "ALUCO_AGENT_PORT_ALLOW": "whatsapp, dynamic/udp Spotify"}
+    )
+    r = _ports(
+        _port("61000", "WhatsApp", "/Applications/WhatsApp.app/x"),
+        _port("62000", "Spotify", "/Applications/Spotify.app/x"),
+        _port("5000", "Spotify", "/Applications/Spotify.app/x"),
+    )
+    result = process_report(laptop, MAC_A, r, now=T0 + timedelta(days=2), settings=allow)
+    assert result.incidents == 1
+    assert "5000/udp Spotify" in laptop.incidents()[0].title  # fester Port: nicht erlaubt
 
 
 def test_agent_settings_from_env() -> None:

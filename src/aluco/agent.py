@@ -199,8 +199,8 @@ class ReportResult:
 
 def quiet_port(data: dict[str, str], settings: AgentSettings, sip_on: bool | None) -> bool:
     """Neuer Port, der nur gelernt und nicht gemeldet wird (#57)."""
-    key = f"{data['port']}/{data['protocol']} {data['program']}"
-    if key in settings.port_allow or data["program"] in settings.port_allow:
+    key = f"{data['port']}/{data['protocol']} {data['program']}".casefold()
+    if key in settings.port_allow or data["program"].casefold() in settings.port_allow:
         return True
     return (
         sip_on is True
@@ -228,9 +228,11 @@ def process_report(
         if device is None or device.is_company:
             raise AgentError("Gerät unbekannt oder Firmengerät – Agent nicht zulässig")
         agent = store.agent(mac)
-        learn_only = agent is None or agent["last_report_at"] is None
+        first = store.first_host_item(mac)  # Zeitpunkt des ersten Berichts mit Inhalt
+        # Nur lernen, solange nichts bekannt ist: erster Bericht, leere Berichte davor
+        # (z. B. osquery noch ohne Rechte) oder alles nach der Aufbewahrungsfrist gelöscht.
+        learn_only = agent is None or agent["last_report_at"] is None or first is None
         result = ReportResult(device=device, learn_only=learn_only)
-        first = store.first_host_item(mac)  # Zeitpunkt des ersten Berichts
         learn_ports = learn_only or (
             first is not None and now < first + timedelta(hours=settings.learn_hours)
         )

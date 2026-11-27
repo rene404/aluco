@@ -227,21 +227,31 @@ class EventRow:
     event: Event  # das neueste
     count: int = 1
     first_at: datetime | None = None  # das älteste der Gruppe (nur bei count > 1)
+    toggles: bool = False  # abwechselnd online/offline – count = Anzahl Wechsel
+
+
+_ON_OFF = (EventKind.DEVICE_ONLINE, EventKind.DEVICE_OFFLINE)
+
+
+def _group(e: Event) -> tuple[object, ...]:
+    if e.kind in _ON_OFF and e.device_mac:
+        return ("on/off", e.device_mac)  # an und ab desselben Geräts gehören zusammen
+    return (e.kind, e.device_mac, e.title)
 
 
 def collapse_events(events: list[Event], limit: int) -> list[EventRow]:
     """Gleiche Ereignisse in Folge (Art, Gerät, Titel) zu einer Zeile mit ×n bündeln.
 
-    ``events`` ist neueste zuerst. So verdrängt ein Gerät, das immer wieder an- und abgeht,
-    nicht alles andere aus der Chronik.
+    ``events`` ist neueste zuerst. Online- und Offline-Meldungen desselben Geräts zählen
+    als eine Gruppe, damit ein Gerät, das immer wieder an- und abgeht, nicht alles andere
+    aus der Chronik verdrängt.
     """
     rows: list[EventRow] = []
     for e in events:
         prev = rows[-1] if rows else None
-        if prev and (prev.event.kind, prev.event.device_mac, prev.event.title) == (
-            e.kind, e.device_mac, e.title,
-        ):  # fmt: skip
-            rows[-1] = EventRow(prev.event, prev.count + 1, e.at)
+        if prev and _group(prev.event) == _group(e):
+            toggles = prev.toggles or prev.event.kind is not e.kind
+            rows[-1] = EventRow(prev.event, prev.count + 1, e.at, toggles)
             continue
         if len(rows) == limit:
             break

@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Laptop agent – learning phase could be skipped:** if the first report was empty (e.g. osquery without permissions yet) or a laptop came back after all its entries were deleted by the retention period, every port, autostart entry and login was reported as new. Now a report only learns as long as nothing is known about the laptop.
+- **DNS queries for a laptop away from home:** a laptop that is kept "online" by its agent but is not seen on the network no longer keeps its old IP, so DNS queries from a new holder of that IP (DHCP, e.g. a company device) are not attributed to it.
+- **Timeline:** "online" and "offline" of the same device in a row are shown as one line ("n× on/off since …"), also for devices without an agent.
+- **Port allow list:** entries ignore upper/lower case, and random ports can also be written as `dynamic/tcp <program>`.
+
 ## [0.5.1] – 2026-11-27
 
 Bug fix: no more "offline" entries every 10 minutes for laptops with the agent, and a tidier timeline. No change to the database schema.
