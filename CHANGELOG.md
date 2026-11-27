@@ -2,7 +2,9 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.5.1] – 2026-11-27
+
+Bug fix: no more "offline" entries every 10 minutes for laptops with the agent, and a tidier timeline. No change to the database schema.
 
 ### Fixed
 - **Laptop "offline" every 10 minutes:** a device whose laptop agent reported within the last 25 minutes now counts as online even if the device inventory (NetAlertX) does not see it. Before, each agent report set it online silently and the next run reported "… is offline" again.
@@ -143,6 +145,7 @@ First version: software for **stage 0** (inventory + DNS log without rebuilding 
 - Dashboard without built-in HTTPS – a reverse proxy with TLS is recommended.
 - NetAlertX scan and continuous operation on the Raspberry Pi not yet tested.
 
+[0.5.1]: https://github.com/rene404/aluco/releases/tag/v0.5.1
 [0.5.0]: https://github.com/rene404/aluco/releases/tag/v0.5.0
 [0.4.3]: https://github.com/rene404/aluco/releases/tag/v0.4.3
 [0.4.2]: https://github.com/rene404/aluco/releases/tag/v0.4.2
