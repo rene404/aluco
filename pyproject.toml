@@ -1,6 +1,6 @@
 [project]
 name = "aluco"
-version = "0.4.3"
+version = "0.5.0"
 description = "Hausradar für dein Netz – Monitoring für Heimnetz und Laptops"
 readme = "README.md"
 license = "MIT"
