@@ -41,9 +41,11 @@ from aluco.adapters.base import AdapterError
 from aluco.agent import POSTURE_CHECKS, AgentError, hash_token, process_report
 from aluco.ai import AssessmentError, Assessor, assess_incident
 from aluco.config import (
+    AgentSettings,
     AiSettings,
     ConfigError,
     FirewallSettings,
+    agent_settings_from_env,
     ai_settings_from_env,
     db_path_from_env,
     firewall_settings_from_env,
@@ -127,6 +129,7 @@ class WebConfig:
     # Hinter Caddy: X-Forwarded-For/-Proto von 127.0.0.1 übernehmen (echte Client-IP).
     trust_proxy: bool = False
     language: str = "de"  # ALUCO_LANGUAGE: de | en
+    agent: AgentSettings = field(default_factory=AgentSettings)
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> WebConfig:
@@ -152,6 +155,7 @@ class WebConfig:
             timezone=tz,
             ai=ai_settings_from_env(e),
             firewall=firewall_settings_from_env(e),
+            agent=agent_settings_from_env(e),
             trust_proxy=e.get("ALUCO_WEB_TRUST_PROXY", "").lower() in {"1", "true", "yes"},
             language=_language(e.get("ALUCO_LANGUAGE")),
             allowed_hosts=tuple(
@@ -621,7 +625,7 @@ def create_app(
                 return JSONResponse({"error": "Zu häufig"}, status_code=429)
             last_report[mac] = now_mono
             try:
-                result = process_report(s, mac, json.loads(body))
+                result = process_report(s, mac, json.loads(body), settings=cfg.agent)
             except (AgentError, ValueError) as e:
                 return JSONResponse({"error": str(e)}, status_code=400)
         return JSONResponse(

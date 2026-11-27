@@ -683,6 +683,13 @@ class Store:
         )
         return False
 
+    def first_host_item(self, mac: str) -> datetime | None:
+        """Wann zum ersten Mal etwas von diesem Gerät gemeldet wurde (= erster Bericht)."""
+        row = self._db.execute(
+            "SELECT MIN(first_seen) FROM host_items WHERE device_mac = ?", (mac,)
+        ).fetchone()
+        return _dt(row[0]) if row and row[0] else None
+
     def host_items(
         self, mac: str, kind: str | None = None, seen_since: datetime | None = None
     ) -> list[dict[str, object]]:

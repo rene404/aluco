@@ -12,6 +12,7 @@ from aluco.model import Severity
 DEFAULT_DB_PATH = Path("data/aluco/aluco.db")
 DEFAULT_INTERVAL_SECONDS = 300
 DEFAULT_RETENTION_DAYS = 30
+DEFAULT_AGENT_LEARN_HOURS = 24
 
 
 class ConfigError(ValueError):
@@ -77,6 +78,33 @@ class FirewallSettings:
     @property
     def enabled(self) -> bool:
         return bool(self.url)
+
+
+@dataclass(frozen=True, slots=True)
+class AgentSettings:
+    """Laptop-Agent (#57): weniger Fehlalarme bei offenen Ports."""
+
+    # so lange nach dem ersten Bericht werden neue Ports nur gelernt
+    learn_hours: int = DEFAULT_AGENT_LEARN_HOURS
+    # Programme ("firefox") oder Einträge ("5000/tcp ControlCenter"), die nie gemeldet werden
+    port_allow: frozenset[str] = frozenset()
+
+
+def agent_settings_from_env(env: Mapping[str, str] | None = None) -> AgentSettings:
+    e = os.environ if env is None else env
+    raw = (e.get("ALUCO_AGENT_LEARN_HOURS", "") or "").strip()
+    try:
+        hours = int(raw) if raw else DEFAULT_AGENT_LEARN_HOURS
+    except ValueError as exc:
+        raise ConfigError("ALUCO_AGENT_LEARN_HOURS muss eine Zahl sein") from exc
+    if not 0 <= hours <= 24 * 30:
+        raise ConfigError("ALUCO_AGENT_LEARN_HOURS muss zwischen 0 und 720 liegen")
+    allow = frozenset(
+        " ".join(item.split())
+        for item in (e.get("ALUCO_AGENT_PORT_ALLOW", "") or "").split(",")
+        if item.strip()
+    )
+    return AgentSettings(learn_hours=hours, port_allow=allow)
 
 
 def firewall_settings_from_env(env: Mapping[str, str] | None = None) -> FirewallSettings:

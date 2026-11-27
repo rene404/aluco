@@ -14,6 +14,7 @@ from starlette.testclient import TestClient
 from aluco.__main__ import main
 from aluco.agent import AgentError, hash_token, new_token, process_report, validate_report
 from aluco.ai import build_context
+from aluco.config import AgentSettings, ConfigError, agent_settings_from_env
 from aluco.devices import set_trust
 from aluco.model import Device, IncidentStatus, TrustLevel
 from aluco.store import Store
@@ -40,6 +41,9 @@ REPORT: dict[str, Any] = {
     "gatekeeper": [{"assessments_enabled": "1"}],
     "sip": [{"enabled": "1"}],
 }  # fmt: skip
+
+
+NO_LEARN = AgentSettings(learn_hours=0)  # nur der erste Bericht lernt
 
 
 @pytest.fixture
@@ -95,7 +99,7 @@ def test_first_report_learns_then_new_items_become_incidents(laptop: Store) -> N
         {"label": "com.evil.persist", "path": "/Users/anna/Library/LaunchAgents/x.plist"}
     )
     r["logged_in_users"].append({"user": "anna", "type": "user", "host": "192.0.2.66"})
-    second = process_report(laptop, MAC_A, r, now=later)
+    second = process_report(laptop, MAC_A, r, now=later, settings=NO_LEARN)
     assert not second.learn_only and second.incidents == 3
     rules = sorted(i.rule for i in laptop.incidents())
     assert rules == ["agent_autostart", "agent_login", "agent_port"]
@@ -223,7 +227,11 @@ def test_dynamic_ports_are_grouped_per_program(laptop: Store) -> None:
 
     process_report(laptop, MAC_A, with_ports("55825", "443"), now=T0)
     r = process_report(
-        laptop, MAC_A, with_ports("61234", "54219", "443"), now=T0 + timedelta(minutes=10)
+        laptop,
+        MAC_A,
+        with_ports("61234", "54219", "443"),
+        now=T0 + timedelta(minutes=10),
+        settings=NO_LEARN,
     )
     assert r.incidents == 0  # neue Zufallsports desselben Programms: kein Alarm
     keys = {i["key"] for i in laptop.host_items(MAC_A, kind="port")}
@@ -237,5 +245,84 @@ def test_dynamic_ports_are_grouped_per_program(laptop: Store) -> None:
             ]
         ),
         now=T0 + timedelta(minutes=20),
+        settings=NO_LEARN,
     )
     assert r2.incidents == 1  # neues Programm mit Zufallsport: ein Alarm
+
+
+# --- Weniger Fehlalarme bei Ports (#57) -------------------------------------------
+
+
+def _port(port: str, name: str, path: str = "", proto: str = "17") -> dict[str, str]:
+    return {"port": port, "protocol": proto, "address": "0.0.0.0", "name": name, "path": path}
+
+
+def _ports(*rows: dict[str, str], **changes: Any) -> dict[str, Any]:
+    return report(listening_ports=[*REPORT["listening_ports"], *rows], **changes)
+
+
+def test_new_ports_are_only_learned_within_the_learning_window(laptop: Store) -> None:
+    process_report(laptop, MAC_A, REPORT, now=T0)
+    r = _ports(_port("60000", "rapportd-like", "/Applications/X.app/x"))
+    r["autostart"].append({"label": "com.evil.persist", "path": "/Users/a/Library/x.plist"})
+    early = process_report(laptop, MAC_A, r, now=T0 + timedelta(hours=2))
+    # Port nur gelernt, neuer Autostart-Eintrag trotzdem gemeldet (Lernphase nur für Ports)
+    assert [i.rule for i in laptop.incidents()] == ["agent_autostart"] and early.incidents == 1
+    assert "dynamisch/udp rapportd-like" in {i["key"] for i in laptop.host_items(MAC_A, "port")}
+
+    r2 = _ports(_port("60000", "rapportd-like", "/Applications/X.app/x"), _port("4444", "nc"))
+    late = process_report(laptop, MAC_A, r2, now=T0 + timedelta(hours=25))
+    assert late.incidents == 1
+    assert sorted(i.rule for i in laptop.incidents()) == ["agent_autostart", "agent_port"]
+
+
+def test_dynamic_ports_of_system_programs_are_quiet_only_with_sip(laptop: Store) -> None:
+    process_report(laptop, MAC_A, REPORT, now=T0)
+    later = T0 + timedelta(days=2)
+    sharingd = _port("61000", "sharingd", "/usr/libexec/sharingd")
+    r = process_report(laptop, MAC_A, _ports(sharingd), now=later, settings=NO_LEARN)
+    assert r.incidents == 0  # Zufallsport eines Systemprogramms, SIP an
+
+    fixed = _port("68", "configd", "/usr/libexec/configd")
+    r = process_report(laptop, MAC_A, _ports(sharingd, fixed), now=later, settings=NO_LEARN)
+    assert r.incidents == 1  # feste Ports werden weiter gemeldet
+
+    homed = _port("62000", "homed", "/usr/libexec/homed")
+    r = process_report(
+        laptop, MAC_A, _ports(homed, sip=[{"enabled": "0"}]), now=later, settings=NO_LEARN
+    )
+    rules = sorted(i.rule for i in laptop.incidents())
+    assert rules == ["agent_port", "agent_port", "agent_posture"]  # ohne SIP kein Vertrauen
+    assert any("homed" in i.title for i in laptop.incidents())
+
+
+def test_port_allow_list_by_program_or_entry(laptop: Store) -> None:
+    process_report(laptop, MAC_A, REPORT, now=T0)
+    allow = AgentSettings(learn_hours=0, port_allow=frozenset({"WhatsApp", "5353/udp qemu"}))
+    r = _ports(
+        _port("61000", "WhatsApp", "/Applications/WhatsApp.app/x"),
+        _port("5353", "qemu"),
+        _port("5354", "qemu"),
+    )
+    result = process_report(laptop, MAC_A, r, now=T0 + timedelta(days=2), settings=allow)
+    assert result.incidents == 1
+    [inc] = laptop.incidents()
+    assert "5354/udp qemu" in inc.title
+
+
+def test_agent_settings_from_env() -> None:
+    assert agent_settings_from_env({}) == AgentSettings()
+    s = agent_settings_from_env(
+        {"ALUCO_AGENT_LEARN_HOURS": "0", "ALUCO_AGENT_PORT_ALLOW": " firefox, 5000/tcp  Ctl ,,"}
+    )
+    assert s == AgentSettings(learn_hours=0, port_allow=frozenset({"firefox", "5000/tcp Ctl"}))
+    for bad in ("x", "-1", "721"):
+        with pytest.raises(ConfigError, match="ALUCO_AGENT_LEARN_HOURS"):
+            agent_settings_from_env({"ALUCO_AGENT_LEARN_HOURS": bad})
+
+
+def test_web_config_reads_agent_settings() -> None:
+    cfg = WebConfig.from_env(
+        {"ALUCO_DASHBOARD_PASSWORD": "x" * 12, "ALUCO_AGENT_PORT_ALLOW": "firefox"}
+    )
+    assert cfg.agent.port_allow == frozenset({"firefox"}) and cfg.agent.learn_hours == 24
