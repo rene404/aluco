@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Rule quality:** a decision that was taken back by hand (e.g. "ignored", then reopened and resolved) no longer counts as ignored. Per incident only the last decision counts until the finding occurs again; the time to decision runs until the first one. Previously a rule could be marked "desensitized?" by mistake.
+
 ## [0.4.2] – 2026-11-25
 
 Documentation release – no changes to the software or the database.

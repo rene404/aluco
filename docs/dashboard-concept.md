@@ -29,9 +29,9 @@ From the start: severities and a "known / ignore" button, otherwise you become d
 Whether you are becoming desensitized is shown on the **Rules** page (`/rules`): per rule, for 30 or 90 days
 
 - **triggered:** new incidents, plus "+n" for resolved findings that occurred again;
-- **ignored / resolved / disconnected:** manual decisions only. Automatically resolved incidents (security setting back on according to the agent) are shown next to them as "+n auto" and do not count;
+- **ignored / resolved / disconnected:** manual decisions only. Automatically resolved incidents (security setting back on according to the agent) are shown next to them as "+n auto" and do not count. Per incident, only the last decision counts until the finding occurs again – an "ignore" that is taken back (reopened, then resolved) counts as resolved, one that is taken back and still open counts as nothing;
 - **ignore rate:** ignored ÷ (ignored + resolved + disconnected). Above 70 % with at least 3 decisions, the rule is marked as "desensitized?" and collected at the top;
-- **time to decision:** median from occurrence (or reopening) to decision;
+- **time to decision:** median from occurrence (or reoccurrence) to the first decision;
 - **AI off the mark:** how often the AI said "suspicious" and the incident was ignored anyway, or "harmless" and the device was disconnected anyway.
 
 It is based on a separate history (`incident_history`) with only rule, time, status and AI verdict – without device, domain or title. That is why it is kept for 400 days, even though resolved incidents are deleted after the retention period (30 days). When updating to schema v6, existing incidents are taken over as "triggered"; earlier decisions cannot be reconstructed. The MCP server provides the same numbers with `rule_quality`.
