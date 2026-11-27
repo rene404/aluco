@@ -220,6 +220,35 @@ EVENT_GROUPS: dict[str, frozenset[EventKind]] = {
 }
 
 
+@dataclass(frozen=True, slots=True)
+class EventRow:
+    """Eine Zeile der Chronik: gleiche Ereignisse direkt hintereinander zusammengefasst."""
+
+    event: Event  # das neueste
+    count: int = 1
+    first_at: datetime | None = None  # das älteste der Gruppe (nur bei count > 1)
+
+
+def collapse_events(events: list[Event], limit: int) -> list[EventRow]:
+    """Gleiche Ereignisse in Folge (Art, Gerät, Titel) zu einer Zeile mit ×n bündeln.
+
+    ``events`` ist neueste zuerst. So verdrängt ein Gerät, das immer wieder an- und abgeht,
+    nicht alles andere aus der Chronik.
+    """
+    rows: list[EventRow] = []
+    for e in events:
+        prev = rows[-1] if rows else None
+        if prev and (prev.event.kind, prev.event.device_mac, prev.event.title) == (
+            e.kind, e.device_mac, e.title,
+        ):  # fmt: skip
+            rows[-1] = EventRow(prev.event, prev.count + 1, e.at)
+            continue
+        if len(rows) == limit:
+            break
+        rows.append(EventRow(e))
+    return rows
+
+
 def event_tone(e: Event) -> str:
     """CSS-Ton für den Punkt in der Chronik."""
     if e.kind is EventKind.INCIDENT and e.severity is not None:

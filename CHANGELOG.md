@@ -2,6 +2,12 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Laptop "offline" every 10 minutes:** a device whose laptop agent reported within the last 25 minutes now counts as online even if the device inventory (NetAlertX) does not see it. Before, each agent report set it online silently and the next run reported "… is offline" again.
+- **Timeline:** identical entries in a row are shown as one line with "n× since …", so a flapping device no longer pushes everything else out (overview and device history).
+
 ## [0.5.0] – 2026-11-27
 
 New dashboard design (**V2**: dark only, green accent, Geist fonts) and fewer false alarms from the laptop agent. No change to the database schema.
