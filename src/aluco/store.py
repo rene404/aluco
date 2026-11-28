@@ -22,7 +22,7 @@ from aluco.model import (
     TrustLevel,
 )
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS devices (
@@ -197,9 +197,21 @@ UPDATE events SET tag = 'released'
     WHERE kind = 'incident_status' AND title LIKE '% wieder freigegeben';
 """
 
+# v8: Laptop-Agent – welche Arten (port, autostart, login) seit wann gelernt sind.
+# Bestehende Agenten: ab dem ersten gespeicherten Eintrag jeder Art.
+_SCHEMA_V8 = """
+ALTER TABLE agents ADD COLUMN learned TEXT NOT NULL DEFAULT '{}';
+UPDATE agents SET learned = COALESCE((
+    SELECT json_group_object(kind, first) FROM (
+        SELECT device_mac, kind, MIN(first_seen) AS first FROM host_items
+        GROUP BY device_mac, kind
+    ) AS k WHERE k.device_mac = agents.device_mac
+), '{}');
+"""
+
 _MIGRATIONS = {
     1: _SCHEMA, 2: _SCHEMA_V2, 3: _SCHEMA_V3, 4: _SCHEMA_V4, 5: _SCHEMA_V5, 6: _SCHEMA_V6,
-    7: _SCHEMA_V7,
+    7: _SCHEMA_V7, 8: _SCHEMA_V8,
 }  # fmt: skip
 
 
@@ -683,12 +695,10 @@ class Store:
         )
         return False
 
-    def first_host_item(self, mac: str) -> datetime | None:
-        """Wann zum ersten Mal etwas von diesem Gerät gemeldet wurde (= erster Bericht)."""
-        row = self._db.execute(
-            "SELECT MIN(first_seen) FROM host_items WHERE device_mac = ?", (mac,)
-        ).fetchone()
-        return _dt(row[0]) if row and row[0] else None
+    def set_agent_learned(self, mac: str, learned: dict[str, datetime]) -> None:
+        """Arten, deren Bestand gelernt ist – mit Zeitpunkt (Beginn des Lernzeitraums)."""
+        payload = json.dumps({k: _ts(v) for k, v in learned.items()}, sort_keys=True)
+        self._db.execute("UPDATE agents SET learned = ? WHERE device_mac = ?", (payload, mac))
 
     def host_items(
         self, mac: str, kind: str | None = None, seen_since: datetime | None = None
@@ -714,8 +724,14 @@ class Store:
         ]
 
     def purge_host_items(self, older_than: datetime) -> int:
+        """Nur Einträge löschen, die in einem späteren Bericht fehlten (wirklich weg). Ist ein
+        Laptop bloß länger nicht da, bleibt sein Bestand – sonst wäre bei der Rückkehr alles
+        "neu" (Alarmflut) oder müsste still neu gelernt werden (Lücke)."""
         return self._db.execute(
-            "DELETE FROM host_items WHERE last_seen < ?", (_ts(older_than),)
+            "DELETE FROM host_items WHERE last_seen < ? AND last_seen < COALESCE(("
+            "SELECT last_report_at FROM agents a WHERE a.device_mac = host_items.device_mac"
+            "), '9999')",
+            (_ts(older_than),),
         ).rowcount
 
     # --- Getrennte Geräte (Firewall) -----------------------------------------------
@@ -833,6 +849,7 @@ def _agent(r: sqlite3.Row) -> dict[str, object]:
         "hostname": r["hostname"],
         "os": r["os"],
         "posture": json.loads(r["posture"]),
+        "learned": {k: _dt(v) for k, v in json.loads(r["learned"]).items()},
     }
 
 

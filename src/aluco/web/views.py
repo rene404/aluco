@@ -225,12 +225,13 @@ class EventRow:
     """Eine Zeile der Chronik: gleiche Ereignisse direkt hintereinander zusammengefasst."""
 
     event: Event  # das neueste
-    count: int = 1
+    count: int = 1  # Anzahl Ereignisse in der Zeile
     first_at: datetime | None = None  # das älteste der Gruppe (nur bei count > 1)
-    toggles: bool = False  # abwechselnd online/offline – count = Anzahl Wechsel
+    toggles: bool = False  # abwechselnd online/offline
 
 
 _ON_OFF = (EventKind.DEVICE_ONLINE, EventKind.DEVICE_OFFLINE)
+MIN_TOGGLES = 3  # ein einzelner Wechsel (an … ab) bleibt als zwei Zeilen sichtbar
 
 
 def _group(e: Event) -> tuple[object, ...]:
@@ -243,20 +244,32 @@ def collapse_events(events: list[Event], limit: int) -> list[EventRow]:
     """Gleiche Ereignisse in Folge (Art, Gerät, Titel) zu einer Zeile mit ×n bündeln.
 
     ``events`` ist neueste zuerst. Online- und Offline-Meldungen desselben Geräts zählen
-    als eine Gruppe, damit ein Gerät, das immer wieder an- und abgeht, nicht alles andere
-    aus der Chronik verdrängt.
+    ab drei in Folge als eine Gruppe, damit ein Gerät, das immer wieder an- und abgeht,
+    nicht alles andere aus der Chronik verdrängt.
     """
     rows: list[EventRow] = []
+    run: list[Event] = []
+
+    def flush() -> None:
+        toggles = len({e.kind for e in run}) > 1
+        if toggles and len(run) < MIN_TOGGLES:
+            rows.extend(EventRow(e) for e in run)
+        elif len(run) > 1:
+            rows.append(EventRow(run[0], len(run), run[-1].at, toggles))
+        else:
+            rows.append(EventRow(run[0]))
+
     for e in events:
-        prev = rows[-1] if rows else None
-        if prev and _group(prev.event) == _group(e):
-            toggles = prev.toggles or prev.event.kind is not e.kind
-            rows[-1] = EventRow(prev.event, prev.count + 1, e.at, toggles)
-            continue
-        if len(rows) == limit:
-            break
-        rows.append(EventRow(e))
-    return rows
+        if run and _group(run[-1]) != _group(e):
+            flush()
+            run = []
+            if len(rows) >= limit:
+                break
+        run.append(e)
+    else:
+        if run:
+            flush()
+    return rows[:limit]
 
 
 def event_tone(e: Event) -> str:
