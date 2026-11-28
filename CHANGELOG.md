@@ -2,7 +2,7 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.6.0] – 2026-11-28
 
 Fixes for the v0.5.2 fixes, from a second code review. **Database schema v8** (migrated automatically).
 
@@ -169,6 +169,7 @@ First version: software for **stage 0** (inventory + DNS log without rebuilding 
 - Dashboard without built-in HTTPS – a reverse proxy with TLS is recommended.
 - NetAlertX scan and continuous operation on the Raspberry Pi not yet tested.
 
+[0.6.0]: https://github.com/rene404/aluco/releases/tag/v0.6.0
 [0.5.2]: https://github.com/rene404/aluco/releases/tag/v0.5.2
 [0.5.1]: https://github.com/rene404/aluco/releases/tag/v0.5.1
 [0.5.0]: https://github.com/rene404/aluco/releases/tag/v0.5.0
