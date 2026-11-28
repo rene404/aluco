@@ -260,6 +260,7 @@ def test_migration_v7_classifies_existing_german_events(tmp_path: Path) -> None:
             "INSERT INTO events (at, kind, title) VALUES ('2026-11-20T10:00:00+00:00', ?, ?)",
             (kind, title),
         )
+    db.execute("ALTER TABLE agents DROP COLUMN learned")  # v8
     db.execute("PRAGMA user_version = 6")
     db.commit()
     db.close()

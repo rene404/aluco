@@ -276,25 +276,38 @@ def test_new_ports_are_only_learned_within_the_learning_window(laptop: Store) ->
     assert sorted(i.rule for i in laptop.incidents()) == ["agent_autostart", "agent_port"]
 
 
-def test_learning_starts_with_the_first_report_that_has_content(laptop: Store) -> None:
-    """Review: leerer erster Bericht (osquery ohne Rechte) darf das Lernen nicht überspringen."""
+def test_each_kind_is_learned_with_its_first_entries(laptop: Store) -> None:
+    """Review: leere oder halbe Berichte (osquery noch ohne Rechte) beenden das Lernen nur
+    für die Arten, die schon Einträge hatten."""
     empty = report(listening_ports=[], autostart=[], logged_in_users=[])
     assert process_report(laptop, MAC_A, empty, now=T0).learn_only
-    second = process_report(laptop, MAC_A, REPORT, now=T0 + timedelta(minutes=10))
-    assert second.learn_only and second.incidents == 0
+    half = report(listening_ports=[], autostart=[])  # nur die lokale Anmeldung
+    assert process_report(laptop, MAC_A, half, now=T0 + timedelta(minutes=10)).learn_only
+    full = process_report(laptop, MAC_A, REPORT, now=T0 + timedelta(minutes=20))
+    assert not full.learn_only and full.incidents == 0  # Ports/Autostart: Bestand gelernt
     r = _ports(_port("4444", "nc"))
+    r["autostart"].append({"label": "com.evil.persist", "path": "/Users/a/Library/x.plist"})
     within = process_report(laptop, MAC_A, r, now=T0 + timedelta(hours=2))
-    assert within.incidents == 0  # Lernzeitraum ab dem zweiten Bericht
+    assert [i.rule for i in laptop.incidents()] == ["agent_autostart"] and within.incidents == 1
+    learned = laptop.agent(MAC_A)["learned"]  # type: ignore[index]
+    assert learned["port"] == T0 + timedelta(minutes=20)  # Lernzeitraum ab hier
 
 
-def test_relearns_after_all_items_were_purged(laptop: Store) -> None:
-    """Review: Laptop länger als die Aufbewahrungsfrist weg – keine Alarmflut bei Rückkehr."""
+def test_long_absence_keeps_items_and_reports_what_is_new(laptop: Store) -> None:
+    """Review: Laptop länger als die Aufbewahrungsfrist weg – sein Bestand bleibt, bei der
+    Rückkehr wird nur wirklich Neues gemeldet (keine Flut, keine stille Lücke)."""
     process_report(laptop, MAC_A, REPORT, now=T0)
+    gone = report(autostart=[])  # Autostart-Eintrag entfernt …
+    process_report(laptop, MAC_A, gone, now=T0 + timedelta(hours=1))
     back = T0 + timedelta(days=31)
     laptop.purge_host_items(back - timedelta(days=30))
-    assert laptop.host_items(MAC_A) == []
-    r = process_report(laptop, MAC_A, _ports(_port("4444", "nc")), now=back, settings=NO_LEARN)
-    assert r.learn_only and r.incidents == 0 and laptop.host_items(MAC_A)
+    kinds = {i["kind"] for i in laptop.host_items(MAC_A)}
+    assert kinds == {"port", "login"}  # … nur der wirklich verschwundene ist gelöscht
+    r = _ports(_port("4444", "nc"))
+    r["autostart"] = [{"label": "com.evil.persist", "path": "/Users/a/Library/x.plist"}]
+    result = process_report(laptop, MAC_A, r, now=back, settings=NO_LEARN)
+    assert sorted(i.rule for i in laptop.incidents()) == ["agent_autostart", "agent_port"]
+    assert result.incidents == 2
 
 
 def test_dynamic_ports_of_system_programs_are_quiet_only_with_sip(laptop: Store) -> None:
@@ -362,3 +375,17 @@ def test_web_config_reads_agent_settings() -> None:
         {"ALUCO_DASHBOARD_PASSWORD": "x" * 12, "ALUCO_AGENT_PORT_ALLOW": "firefox"}
     )
     assert cfg.agent.port_allow == frozenset({"firefox"}) and cfg.agent.learn_hours == 24
+
+
+def test_migration_v8_marks_kinds_with_items_as_learned(tmp_path: Path) -> None:
+    path = tmp_path / "old.db"
+    s = Store(path)
+    s.save_device(Device(mac=MAC_A, first_seen=T0, last_seen=T0, name="Laptop"))
+    s.add_agent(MAC_A, hash_token("x" * 30), T0)
+    process_report(s, MAC_A, report(autostart=[]), now=T0)
+    s._db.execute("ALTER TABLE agents DROP COLUMN learned")
+    s._db.execute("PRAGMA user_version = 7")
+    s.close()
+    s = Store(path)
+    assert s.agent(MAC_A)["learned"] == {"port": T0, "login": T0}  # type: ignore[index]
+    s.close()

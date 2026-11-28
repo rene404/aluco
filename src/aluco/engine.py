@@ -121,11 +121,9 @@ class Engine:
                 device = replace(device, vendor=s.vendor)
             online = s.online
             if online is False and self._agent_reported_recently(s.mac, now):
-                # Der Agent meldet sich noch – keine Offline-Meldung. Im Netz ist das Gerät
-                # aber nicht: IP vergessen, damit DNS-Anfragen eines neuen Inhabers (DHCP,
-                # etwa ein Firmengerät) nicht diesem Gerät zugeordnet werden.
+                # Der Agent meldet sich noch – keine Offline-Meldung. DNS-Anfragen schützt
+                # weiter STALE_AFTER: "zuletzt gesehen" kommt nur aus dem Netz, nie vom Agent.
                 online = True
-                device = replace(device, ip=None)
             if online is not None:
                 device = replace(device, online=online)
                 if known.online is not None and known.online != online:

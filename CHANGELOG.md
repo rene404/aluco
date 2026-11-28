@@ -2,6 +2,20 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+Fixes for the v0.5.2 fixes, from a second code review. **Database schema v8** (migrated automatically).
+
+### Fixed
+- **Laptop agent – learning per kind:** open ports, autostart entries and logins are each learned with the first report that contains at least one entry of that kind. In v0.5.2, a partial first report (e.g. only a login) ended learning for everything, so all existing autostart entries became incidents later.
+- **Laptop agent – long absence:** entries are deleted after the retention period only if a later report no longer contained them. In v0.5.2, a laptop away for more than 30 days learned everything silently on return – an autostart entry added meanwhile would never have been reported. Now only what is really new is reported.
+- **DNS for laptops with the agent:** the IP is no longer cleared when the inventory briefly misses a laptop at home, so its DNS queries keep being evaluated. Instead, an agent report no longer updates "last seen" – that stays the last sighting on the network, and as before, queries are not attributed to a device not seen on the network for 2 hours.
+- **Timeline:** online/offline of a device is collapsed only from three entries in a row; a single change stays visible as two lines.
+- **Port allow list:** exact entries also match program names with extra spaces.
+
+### Upgrade notes
+- Schema v8 adds which kinds each laptop agent has learned; existing agents are marked from their stored entries. Back up `data/` before updating as usual.
+
 ## [0.5.2] – 2026-11-27
 
 Bug fixes from a code review: laptop agent learning phase, DNS attribution for laptops away from home, timeline and port allow list. No change to the database schema.

@@ -11,16 +11,20 @@ Every 10 minutes, the agent runs fixed, **read-only** [osquery](https://osquery.
 | Logins | a new **remote** login (e.g. SSH) appears | medium |
 | Firewall, FileVault, Gatekeeper, SIP | a basic security setting is off – resolved automatically as soon as it is back on | medium/high |
 
-The **first report only learns** (everything present counts as known). The same applies as long as nothing is known about the laptop – after empty reports (e.g. osquery without permissions yet) or after the retention period deleted all its entries. In the dashboard, the device detail shows a **Laptop** section.
+The **first report only learns** (everything present counts as known) – separately for open ports, autostart entries and logins: each kind is learned with the first report that contains at least one entry of it. Empty or partial reports (e.g. osquery without permissions yet) therefore do not end the learning for the other kinds. Only for a kind that stays empty for good is its very first entry learned without a report.
+
+Entries are deleted after the retention period (`ALUCO_RETENTION_DAYS`) only if a later report no longer contained them. A laptop that is away for a long time keeps what Aluco knows about it; when it comes back, only what is really new is reported.
+
+In the dashboard, the device detail shows a **Laptop** section.
 
 ### Fewer false alarms for open ports
 
 macOS services do not all open their ports at once, and many programs use random ports. So that "new open port" does not become noise:
 
-- **Learning phase:** for `ALUCO_AGENT_LEARN_HOURS` (default 24) after the first report, new ports are only learned. Autostart entries and remote logins are reported from the second report on, as before.
+- **Learning phase:** for `ALUCO_AGENT_LEARN_HOURS` (default 24) after the first report with open ports, new ports are only learned. Autostart entries and remote logins are reported from the second report on, as before.
 - **Random ports** (49152 and above) are grouped per program ("dynamic"): a new random port of a known program is not new.
 - **System programs:** random ports of programs under `/System/`, `/usr/libexec/`, `/usr/sbin/` and `/usr/bin/` are not reported – but only while SIP is on, because only then can these folders not be changed. Fixed ports (e.g. 68/udp) are still reported.
-- **Allow list:** `ALUCO_AGENT_PORT_ALLOW` (comma-separated) – a program name (`WhatsApp`) or an entry as shown in the incident (`5000/tcp ControlCenter`, random ports as `dynamisch/udp firefox` or `dynamic/udp firefox`). Upper/lower case does not matter. Applies to all laptops.
+- **Allow list:** `ALUCO_AGENT_PORT_ALLOW` (comma-separated) – a program name (`WhatsApp`) or an entry as shown in the incident (`5000/tcp ControlCenter`; random ports appear in the incident as `dynamisch/udp firefox` – `dynamic/udp firefox` is accepted too). Upper/lower case does not matter. Applies to all laptops.
   Note: the program name comes from the process and can be chosen freely – a malicious program called `WhatsApp` would also be allowed. Allow only what you need, and prefer exact entries with a fixed port.
 
 ## Setup

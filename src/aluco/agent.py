@@ -199,8 +199,9 @@ class ReportResult:
 
 def quiet_port(data: dict[str, str], settings: AgentSettings, sip_on: bool | None) -> bool:
     """Neuer Port, der nur gelernt und nicht gemeldet wird (#57)."""
-    key = f"{data['port']}/{data['protocol']} {data['program']}".casefold()
-    if key in settings.port_allow or data["program"].casefold() in settings.port_allow:
+    key = " ".join(f"{data['port']}/{data['protocol']} {data['program']}".split()).casefold()
+    program = " ".join(data["program"].split()).casefold()
+    if key in settings.port_allow or program in settings.port_allow:
         return True
     return (
         sip_on is True
@@ -228,14 +229,13 @@ def process_report(
         if device is None or device.is_company:
             raise AgentError("Gerät unbekannt oder Firmengerät – Agent nicht zulässig")
         agent = store.agent(mac)
-        first = store.first_host_item(mac)  # Zeitpunkt des ersten Berichts mit Inhalt
-        # Nur lernen, solange nichts bekannt ist: erster Bericht, leere Berichte davor
-        # (z. B. osquery noch ohne Rechte) oder alles nach der Aufbewahrungsfrist gelöscht.
-        learn_only = agent is None or agent["last_report_at"] is None or first is None
-        result = ReportResult(device=device, learn_only=learn_only)
-        learn_ports = learn_only or (
-            first is not None and now < first + timedelta(hours=settings.learn_hours)
-        )
+        # Jede Art (Ports, Autostart, Anmeldungen) wird gelernt, bis ein Bericht davon
+        # mindestens einen Eintrag enthält – leere oder halbe Berichte (osquery noch ohne
+        # Rechte) beenden das Lernen nicht für alle Arten.
+        learned: dict[str, datetime] = dict(agent["learned"]) if agent else {}
+        result = ReportResult(device=device, learn_only=not learned)
+        port_since = learned.get("port")
+        learn_ports = port_since is None or now < port_since + timedelta(hours=settings.learn_hours)
         state = posture(report)
 
         groups = [
@@ -244,9 +244,12 @@ def process_report(
             ("login", logins(report), Severity.MEDIUM, _("Neue Anmeldung")),
         ]
         for kind, items, severity, label in groups:
+            learn_kind = kind not in learned
+            if learn_kind and items:
+                learned[kind] = now
             for key, data in items.items():
                 is_new = store.upsert_host_item(mac, kind, key, data, now)
-                if not is_new or learn_only:
+                if not is_new or learn_kind:
                     continue
                 if kind == "port" and (learn_ports or quiet_port(data, settings, state["sip"])):
                     continue
@@ -283,7 +286,11 @@ def process_report(
         os_row = report["os"][0] if report["os"] else {}
         os_text = " ".join(filter(None, [os_row.get("name"), os_row.get("version")])) or None
         store.update_agent_report(mac, now, system.get("hostname"), os_text, state)
-        store.save_device(replace(device, last_seen=max(device.last_seen, now), online=True))
+        store.set_agent_learned(mac, learned)
+        # nur "online", nicht "zuletzt gesehen": das bleibt die letzte Sichtung im Netz
+        # (NetAlertX) – sonst ordnet die DNS-Auswertung einem abwesenden Laptop die Anfragen
+        # eines neuen IP-Inhabers zu (DHCP).
+        store.save_device(replace(device, online=True))
     return result
 
 
