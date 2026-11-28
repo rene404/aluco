@@ -148,3 +148,16 @@ def test_collapse_events_groups_on_off_of_one_device() -> None:
     assert [(r.event.title, r.count, r.toggles) for r in rows] == [
         ("L ist online", 4, True), ("B ist offline", 1, False),
     ]  # fmt: skip
+
+
+def test_collapse_events_keeps_a_single_on_off_change_visible() -> None:
+    """Review: online um 10:00, offline um 18:00 – zwei Zeilen, keine "2× an/ab"."""
+    events = [
+        Event(id=None, at=T0, kind=EventKind.DEVICE_OFFLINE, title="L ist offline",
+              device_mac=MAC_A),
+        Event(id=None, at=T0 - timedelta(hours=8), kind=EventKind.DEVICE_ONLINE,
+              title="L ist online", device_mac=MAC_A),
+    ]  # fmt: skip
+    rows = views.collapse_events(events, limit=10)
+    assert [(r.event.title, r.count) for r in rows] == [("L ist offline", 1), ("L ist online", 1)]
+    assert len(views.collapse_events(events, limit=1)) == 1
